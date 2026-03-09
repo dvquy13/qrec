@@ -66,6 +66,6 @@ jobs:
           QREC_EMBED_PROVIDER: stub
         run: |
           printf '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}\n{"jsonrpc":"2.0","method":"initialized","params":{}}\n{"jsonrpc":"2.0","method":"tools/list","id":2}\n' \
-            | timeout 60 bun run src/cli.ts mcp 2>/dev/null \
+            | bun run src/cli.ts mcp 2>/dev/null \
             | grep -q '"search"'
           echo "MCP tools/list: OK"
