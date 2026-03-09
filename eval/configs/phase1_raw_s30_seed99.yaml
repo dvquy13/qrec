@@ -1,0 +1,18 @@
+run_name: phase1_raw_s30_seed99
+experiment: phase1_baseline
+description: "Phase 1 baseline, raw chunking, 30 sessions, seed=99. Tests batch API (most sessions uncached)."
+
+query_gen:
+  model: claude-haiku-4-5-20251001
+  prompt_version: v2
+  backend: batch
+  min_body_chars: 800
+
+indexing:
+  strategy: raw
+  sessions: 30
+  seed: 99
+
+eval:
+  k: 10
+  server_url: "http://localhost:3030"

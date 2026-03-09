@@ -1,0 +1,12 @@
+{
+  "git": { "commitMessage": "chore: release v${version}", "tagName": "v${version}" },
+  "npm": { "publish": true },
+  "github": { "release": true },
+  "hooks": { "after:bump": "node scripts/sync-plugin-version.mjs ${version}" },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "angular",
+      "infile": "CHANGELOG.md"
+    }
+  }
+}

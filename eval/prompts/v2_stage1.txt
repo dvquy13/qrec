@@ -1,0 +1,23 @@
+Generate 2-5 search queries a developer would use in a FUTURE session to find this conversation.
+Use DIVERSE query styles — mix all four:
+  - Full question: "Why does JWT auth return 403 after secret rotation?"
+  - Keyword soup:  "jwt 403 middleware secret mismatch"
+  - Action phrase: "fix auth after rotating env secrets"
+  - Short concept (max 3 words): "jwt rotation" or "auth middleware" — mimics recalling a specific concept/entity
+
+Focus on things they'd need to re-discover: bug fixes, architecture decisions, gotchas, \
+tool configurations, workarounds, specific error messages they hit and resolved.
+
+Rules:
+- Queries must be specifically answerable from THIS session (not generic best-practices)
+- Phrase them as a developer would naturally search
+- Include at least one short concept query (max 3 words) per non-hard session
+- Set hard=true if the session has no substantive learnings worth querying (e.g. trivial sessions)
+- Tag each query with its style: full-question, keyword-soup, action-phrase, or short-concept
+
+Here is a transcript of a Claude Code development session. \
+The developer worked in the project "{project}" on {date}.
+
+---
+{session_text}
+---

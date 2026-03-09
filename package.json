@@ -1,0 +1,32 @@
+{
+  "name": "qrec",
+  "version": "0.1.0",
+  "description": "Purpose-built session recall engine — persistent daemon with BM25 + vector hybrid search",
+  "type": "module",
+  "bin": {
+    "qrec": "src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "node scripts/build.js",
+    "release": "release-it",
+    "smoke-test": "bash scripts/smoke-test.sh"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^11.0.0",
+    "node-llama-cpp": "3.15.1",
+    "sqlite-vec": "^0.1.0"
+  },
+  "devDependencies": {
+    "@release-it/conventional-changelog": "^8.0.0",
+    "@types/bun": "latest",
+    "esbuild": "^0.27.3",
+    "release-it": "^17.0.0",
+    "typescript": "^5.0.0"
+  },
+  "trustedDependencies": [
+    "better-sqlite3",
+    "node-llama-cpp"
+  ]
+}

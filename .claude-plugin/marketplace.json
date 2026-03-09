@@ -1,0 +1,7 @@
+{
+  "name": "qrec",
+  "version": "0.1.0",
+  "owner": "dvquy13",
+  "description": "Session recall engine — persistent daemon with BM25 + vector hybrid search",
+  "source": "./plugin"
+}

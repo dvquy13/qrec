@@ -1,0 +1,9 @@
+{
+  "name": "qrec-plugin",
+  "version": "0.1.0",
+  "dependencies": {
+    "node-llama-cpp": "3.15.1",
+    "sqlite-vec": "^0.1.0"
+  },
+  "trustedDependencies": ["node-llama-cpp"]
+}

@@ -1,0 +1,20 @@
+Review and improve the candidate query set below for a Claude Code session transcript.
+1. PRUNE any queries that are too generic, not specifically answerable from this session, \
+   or redundant with others (omitting a query = pruning it)
+2. ADD variants if the set is too homogeneous in style — ensure at least one of each:
+   - Full question (how/why/what)
+   - Keyword soup (space-separated terms)
+   - Action phrase (verb + object)
+   - Short concept (max 3 words, e.g. "jwt rotation", "postgres index") — for quick concept recall
+3. Update hard=true if the session truly has no substantive learnings (keep the queries empty if so)
+
+Output the final refined QuerySet. Tag each query with its style: full-question, keyword-soup, action-phrase, or short-concept.
+
+Here is the session transcript. The developer worked in the project "{project}" on {date}.
+
+---
+{session_text}
+---
+
+Candidate queries from first-pass:
+{stage1_queries}

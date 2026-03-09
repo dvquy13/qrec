@@ -1,0 +1,96 @@
+// src/embed/local.ts
+// node-llama-cpp singleton: loads model once, reuses across queries
+
+import { getLlama, LlamaEmbeddingContext, type Llama } from "node-llama-cpp";
+import { join } from "path";
+import { homedir } from "os";
+import { existsSync } from "fs";
+import type { EmbedProvider } from "./provider.ts";
+
+const MODEL_FILENAME = "hf_ggml-org_embeddinggemma-300M-Q8_0.gguf";
+const MODEL_PATHS = [
+  join(homedir(), ".cache", "qmd", "models", MODEL_FILENAME),
+  join(homedir(), ".qrec", "models", MODEL_FILENAME),
+];
+
+// Singleton state
+let llamaInstance: Llama | null = null;
+let embeddingContext: LlamaEmbeddingContext | null = null;
+let initPromise: Promise<LlamaEmbeddingContext> | null = null;
+
+async function findOrDownloadModel(): Promise<string> {
+  // Check known locations
+  for (const p of MODEL_PATHS) {
+    if (existsSync(p)) {
+      return p;
+    }
+  }
+
+  // Model not found — download to ~/.qrec/models/
+  console.log(`[embed] Model not found locally. Downloading ${MODEL_FILENAME}...`);
+  const { createModelDownloader } = await import("node-llama-cpp");
+  const targetDir = join(homedir(), ".qrec", "models");
+  const { mkdirSync } = await import("fs");
+  mkdirSync(targetDir, { recursive: true });
+
+  const downloader = await createModelDownloader({
+    modelUri: `hf:ggml-org/embeddinggemma-300M-Q8_0`,
+    dirPath: targetDir,
+  });
+
+  await downloader.download();
+  const modelPath = join(targetDir, MODEL_FILENAME);
+  console.log(`[embed] Model downloaded to ${modelPath}`);
+  return modelPath;
+}
+
+async function initEmbeddingContext(): Promise<LlamaEmbeddingContext> {
+  const modelPath = await findOrDownloadModel();
+  console.log(`[embed] Loading model from ${modelPath}`);
+
+  llamaInstance = await getLlama();
+  const model = await llamaInstance.loadModel({ modelPath });
+  const ctx = await model.createEmbeddingContext({ contextSize: 8192 });
+
+  console.log(`[embed] Model loaded, embedding dimensions: 768`);
+  return ctx;
+}
+
+export async function disposeEmbedder(): Promise<void> {
+  if (embeddingContext) {
+    await embeddingContext.dispose();
+    embeddingContext = null;
+  }
+  if (llamaInstance) {
+    await llamaInstance.dispose();
+    llamaInstance = null;
+    initPromise = null;
+  }
+}
+
+export async function getEmbedder(): Promise<EmbedProvider> {
+  if (!initPromise) {
+    initPromise = initEmbeddingContext();
+  }
+
+  if (!embeddingContext) {
+    embeddingContext = await initPromise;
+  }
+
+  return {
+    dimensions: 768,
+    async embed(text: string): Promise<Float32Array> {
+      const ctx = embeddingContext!;
+      // Safety: truncate at 24000 chars (~6000 tokens @ 4 chars/token) to stay inside 8192-token context.
+      // Dense code can tokenize at ~2 chars/token; 24000 / 2 = 12000 tokens still leaves a buffer
+      // but in practice session transcripts average ~3-4 chars/token so this is very conservative.
+      const MAX_CHARS = 24000;
+      const safeText = text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
+      if (safeText !== text) {
+        console.warn(`[embed] Truncated chunk from ${text.length} to ${MAX_CHARS} chars`);
+      }
+      const embedding = await ctx.getEmbeddingFor(safeText);
+      return new Float32Array(embedding.vector);
+    },
+  };
+}

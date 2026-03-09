@@ -1,0 +1,12 @@
+*.pyc
+.env
+
+eval/cache
+eval/data
+eval/logs
+
+.claude/settings.local.json
+
+node_modules/
+
+*.html
