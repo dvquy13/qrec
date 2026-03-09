@@ -159,18 +159,22 @@ release-it requires a classic PAT (`ghp_`) — not the OAuth token from `gh auth
 ## Next Actions for Phase 5 completion
 
 ```
-[ ] Fix CI: decide on Option A (skip local embeddings) or Option B (HF_TOKEN secret)
-[ ] Fix CI: add node_modules cache + job-level timeout for macos-latest bun install
-[ ] Move cache step before dependencies in ci.yml
-[ ] Decide on release-it auth: skipChecks vs classic PAT workflow
-[ ] Create v0.1.0 tag + GitHub release (manually or via release-it once auth is fixed)
-[ ] Verify CI passes on both ubuntu-latest and macos-latest
+[x] Fix CI: Option A implemented — QREC_EMBED_PROVIDER=stub, no model download
+[x] Fix CI: node_modules cache + job-level timeout-minutes: 30
+[x] Move cache step before dependencies in ci.yml (model cache removed; node_modules cache added)
+[ ] Create v0.1.0 tag + GitHub release (manually via scripts/release.sh)
+[x] Verify CI passes on both ubuntu-latest and macos-latest
 ```
+
+### Bugs fixed along the way
+- `indexer.ts` was importing `getEmbedder` from `local.ts` directly, bypassing `factory.ts` — `QREC_EMBED_PROVIDER` was silently ignored for indexing
+- `timeout` command not available on macOS runners — removed from MCP test step
+- MCP server pre-loads embed provider at startup — needed `QREC_EMBED_PROVIDER=stub` on MCP step too
 
 ### Phase 5 exit gate (from plan)
 ```
-[ ] CI passes on ubuntu-latest and macos-latest
-[ ] Model cache hits on second run (< 30s for model step)
-[ ] PR title workflow enforces Conventional Commits
+[x] CI passes on ubuntu-latest and macos-latest  ← verified run 22861438454
+[ ] Model cache hits on second run (< 30s for model step)  ← N/A, stub used in CI
+[x] PR title workflow enforces Conventional Commits
 [ ] npm run release dry run completes without error
 ```
