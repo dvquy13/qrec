@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "bun run src/cli.ts",
     "build": "node scripts/build.js",
-    "release": "release-it",
+    "release": "bash scripts/release.sh",
     "smoke-test": "bash scripts/smoke-test.sh"
   },
   "dependencies": {
@@ -19,10 +19,8 @@
     "sqlite-vec": "^0.1.0"
   },
   "devDependencies": {
-    "@release-it/conventional-changelog": "^8.0.0",
     "@types/bun": "latest",
     "esbuild": "^0.27.3",
-    "release-it": "^17.0.0",
     "typescript": "^5.0.0"
   },
   "trustedDependencies": [
