@@ -124,8 +124,6 @@ CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed9
 
 **Bun quirks**: use `bun:sqlite` (not `better-sqlite3`); use `await Bun.file(path).text()` (not `.toString()` — returns `"[object Promise]"`).
 
-**Embed factory bypass** — always call `getEmbedProvider()` from `embed/factory.ts`. Never import `local.ts`, `ollama.ts`, or `stub.ts` directly — `QREC_EMBED_PROVIDER` will be silently ignored. (`indexer.ts` had this bug; it hardwired `local.ts` and ignored the env var.)
-
 ## Conventions
 
 - Git commits follow Conventional Commits
