@@ -1,6 +1,6 @@
 {
   "git": { "commitMessage": "chore: release v${version}", "tagName": "v${version}" },
-  "npm": { "publish": true },
+  "npm": { "publish": false },
   "github": { "release": true },
   "hooks": { "after:bump": "node scripts/sync-plugin-version.mjs ${version}" },
   "plugins": {
