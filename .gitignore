@@ -1,6 +1,8 @@
 *.pyc
 .env
 
+docs/ext/
+
 eval/cache
 eval/data
 eval/logs
@@ -10,3 +12,6 @@ eval/logs
 node_modules/
 
 eval/**/*.html
+
+# Build output
+plugin/ui/

@@ -31,6 +31,15 @@ qrec serve                        # foreground
 
 ### 3. Search
 
+Open in your browser:
+
+| URL | Description |
+|---|---|
+| `http://localhost:3030/` | Search UI — query box, result cards, latency breakdown |
+| `http://localhost:3030/audit` | Audit log — table of all past queries with scores and timing |
+
+Or via the API:
+
 ```bash
 curl -s http://localhost:3030/search \
   -H "Content-Type: application/json" \
