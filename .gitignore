@@ -9,4 +9,4 @@ eval/logs
 
 node_modules/
 
-*.html
+eval/**/*.html
