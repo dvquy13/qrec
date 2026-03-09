@@ -10,7 +10,7 @@ import { join, basename } from "path";
 import { createHash } from "crypto";
 import type { Database } from "bun:sqlite";
 import { chunkMarkdown } from "./chunk.ts";
-import { getEmbedder } from "./embed/local.ts";
+import { getEmbedProvider } from "./embed/factory.ts";
 import { parseSession, extractChunkText } from "./parser.ts";
 
 interface SessionMeta {
@@ -162,7 +162,7 @@ export async function indexVault(
   sourcePath: string,
   options: { force?: boolean; sessions?: number; seed?: number } = {}
 ): Promise<void> {
-  const embedder = await getEmbedder();
+  const embedder = await getEmbedProvider();
 
   // Determine source type
   const isSingleJsonl = sourcePath.endsWith(".jsonl") && existsSync(sourcePath);

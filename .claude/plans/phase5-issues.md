@@ -8,8 +8,8 @@ _Created: 2026-03-09. Track blockers from the first CI push._
 
 | Issue | Severity | Status |
 |---|---|---|
-| CI: model download fails (HF 401 + cache ordering) | Blocker | Open |
-| CI: `bun install` times out on macos-latest | Blocker | Open |
+| CI: model download fails (HF 401 + cache ordering) | Blocker | Fixed — stub embed provider; `indexer.ts` now uses `getEmbedProvider()` |
+| CI: `bun install` times out on macos-latest | Blocker | Fixed — `node_modules` cache + `timeout-minutes: 30` |
 | Release: `npm run release` auth failure with `gho_` token | Medium | Fixed — replaced with `scripts/release.sh` |
 | Large binary in `docs/ext/claude-mem` (60MB) | Low | Fixed — `docs/ext/` untracked + gitignored |
 

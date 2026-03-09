@@ -4,6 +4,7 @@
 // QREC_EMBED_PROVIDER=local   (default) → node-llama-cpp local model
 // QREC_EMBED_PROVIDER=ollama            → Ollama HTTP backend
 // QREC_EMBED_PROVIDER=openai            → OpenAI/Voyage-compatible HTTP backend
+// QREC_EMBED_PROVIDER=stub              → fixed unit vector, no model (CI/testing)
 
 import type { EmbedProvider } from "./provider.ts";
 
@@ -27,9 +28,14 @@ export async function getEmbedProvider(): Promise<EmbedProvider> {
       return getOpenAIEmbedder();
     }
 
+    case "stub": {
+      const { getStubEmbedder } = await import("./stub.ts");
+      return getStubEmbedder();
+    }
+
     default:
       throw new Error(
-        `Unknown QREC_EMBED_PROVIDER: "${provider}". Valid values: local, ollama, openai`
+        `Unknown QREC_EMBED_PROVIDER: "${provider}". Valid values: local, ollama, openai, stub`
       );
   }
 }
