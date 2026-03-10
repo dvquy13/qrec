@@ -1,13 +1,22 @@
-Check qrec engine health and diagnose issues.
+# qrec Status Check
 
-Steps:
-1. Call the `status()` MCP tool from the qrec server
-2. Read `~/.qrec/install.log` (last 50 lines) for installation history
-3. Report: health status, session_count, chunk_count, last_indexed, model_loaded, daemon_pid
-4. If health != "ok": identify root cause from log_tail and suggest fix
+1. Run status command and capture output:
+   ```bash
+   qrec status
+   ```
+   If `qrec` not in PATH: `node $CLAUDE_PLUGIN_ROOT/scripts/bun-runner.js $CLAUDE_PLUGIN_ROOT/scripts/qrec.cjs status`
 
-Common fixes:
-- Model not loaded: `bun run /path/to/qrec/src/cli.ts serve --daemon`
-- DB empty: `bun run /path/to/qrec/src/cli.ts index ~/vault/sessions`
-- Bun missing: re-run `node $CLAUDE_PLUGIN_ROOT/scripts/smart-install.js`
-- Permission error: check `~/.qrec/` directory permissions
+2. Show the output to the user, then interpret:
+   - **Daemon PID**: process is running
+   - **HTTP health: ok** → server up; anything else → daemon crashed or not started
+   - **Sessions / Chunks = 0** → not indexed yet (first-run install may still be in progress)
+   - **Last indexed: never** → no sessions indexed; suggest `qrec index`
+   - **Model state in /health response** → `loading` = background install in progress, `error` = load failed
+
+3. Check install progress if first-run may be ongoing:
+   ```bash
+   tail -20 ~/.qrec/install.log
+   ```
+
+4. Report a clear summary: what's working, what isn't, and the next step if anything needs fixing.
+   Link to debug.md steps if there's an active error.
