@@ -26,6 +26,12 @@ Extracted from the **auto-recall-cc** plugin, which handles Claude Code JSONL �
 
 **Homebrew SQLite for extension loading** — `bun:sqlite`'s bundled SQLite doesn't support `LOAD EXTENSION`. `Database.setCustomSQLite()` points to Homebrew's build. Checked at module load time in `db.ts`; throws with actionable message if not found.
 
+**server.ts binds before model loads** — `Bun.serve()` is called before `getEmbedProvider()` so the daemon health check passes immediately. Embedder loads in a background `.then()` chain. `/health` always 200; `/search` 503 until embedder is ready. This keeps daemon startup fast regardless of model load time (~20-30s on CI CPU runners).
+
+**CJS bundle + ESM-only modules** — `node-llama-cpp` is ESM with top-level `await`, making it an "async module". CJS `require()` of async modules fails at load time. Since `qrec.cjs` is a CJS esbuild bundle, any file that statically imports from `node-llama-cpp` will crash the entire bundle on load, even with `QREC_EMBED_PROVIDER=stub`. All imports from such modules must be dynamic `await import()` inside function bodies.
+
+**M6 distribution (v0.1.0)** — Two channels: Claude Code marketplace plugin (primary) and npm package. The plugin ships `qrec.cjs` (pre-built esbuild CJS bundle); `smart-install.js` runs on SessionStart to install Bun if missing, resolve native deps (`bun install` + `bun link`), download the model, and index `~/.claude/projects/`. The SessionStart hook also starts `qrec serve --daemon`. Users get `qrec` CLI at `~/.bun/bin/qrec` and localhost:3030 automatically.
+
 ## Phase 1 Baseline (2026-03-08)
 
 Final run: 30 sessions (seed=99), 24 eval queries, new eval pipeline. Phase 1 exit gate **PASSED**.
