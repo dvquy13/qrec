@@ -6,29 +6,25 @@ Purpose-built session recall engine for Claude Code. Keeps an embedding model re
 
 ## Install
 
-### Claude Code plugin (recommended)
+### Step 1 — Install the CLI
+
+```bash
+npm install -g qrec
+qrec onboard
+```
+
+`qrec onboard` downloads the embedding model (~313 MB, once), indexes your Claude sessions at `~/.claude/projects/`, and starts the daemon. Your browser opens automatically to show live progress.
+
+### Step 2 — Claude Code integration (optional)
+
+Install the plugin so the daemon auto-starts with every Claude Code session:
 
 ```bash
 /plugin marketplace add dvquy13/qrec
 /plugin install qrec@dvquy13-qrec
 ```
 
-Then run first-time setup:
-
-```bash
-qrec onboard
-```
-
-`qrec onboard` downloads the embedding model (~313 MB, once), indexes your Claude sessions, and starts the daemon. Your browser opens automatically to show live progress.
-
-After that, the plugin auto-starts the daemon on every Claude Code session — nothing else to configure.
-
-### npm (CLI / CI)
-
-```bash
-npm install -g qrec
-qrec onboard
-```
+That's it — no further configuration needed.
 
 ### Local dev
 
