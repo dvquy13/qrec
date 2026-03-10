@@ -86,6 +86,12 @@ jobs:
       - name: Integration test — serve + search + audit
         run: |
           qrec serve --daemon
+          echo "Waiting for server to bind..."
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:3030/health && break
+            echo "  attempt $i: not ready yet, retrying in 1s..."
+            sleep 1
+          done
           curl -sf http://localhost:3030/health
           echo "Waiting for model to load..."
           for i in $(seq 1 24); do
@@ -100,6 +106,33 @@ jobs:
             -d '{"query":"sqlite","k":3}' | jq -e '.results | length > 0'
           curl -sf http://localhost:3030/audit/entries | jq -e '.entries | length >= 0'
           qrec stop
+
+      # Regression: bun-runner.js must not hang when stdin is never closed.
+      # Placed after integration test (which ends with qrec stop) so the daemon state is clean.
+      # Simulates Claude Code hook environment: stdin is an open pipe that never sends EOF.
+      # bun-runner.js used to block on stdin.on('end') indefinitely — SessionStart hook error.
+      # After fix: detects serve --daemon and exits immediately without touching stdin.
+      - name: "Regression: bun-runner serve --daemon must not hang with open stdin"
+        env:
+          QREC_EMBED_PROVIDER: stub
+        run: |
+          node -e "
+            const { spawn } = require('child_process');
+            const child = spawn('node', [
+              'plugin/scripts/bun-runner.js',
+              'plugin/scripts/qrec.cjs',
+              'serve', '--daemon'
+            ], { stdio: ['pipe', 'pipe', 'pipe'] });
+            child.stdout.on('data', d => process.stdout.write(d));
+            child.stderr.on('data', d => process.stderr.write(d));
+            const t = setTimeout(() => {
+              process.stderr.write('FAIL: bun-runner.js hung 10s with stdin open — SessionStart hook bug confirmed\n');
+              child.kill();
+              process.exit(1);
+            }, 10000);
+            child.on('exit', code => { clearTimeout(t); process.exit(code || 0); });
+          "
+          qrec stop || true
 
       # Verify the npm distribution path: pack → global install → CLI works.
       - name: npm distribution path
