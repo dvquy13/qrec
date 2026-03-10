@@ -11,7 +11,7 @@ Full spec: `.claude/plans/qrec-plan-v2.md` — read this before starting any wor
 | Runtime | Bun |
 | Language | TypeScript |
 | Search DB | SQLite (FTS5 + sqlite-vec) |
-| Embeddings | node-llama-cpp 3.15.1 (`embeddinggemma-300M-Q8_0`, cached at `~/.cache/qmd/models/`) |
+| Embeddings | node-llama-cpp 3.15.1 (`embeddinggemma-300M-Q8_0`, cached at `~/.qrec/models/`) |
 | MCP server | `@modelcontextprotocol/sdk` |
 
 Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/` — do not modify.
@@ -26,15 +26,16 @@ src/
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts chunk text
   indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
-  server.ts       # HTTP server: POST /search, GET /health, GET /sessions (port 3030)
+  server.ts       # HTTP server (port 3030): binds immediately, loads model in background; /health always 200; /search 503 until ready
   mcp.ts          # MCP server (stdio + HTTP on 3031): search/get/status tools
   daemon.ts       # PID-file daemon management (~/.qrec/qrec.pid)
   embed/
     provider.ts   # Interface: embed(text): Promise<Float32Array>
     local.ts      # node-llama-cpp singleton + disposeEmbedder()
-    factory.ts    # getEmbedProvider() — reads QREC_EMBED_PROVIDER (local/ollama/openai)
+    factory.ts    # getEmbedProvider() — reads QREC_EMBED_PROVIDER (local/ollama/openai/stub)
     ollama.ts     # Ollama HTTP backend
     openai.ts     # OpenAI-compatible backend
+    stub.ts       # Fixed 768-dim unit vector — no model, no network (CI/testing)
 eval/
   pipeline.py     # Orchestrator: query gen → index → serve → eval → report
   qrec_eval.py    # qrec HTTP eval loop: index + daemon + metrics + error analysis
@@ -52,7 +53,7 @@ scripts/
 
 **Source**: `~/.claude/projects/*/*.jsonl` (default; legacy `~/vault/sessions/*.md` still supported)
 **DB**: `~/.qrec/qrec.db`
-**Model**: `~/.cache/qmd/models/hf_ggml-org_embeddinggemma-300M-Q8_0.gguf`
+**Model**: `~/.qrec/models/embeddinggemma-300M-Q8_0.gguf`
 
 ## SQLite Schema
 
@@ -122,6 +123,7 @@ CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed9
 **contextSize must be set to 8192** — default causes "Input too long" on session transcripts; dense code chunks hit 2000+ tokens at ~2 chars/token.
 
 **Bun quirks**: use `bun:sqlite` (not `better-sqlite3`); use `await Bun.file(path).text()` (not `.toString()` — returns `"[object Promise]"`).
+
 
 ## Conventions
 
