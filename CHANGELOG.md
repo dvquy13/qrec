@@ -1,3 +1,9 @@
+## [0.1.2](https://github.com/dvquy13/qrec/compare/v0.1.1...v0.1.2) (2026-03-10)
+
+
+### Bug Fixes
+
+* background installer, UI files in git, correct HF model URI ([001bcb9](https://github.com/dvquy13/qrec/commit/001bcb9778609986e25ff8de85a543aeb080b214))
 ## [0.1.1](https://github.com/dvquy13/qrec/compare/v0.1.0...v0.1.1) (2026-03-10)
 
 
