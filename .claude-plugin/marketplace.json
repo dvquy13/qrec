@@ -1,7 +1,20 @@
 {
-  "name": "qrec",
-  "version": "0.1.0",
-  "owner": "dvquy13",
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "dvquy13-qrec",
   "description": "Session recall engine — persistent daemon with BM25 + vector hybrid search",
-  "source": "./plugin"
+  "owner": {
+    "name": "dvquy13"
+  },
+  "plugins": [
+    {
+      "name": "qrec",
+      "description": "Session recall engine — persistent daemon with BM25 + vector hybrid search over Claude Code conversation history",
+      "version": "0.1.0",
+      "author": {
+        "name": "dvquy13"
+      },
+      "source": "./plugin",
+      "category": "productivity"
+    }
+  ]
 }
