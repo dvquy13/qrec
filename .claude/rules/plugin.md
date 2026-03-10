@@ -39,23 +39,17 @@ Always use the **full three-part URI**: `hf:<user>/<repo>/<filename>`
 
 The short form hits the HF manifest API which requires auth. The full form resolves directly.
 
-## bun-runner.js: routing and fire-and-fork
+## qrec-cli.js: npm bin entry
 
-`plugin/qrec-cli.js` (the `bin` entry for the `qrec` CLI) splices `run qrec.cjs` into `process.argv` and then `require('./bun-runner.js')`. This means **every `qrec` command** — not just hooks — is routed through `bun-runner.js`. Changes to bun-runner.js affect all `qrec` invocations.
+`plugin/scripts/qrec-cli.js` is the npm `bin` entry for the `qrec` CLI. It locates bun and spawns `bun run qrec.cjs <args>` directly — bun-runner.js was deleted (Phase E) and its spawn logic is now inlined here.
 
-**`serve --daemon` is fire-and-fork** — bun-runner.js detects `args.includes("serve") && args.includes("--daemon")` and spawns bun detached + unrefs + exits 0 immediately, without touching stdin. The daemon starts in the background.
+**`serve --daemon` is fire-and-fork** — qrec-cli.js detects `args.includes("serve") && args.includes("--daemon")` and spawns bun detached + unrefs + exits 0 immediately. The daemon starts in the background.
 
-**Consequence**: `qrec serve --daemon` returns before the server is bound. Any caller (CI, scripts) that needs the server ready must poll `/health` with retry — it cannot assume readiness after `qrec serve --daemon` returns.
+**Consequence**: `qrec serve --daemon` returns before the server is bound. Any caller (CI, scripts) that needs the server ready must poll `/health` with retry.
 
-All other commands (`mcp`, `index-session`, etc.) still use the stdin-buffering path (buffers stdin, waits for EOF, then spawnSync).
+**`bun link`** symlinks `~/.bun/bin/qrec` directly to `src/cli.ts` (not qrec-cli.js). So in dev mode `qrec` runs TypeScript natively via bun, and `qrec --version` shows `(dev)` — `__QREC_VERSION__` is a build-time constant only injected in the compiled `.cjs`.
 
-## smart-install.js: background mode
-
-On first run (missing or stale `.install-version` marker), `smart-install.js` **detaches the heavy work** (bun install + model download + initial index) as a background process and exits immediately — so the Claude Code hook returns fast and doesn't block the session.
-
-**`CI=true` forces synchronous mode** — CI steps are sequential; the background process would race with later steps (especially `bun link` → `qrec` CLI availability). If `CI` env var is `true` or `1`, smart-install runs everything synchronously.
-
-The server handles the race gracefully: it retries embedder loading up to 10× (30s apart) and self-heals once background install completes.
+All other commands (stdin pipe mode for `qrec index`, etc.) buffer stdin before spawning bun to avoid Linux libuv pipe crashes.
 
 ## Plugin skills: disable-model-invocation
 

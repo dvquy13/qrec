@@ -2,8 +2,6 @@
 
 qrec is a purpose-built session recall engine. It replaces QMD's per-invocation CLI model loading (~2600ms cold start) with a persistent daemon that keeps the embedding model resident in memory (~55ms warm query).
 
-Full spec: `.claude/plans/qrec-plan-v2.md` — read this before starting any work.
-
 ## Stack
 
 | Layer | Choice |
@@ -20,14 +18,15 @@ Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/
 
 ```
 src/
-  cli.ts          # Entry: `qrec index`, `qrec index-session`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`
+  cli.ts          # Entry: `qrec onboard`, `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
   chunk.ts        # Heading-aware markdown chunker (~900 tokens/chunk, 15% overlap)
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts chunk text
-  indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store
+  indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store; mtime pre-filter skips unchanged files
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
-  server.ts       # HTTP server (port 3030): /search /health /status /sessions /audit/entries /debug/log /debug/config; serves UI at / /search /audit /debug; starts listening before model loads; auto-indexes on first run
+  server.ts       # HTTP server (port 3030): /search /health /status /sessions /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms)
   progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
+  activity.ts     # Append-only event log (~/.qrec/activity.jsonl); events: daemon_started|index_started|session_indexed|index_complete
   mcp.ts          # MCP server (stdio + HTTP on 3031): search/get/status tools
   daemon.ts       # PID-file daemon management (~/.qrec/qrec.pid)
   embed/
@@ -91,10 +90,11 @@ POST /search {query, k}
 bun link                                    # registers qrec globally → ~/.bun/bin/qrec
 
 # Engine (short form after bun link)
+qrec onboard [--no-open]                    # first-time setup: daemon → browser → (model + index async in background)
+qrec teardown [--yes]                       # stop daemon + remove ~/.qrec/
 qrec index                                  # index ~/.claude/projects/ (default)
 qrec index <path>                           # index specific path (.jsonl or dir)
-qrec index-session <path.jsonl>             # index single session (path arg)
-qrec index-session                          # index single session (stdin JSON payload — hook mode)
+qrec index                                  # stdin JSON {transcript_path} mode (hook compat, piped)
 qrec serve                                  # start server (foreground, port 3030); auto-opens browser
 qrec serve --daemon                         # start as daemon; auto-opens browser
 qrec serve --daemon --no-open               # start as daemon without opening browser

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // src/cli.ts
-// Commands: `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`
+// Commands: qrec onboard, qrec teardown, qrec index, qrec serve [--daemon],
+//           qrec stop, qrec mcp [--http], qrec status
 
 import { openDb } from "./db.ts";
 import { indexVault } from "./indexer.ts";
@@ -8,11 +9,12 @@ import { disposeEmbedder } from "./embed/local.ts";
 import { startDaemon, stopDaemon, getDaemonPid } from "./daemon.ts";
 import { join } from "path";
 import { homedir } from "os";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, rmSync } from "fs";
 
 const [, , command, ...args] = process.argv;
 
 const LOG_FILE = join(homedir(), ".qrec", "qrec.log");
+const QREC_DIR = join(homedir(), ".qrec");
 
 function getLogTail(lines: number = 20): string[] {
   if (!existsSync(LOG_FILE)) return [];
@@ -34,52 +36,168 @@ async function main() {
   switch (command) {
     case "--version":
     case "-v": {
-      console.log(`qrec ${__QREC_VERSION__}`);
+      const version = typeof __QREC_VERSION__ !== "undefined" ? __QREC_VERSION__ : "(dev)";
+      console.log(`qrec ${version}`);
+      process.exit(0);
+    }
+
+    case "onboard": {
+      const noOpen = args.includes("--no-open");
+
+      // Start daemon first — server binds immediately, model loads async in background.
+      // startDaemon() polls /health until the port is open (~1-2s), then returns.
+      await startDaemon();
+
+      // Open browser now — the UI handles "not ready" state with its own progress bars.
+      if (!noOpen) openBrowser();
+
+      // ── ncurses-style progress renderer ────────────────────────────────────
+      interface StatusResp {
+        phase: string;
+        sessions: number;
+        modelDownload: { percent: number; downloadedMB: number; totalMB: number | null };
+        indexing: { indexed: number; total: number; current: string };
+      }
+      const SPINNER = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
+      const BAR_W = 22;
+      const bar = (pct: number) => {
+        const f = Math.min(BAR_W, Math.round(pct * BAR_W / 100));
+        return "█".repeat(f) + "░".repeat(BAR_W - f);
+      };
+
+      let prevLines = 0;
+      let tick = 0;
+
+      const render = (s: StatusResp) => {
+        const { phase, modelDownload: dl, indexing: idx } = s;
+        const sp = SPINNER[tick % SPINNER.length];
+        const modelDone = ["indexing", "ready"].includes(phase);
+        const indexDone = phase === "ready";
+        const indexActive = phase === "indexing";
+        const W = 46;
+        const lines: string[] = [
+          "",
+          `  qrec — setting up`,
+          `  ${"─".repeat(W)}`,
+        ];
+
+        // Step 1: model
+        if (phase === "model_download") {
+          const pct = dl.percent;
+          lines.push(`  ${sp}  [1/3] Downloading model`);
+          lines.push(`        ${bar(pct)}  ${pct}%  (${dl.downloadedMB.toFixed(0)} / ${dl.totalMB?.toFixed(0) ?? "?"} MB)`);
+        } else if (phase === "model_loading") {
+          lines.push(`  ${sp}  [1/3] Loading model into memory…`);
+          lines.push("");
+        } else {
+          lines.push(`  ✓  [1/3] Model ready`);
+          lines.push("");
+        }
+
+        // Step 2: indexing
+        if (!modelDone) {
+          lines.push(`  ·  [2/3] Index sessions`);
+          lines.push("");
+        } else if (indexActive) {
+          const pct = idx.total > 0 ? Math.round(idx.indexed * 100 / idx.total) : 0;
+          lines.push(`  ${sp}  [2/3] Indexing sessions`);
+          lines.push(`        ${bar(pct)}  ${pct}%  (${idx.indexed}/${idx.total})  ${idx.current}`);
+        } else {
+          lines.push(`  ✓  [2/3] Sessions indexed  (${s.sessions} sessions)`);
+          lines.push("");
+        }
+
+        // Step 3: ready
+        if (indexDone) {
+          lines.push(`  ✓  [3/3] Ready  →  http://localhost:3030`);
+        } else {
+          lines.push(`  ·  [3/3] Ready`);
+        }
+
+        lines.push(`  ${"─".repeat(W)}`);
+        lines.push("");
+
+        // Move cursor up and overwrite previous block
+        if (prevLines > 0) process.stdout.write(`\x1b[${prevLines}A`);
+        for (const line of lines) process.stdout.write(`\x1b[2K${line}\n`);
+        prevLines = lines.length;
+      };
+
+      // Poll /status until ready
+      while (true) {
+        try {
+          const r = await fetch("http://localhost:3030/status");
+          if (r.ok) {
+            const s = await r.json() as StatusResp;
+            render(s);
+            if (s.phase === "ready") break;
+          }
+        } catch {}
+        tick++;
+        await Bun.sleep(500);
+      }
+
+      process.exit(0);
+    }
+
+    case "teardown": {
+      const yes = args.includes("--yes");
+
+      await stopDaemon();
+
+      if (!existsSync(QREC_DIR)) {
+        console.log("[teardown] ~/.qrec/ not found, nothing to remove.");
+        process.exit(0);
+      }
+
+      if (!yes) {
+        process.stdout.write(`[teardown] Remove ${QREC_DIR} (DB, model, logs, pid, activity log)? [y/N] `);
+        const answer = await new Promise<string>(resolve => {
+          process.stdin.setEncoding("utf-8");
+          process.stdin.once("data", d => resolve(String(d).trim()));
+        });
+        if (answer.toLowerCase() !== "y") {
+          console.log("[teardown] Aborted.");
+          process.exit(0);
+        }
+      }
+
+      rmSync(QREC_DIR, { recursive: true, force: true });
+      console.log("[teardown] Removed ~/.qrec/");
       process.exit(0);
     }
 
     case "index": {
-      const vaultPath = args[0] ?? `${homedir()}/.claude/projects/`;
-      const force = args.includes("--force");
-      const sessionsIdx = args.indexOf("--sessions");
-      const sessions = sessionsIdx !== -1 ? parseInt(args[sessionsIdx + 1], 10) : undefined;
-      const seedIdx = args.indexOf("--seed");
-      const seed = seedIdx !== -1 ? parseInt(args[seedIdx + 1], 10) : undefined;
-      const resolvedPath = vaultPath.replace("~", process.env.HOME ?? "");
+      let resolvedPath: string;
+      let force = false;
+      let sessions: number | undefined;
+      let seed: number | undefined;
+
+      // Stdin JSON payload mode: no args + piped stdin (hook compat)
+      if (!args[0] && !process.stdin.isTTY) {
+        const raw = await Bun.stdin.text();
+        try {
+          const payload = JSON.parse(raw.trim()) as { transcript_path?: string };
+          if (!payload.transcript_path) throw new Error("Missing transcript_path");
+          resolvedPath = payload.transcript_path;
+        } catch (err) {
+          console.error(`[cli] index: failed to parse stdin: ${err}`);
+          process.exit(1);
+        }
+      } else {
+        const vaultPath = args[0] ?? `${homedir()}/.claude/projects/`;
+        force = args.includes("--force");
+        const sessionsIdx = args.indexOf("--sessions");
+        sessions = sessionsIdx !== -1 ? parseInt(args[sessionsIdx + 1], 10) : undefined;
+        const seedIdx = args.indexOf("--seed");
+        seed = seedIdx !== -1 ? parseInt(args[seedIdx + 1], 10) : undefined;
+        resolvedPath = vaultPath.replace("~", process.env.HOME ?? "");
+      }
 
       console.log(`[cli] Indexing: ${resolvedPath}${sessions ? ` (${sessions} sessions, seed=${seed ?? 42})` : ""}`);
       const db = openDb();
       try {
         await indexVault(db, resolvedPath, { force, sessions, seed });
-      } finally {
-        db.close();
-        await disposeEmbedder();
-      }
-      process.exit(0);
-    }
-
-    case "index-session": {
-      // Single-session indexing — called by the SessionEnd hook.
-      // Accepts a path as argument OR reads a JSON payload from stdin.
-      let transcriptPath: string;
-      if (args[0]) {
-        transcriptPath = args[0].replace("~", process.env.HOME ?? "");
-      } else {
-        const raw = await Bun.stdin.text();
-        try {
-          const payload = JSON.parse(raw.trim()) as { transcript_path?: string };
-          if (!payload.transcript_path) throw new Error("Missing transcript_path");
-          transcriptPath = payload.transcript_path;
-        } catch (err) {
-          console.error(`[cli] index-session: failed to parse stdin: ${err}`);
-          process.exit(1);
-        }
-      }
-
-      console.log(`[cli] Indexing session: ${transcriptPath}`);
-      const db = openDb();
-      try {
-        await indexVault(db, transcriptPath, {});
       } finally {
         db.close();
         await disposeEmbedder();
@@ -95,9 +213,7 @@ async function main() {
         await startDaemon();
         if (!noOpen) openBrowser();
       } else {
-        // Open after short delay to let server bind
         if (!noOpen) setTimeout(openBrowser, 1000);
-        // Run server in-process (blocking) — import the server module which starts serving
         await import("./server.ts");
       }
       break;
@@ -158,9 +274,7 @@ async function main() {
         if (tail.length === 0) {
           console.log("(no log entries)");
         } else {
-          for (const line of tail) {
-            console.log(line);
-          }
+          for (const line of tail) console.log(line);
         }
       } finally {
         db.close();
@@ -171,10 +285,11 @@ async function main() {
     default: {
       console.error(`Unknown command: ${command}`);
       console.error("Usage:");
-      console.error("  qrec index [source_path] [--force]         # default: ~/.claude/projects/");
-      console.error("  qrec index-session <path.jsonl>            # index a single session");
-      console.error("  qrec index-session                         # read JSON payload from stdin (hook mode)");
-      console.error("  qrec serve [--daemon]");
+      console.error("  qrec onboard [--no-open]          # first-time setup");
+      console.error("  qrec teardown [--yes]             # remove all qrec data");
+      console.error("  qrec index [path] [--force]       # default: ~/.claude/projects/");
+      console.error("  qrec index                        # stdin JSON {transcript_path} (hook mode)");
+      console.error("  qrec serve [--daemon] [--no-open]");
       console.error("  qrec stop");
       console.error("  qrec mcp [--http]");
       console.error("  qrec status");

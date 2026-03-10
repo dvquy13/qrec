@@ -16,11 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Node only — no setup-bun. Bun is installed by smart-install.js (step below),
-      # simulating a real new-user machine where only Node is pre-installed.
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 20
+          bun-version: latest
 
       - name: Cache embedding model
         uses: actions/cache@v4
@@ -28,33 +26,13 @@ jobs:
           path: ~/.qrec/models/
           key: embeddinggemma-300M-Q8_0-v2
 
-      - name: Cache root node_modules
+      - name: Cache node_modules
         uses: actions/cache@v4
         with:
           path: node_modules
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
 
-      - name: Seed fixture sessions
-        run: |
-          mkdir -p ~/.claude/projects/ci-fixtures
-          cp eval/fixtures/sessions/*.jsonl ~/.claude/projects/ci-fixtures/
-
-      # Test the SessionStart hook exactly as Claude Code invokes it:
-      # pipe the event JSON to smart-install.js with CLAUDE_PLUGIN_ROOT set.
-      # This is the official Anthropic hook testing pattern (no API key needed).
-      # Exercises: Bun install, bun install in plugin/, bun link, model download, first-time index.
-      - name: Test SessionStart hook (smart-install.js)
-        run: |
-          printf '{"session_id":"ci","transcript_path":"/tmp/t","cwd":"/tmp","permission_mode":"ask","hook_event_name":"SessionStart"}' \
-            | CLAUDE_PLUGIN_ROOT=${{ github.workspace }}/plugin \
-              node plugin/scripts/smart-install.js
-
-      # CI-only: bun.sh/install modifies ~/.zshrc but that doesn't affect the current job.
-      # Real users get ~/.bun/bin in PATH automatically on next shell open.
-      - name: Add Bun to PATH
-        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
-
-      - name: Install root dependencies
+      - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Type check
@@ -66,34 +44,27 @@ jobs:
       - name: Verify build artifact
         run: test -f plugin/scripts/qrec.cjs
 
+      - name: Register qrec globally
+        run: bun link
+
+      - name: Seed fixture sessions
+        run: |
+          mkdir -p ~/.claude/projects/ci-fixtures
+          cp eval/fixtures/sessions/*.jsonl ~/.claude/projects/ci-fixtures/
+
       - name: Install Homebrew SQLite (macOS only)
         if: matrix.os == 'macos-latest'
         run: brew install sqlite
 
-      # Test the plugin distribution path: MCP via bun-runner.js → qrec.cjs.
-      # Uses stub embed so no model load needed for a tools/list check.
-      - name: MCP round-trip via plugin path
+      # Integration test: onboard (model + index + daemon) → search → activity → cron auto-index
+      - name: Integration test
         env:
-          QREC_EMBED_PROVIDER: stub
+          QREC_INDEX_INTERVAL_MS: 5000
         run: |
-          printf '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}\n{"jsonrpc":"2.0","method":"initialized","params":{}}\n{"jsonrpc":"2.0","method":"tools/list","id":2}\n' \
-            | node plugin/scripts/bun-runner.js plugin/scripts/qrec.cjs mcp \
-            | grep -q '"search"'
-          echo "MCP tools/list: OK"
+          # First-time setup: loads model, indexes fixtures, starts daemon
+          qrec onboard --no-open
 
-      # Uses real model. Server now binds immediately (Bun.serve before getEmbedProvider),
-      # so /health responds at once. Poll /search until model is ready (exits 503 while loading).
-      - name: Integration test — serve + search + audit
-        run: |
-          qrec serve --daemon
-          echo "Waiting for server to bind..."
-          for i in $(seq 1 15); do
-            curl -sf http://localhost:3030/health && break
-            echo "  attempt $i: not ready yet, retrying in 1s..."
-            sleep 1
-          done
-          curl -sf http://localhost:3030/health
-          echo "Waiting for model to load..."
+          echo "Waiting for search to be ready (model loading in daemon)..."
           for i in $(seq 1 24); do
             status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:3030/search \
               -H 'Content-Type: application/json' -d '{"query":"sqlite","k":3}')
@@ -101,39 +72,51 @@ jobs:
             echo "  attempt $i: status=$status, retrying in 5s..."
             sleep 5
           done
+
+          echo "Search: verifying results..."
           curl -sf -X POST http://localhost:3030/search \
             -H 'Content-Type: application/json' \
             -d '{"query":"sqlite","k":3}' | jq -e '.results | length > 0'
-          curl -sf http://localhost:3030/audit/entries | jq -e '.entries | length >= 0'
-          qrec stop
+          echo "Search: OK"
 
-      # Regression: bun-runner.js must not hang when stdin is never closed.
-      # Placed after integration test (which ends with qrec stop) so the daemon state is clean.
-      # Simulates Claude Code hook environment: stdin is an open pipe that never sends EOF.
-      # bun-runner.js used to block on stdin.on('end') indefinitely — SessionStart hook error.
-      # After fix: detects serve --daemon and exits immediately without touching stdin.
-      - name: "Regression: bun-runner serve --daemon must not hang with open stdin"
+          echo "Activity: verifying daemon events logged..."
+          curl -sf http://localhost:3030/activity/entries | jq -e '.entries | length > 0'
+          echo "Activity: OK"
+
+          echo "Cron: adding new session with unique session_id..."
+          # Filename prefix = session_id (8-char hex). Use a unique name not in the DB.
+          cat > ~/.claude/projects/ci-fixtures/f1f1f1f1-cron-test.jsonl << 'EOF'
+          {"type":"user","isMeta":false,"isSidechain":false,"message":{"role":"user","content":"How does the cron auto-index work in qrec?"},"cwd":"/home/user/myproject","timestamp":"2024-06-01T10:00:00.000Z"}
+          {"type":"assistant","isMeta":false,"isSidechain":false,"message":{"role":"assistant","content":"The daemon runs setInterval to call indexVault incrementally every minute."},"timestamp":"2024-06-01T10:00:01.000Z"}
+          {"type":"user","isMeta":false,"isSidechain":false,"message":{"role":"user","content":"Does it skip unchanged files?"},"cwd":"/home/user/myproject","timestamp":"2024-06-01T10:00:02.000Z"}
+          {"type":"assistant","isMeta":false,"isSidechain":false,"message":{"role":"assistant","content":"Yes, an mtime pre-filter skips files not modified since indexed_at."},"timestamp":"2024-06-01T10:00:03.000Z"}
+          EOF
+
+          echo "Cron: waiting up to 20s for incremental index to pick up new session..."
+          for i in $(seq 1 4); do
+            sleep 5
+            found=$(curl -sf http://localhost:3030/sessions | jq '[.sessions[] | select(. == "f1f1f1f1")] | length')
+            if [ "$found" = "1" ]; then
+              echo "Cron: new session f1f1f1f1 indexed after ~$((i * 5))s — OK"
+              break
+            fi
+            echo "  attempt $i: not indexed yet..."
+          done
+          [ "$found" = "1" ] || { echo "FAIL: cron did not index new session within 20s"; exit 1; }
+
+          qrec stop
+          echo "Integration test: PASSED"
+
+      # MCP stdio round-trip — stub embed, no model load needed
+      - name: MCP round-trip
         env:
           QREC_EMBED_PROVIDER: stub
         run: |
-          node -e "
-            const { spawn } = require('child_process');
-            const child = spawn('node', [
-              'plugin/scripts/bun-runner.js',
-              'plugin/scripts/qrec.cjs',
-              'serve', '--daemon'
-            ], { stdio: ['pipe', 'pipe', 'pipe'] });
-            child.stdout.on('data', d => process.stdout.write(d));
-            child.stderr.on('data', d => process.stderr.write(d));
-            const t = setTimeout(() => {
-              process.stderr.write('FAIL: bun-runner.js hung 10s with stdin open — SessionStart hook bug confirmed\n');
-              child.kill();
-              process.exit(1);
-            }, 10000);
-            child.on('exit', code => { clearTimeout(t); process.exit(code || 0); });
-          "
-          qrec stop || true
+          printf '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}\n{"jsonrpc":"2.0","method":"initialized","params":{}}\n{"jsonrpc":"2.0","method":"tools/list","id":2}\n' \
+            | qrec mcp \
+            | grep -q '"search"'
+          echo "MCP tools/list: OK"
 
-      # Verify the npm distribution path: pack → global install → CLI works.
+      # Verify npm distribution: pack → global install → CLI works
       - name: npm distribution path
         run: npm pack && npm install -g ./qrec-*.tgz && qrec --version
