@@ -4,13 +4,15 @@
 import type { LlamaEmbeddingContext, Llama } from "node-llama-cpp";
 import { join } from "path";
 import { homedir } from "os";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import type { EmbedProvider } from "./provider.ts";
+import { serverProgress } from "../progress.ts";
 
-const MODEL_FILENAME = "embeddinggemma-300M-Q8_0.gguf";
-const MODEL_PATHS = [
-  join(homedir(), ".qrec", "models", MODEL_FILENAME),
-];
+// Full HF URI — format: hf:<user>/<repo>/<file> (matches qmd convention)
+const MODEL_URI = "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
+// Legacy filename written by old short-form URI (kept for backward compat)
+const LEGACY_MODEL_PATH = join(homedir(), ".cache", "qmd", "models", "hf_ggml-org_embeddinggemma-300M-Q8_0.gguf");
+const MODEL_CACHE_DIR = join(homedir(), ".qrec", "models");
 
 // Singleton state
 let llamaInstance: Llama | null = null;
@@ -18,33 +20,38 @@ let embeddingContext: LlamaEmbeddingContext | null = null;
 let initPromise: Promise<LlamaEmbeddingContext> | null = null;
 
 async function findOrDownloadModel(): Promise<string> {
-  // Check known locations
-  for (const p of MODEL_PATHS) {
-    if (existsSync(p)) {
-      return p;
-    }
+  // Check legacy location (models downloaded by old qrec/qmd versions)
+  if (existsSync(LEGACY_MODEL_PATH)) {
+    console.log(`[embed] Found model at legacy path: ${LEGACY_MODEL_PATH}`);
+    return LEGACY_MODEL_PATH;
   }
 
-  // Model not found — download to ~/.qrec/models/
-  console.log(`[embed] Model not found locally. Downloading ${MODEL_FILENAME}...`);
-  const { createModelDownloader } = await import("node-llama-cpp");
-  const targetDir = join(homedir(), ".qrec", "models");
-  const { mkdirSync } = await import("fs");
-  mkdirSync(targetDir, { recursive: true });
+  // resolveModelFile: checks cache dir first, downloads from HF if missing
+  console.log(`[embed] Resolving model: ${MODEL_URI}`);
+  mkdirSync(MODEL_CACHE_DIR, { recursive: true });
 
-  const downloader = await createModelDownloader({
-    modelUri: `hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf`,
-    dirPath: targetDir,
+  serverProgress.phase = "model_download";
+  serverProgress.modelDownload = { percent: 0, downloadedMB: 0, totalMB: null };
+
+  const { resolveModelFile } = await import("node-llama-cpp");
+  const modelPath = await resolveModelFile(MODEL_URI, {
+    directory: MODEL_CACHE_DIR,
+    onProgress({ totalSize, downloadedSize }) {
+      serverProgress.modelDownload = {
+        percent: totalSize ? Math.round((downloadedSize / totalSize) * 100) : 0,
+        downloadedMB: +(downloadedSize / 1048576).toFixed(1),
+        totalMB: totalSize ? +(totalSize / 1048576).toFixed(1) : null,
+      };
+    },
   });
 
-  await downloader.download();
-  const modelPath = join(targetDir, MODEL_FILENAME);
-  console.log(`[embed] Model downloaded to ${modelPath}`);
+  console.log(`[embed] Model ready at ${modelPath}`);
   return modelPath;
 }
 
 async function initEmbeddingContext(): Promise<LlamaEmbeddingContext> {
   const modelPath = await findOrDownloadModel();
+  serverProgress.phase = "model_loading";
   console.log(`[embed] Loading model from ${modelPath}`);
 
   const { getLlama } = await import("node-llama-cpp");

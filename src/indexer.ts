@@ -160,7 +160,8 @@ const MIN_TURNS = 2;
 export async function indexVault(
   db: Database,
   sourcePath: string,
-  options: { force?: boolean; sessions?: number; seed?: number } = {}
+  options: { force?: boolean; sessions?: number; seed?: number } = {},
+  onProgress?: (indexed: number, total: number, current: string) => void
 ): Promise<void> {
   const embedder = await getEmbedProvider();
 
@@ -246,6 +247,7 @@ export async function indexVault(
 
     const chunksToEmbed = indexSession();
     process.stdout.write(`[${i + 1}/${toIndex.length}] ${id} (${project}/${date}) — ${chunksToEmbed.length} chunks\n`);
+    onProgress?.(i, toIndex.length, id);
 
     const embedAndInsert = db.transaction(
       (embeddedChunks: Array<{ chunkId: string; seq: number; pos: number; text: string; embedding: Float32Array }>) => {
@@ -266,5 +268,6 @@ export async function indexVault(
     embedAndInsert(embeddedChunks);
   }
 
+  onProgress?.(toIndex.length, toIndex.length, "");
   console.log(`[indexer] Done. Total sessions indexed: ${toIndex.length}`);
 }

@@ -25,6 +25,11 @@ function getLogTail(lines: number = 20): string[] {
   }
 }
 
+function openBrowser() {
+  const cmd = process.platform === "darwin" ? "open" : "xdg-open";
+  try { Bun.spawnSync([cmd, "http://localhost:3030"]); } catch {}
+}
+
 async function main() {
   switch (command) {
     case "--version":
@@ -84,10 +89,14 @@ async function main() {
 
     case "serve": {
       const daemon = args.includes("--daemon");
+      const noOpen = args.includes("--no-open");
 
       if (daemon) {
         await startDaemon();
+        if (!noOpen) openBrowser();
       } else {
+        // Open after short delay to let server bind
+        if (!noOpen) setTimeout(openBrowser, 1000);
         // Run server in-process (blocking) — import the server module which starts serving
         await import("./server.ts");
       }
