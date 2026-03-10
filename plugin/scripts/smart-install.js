@@ -124,7 +124,7 @@ function downloadFile(url, destPath) {
     function doRequest(reqUrl) {
       https.get(reqUrl, (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
-          file.close();
+          res.resume(); // drain and discard redirect body — keep file stream open
           doRequest(res.headers.location);
           return;
         }

@@ -26,7 +26,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.qrec/models/
-          key: embeddinggemma-300M-Q8_0
+          key: embeddinggemma-300M-Q8_0-v2
 
       - name: Cache root node_modules
         uses: actions/cache@v4
@@ -97,8 +97,8 @@ jobs:
           done
           curl -sf -X POST http://localhost:3030/search \
             -H 'Content-Type: application/json' \
-            -d '{"query":"sqlite","k":3}' | jq '.results | length'
-          curl -sf http://localhost:3030/audit/entries | jq '.entries | length'
+            -d '{"query":"sqlite","k":3}' | jq -e '.results | length > 0'
+          curl -sf http://localhost:3030/audit/entries | jq -e '.entries | length >= 0'
           qrec stop
 
       # Verify the npm distribution path: pack → global install → CLI works.
