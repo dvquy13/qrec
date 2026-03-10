@@ -66,6 +66,33 @@ jobs:
       - name: Verify build artifact
         run: test -f plugin/scripts/qrec.cjs
 
+      # Regression: bun-runner.js must not hang when stdin is never closed.
+      # In Claude Code hooks stdin is an open pipe that never sends EOF — bun-runner.js
+      # currently blocks on stdin.on('end') indefinitely (SessionStart hook error).
+      # This step simulates that condition: spawn with stdio['pipe'] and never write/close stdin.
+      # Expected result today: FAIL (hangs 10s then killed). After fix: PASS (exits quickly).
+      - name: "Regression: bun-runner serve --daemon must not hang with open stdin"
+        env:
+          QREC_EMBED_PROVIDER: stub
+        run: |
+          node -e "
+            const { spawn } = require('child_process');
+            const child = spawn('node', [
+              'plugin/scripts/bun-runner.js',
+              'plugin/scripts/qrec.cjs',
+              'serve', '--daemon'
+            ], { stdio: ['pipe', 'pipe', 'pipe'] });
+            child.stdout.on('data', d => process.stdout.write(d));
+            child.stderr.on('data', d => process.stderr.write(d));
+            const t = setTimeout(() => {
+              process.stderr.write('FAIL: bun-runner.js hung 10s with stdin open — SessionStart hook bug confirmed\n');
+              child.kill();
+              process.exit(1);
+            }, 10000);
+            child.on('exit', code => { clearTimeout(t); process.exit(code || 0); });
+          "
+          qrec stop || true
+
       - name: Install Homebrew SQLite (macOS only)
         if: matrix.os == 'macos-latest'
         run: brew install sqlite
