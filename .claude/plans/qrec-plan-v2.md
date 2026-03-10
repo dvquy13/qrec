@@ -478,13 +478,9 @@ inside the plugin dir at first SessionStart to resolve node-llama-cpp native bin
 #### Install story — marketplace path (primary)
 
 ```bash
-# Step 1: Add marketplace source
-claude plugin marketplace add dvquy13/qrec
-
-# Step 2: Install plugin
-claude plugin install qrec@qrec
-
-# Step 3: Restart Claude Code — everything else is automatic
+/plugin marketplace add dvquy13/qrec
+/plugin install qrec@dvquy13-qrec
+# Restart Claude Code — everything else is automatic
 ```
 
 No setup wizard needed. On the first SessionStart after install, `smart-install.js` runs
