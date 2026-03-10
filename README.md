@@ -1,52 +1,57 @@
 # qrec
 
-Purpose-built session recall engine. Keeps an embedding model resident in memory for fast hybrid search (BM25 + vector) over Claude session transcripts.
+Purpose-built session recall engine for Claude Code. Keeps an embedding model resident in memory for fast hybrid search (BM25 + vector) over your Claude session transcripts.
 
-- **Cold start**: ~2600ms (per-invocation model load)
-- **Warm query**: ~55ms (persistent daemon)
+- **Warm query**: ~55ms vs ~2600ms cold model load per invocation
 
-## Install (local dev)
+## Install
+
+### Claude Code plugin (recommended)
+
+```bash
+claude plugin add dvquy13/qrec
+```
+
+Restart Claude Code. On the first session start, everything runs automatically:
+- Installs Bun if missing
+- Downloads the embedding model (~313MB, once)
+- Indexes your sessions at `~/.claude/projects/`
+- Starts the daemon at `http://localhost:3030`
+
+### npm (CLI / CI)
+
+```bash
+npm install -g qrec
+qrec index
+qrec serve --daemon
+```
+
+### Local dev
 
 ```bash
 bun install
 bun link   # registers qrec globally → ~/.bun/bin/qrec
 ```
 
-## Quick Start
+## Usage
 
-### 1. Index sessions
+Once the daemon is running, open **http://localhost:3030** — the onboarding dashboard walks you through the first-run setup and then becomes the search interface.
 
-```bash
-qrec index                        # index ~/.claude/projects/ (default)
-qrec index <path>                 # index a specific dir or .jsonl file
-```
-
-### 2. Start the server
-
-```bash
-qrec serve --daemon               # background daemon (port 3030)
-# or
-qrec serve                        # foreground
-```
-
-### 3. Search
-
-Open in your browser:
+### Search UI
 
 | URL | Description |
 |---|---|
-| `http://localhost:3030/` | Search UI — query box, result cards, latency breakdown |
-| `http://localhost:3030/audit` | Audit log — table of all past queries with scores and timing |
+| `http://localhost:3030/` | Dashboard / onboarding + search |
+| `http://localhost:3030/audit` | Query audit log |
 
-Or via the API:
+### API
 
 ```bash
-curl -s http://localhost:3030/search \
+curl -s -X POST http://localhost:3030/search \
   -H "Content-Type: application/json" \
   -d '{"query": "sqlite vec extension", "k": 5}' | jq .
 ```
 
-Response shape:
 ```json
 {
   "results": [
@@ -59,47 +64,30 @@ Response shape:
       "preview": "...best matching chunk..."
     }
   ],
-  "latency_ms": { "bm25": 1, "embed": 52, "knn": 4, "total": 58 }
+  "latencyMs": 58
 }
 ```
 
-### 4. Fetch a full session
+### MCP server
 
 ```bash
-# GET /sessions lists all indexed sessions
-curl -s http://localhost:3030/sessions | jq '.[0]'
-
-# Retrieve full rendered markdown for a session
-curl -s http://localhost:3030/sessions/a1b2c3d4
-```
-
-### 5. Check status / stop
-
-```bash
-qrec status    # sessions count, chunks, daemon PID, log tail
-qrec stop      # stop the daemon
-```
-
-## MCP Server
-
-```bash
-qrec mcp          # stdio (for Claude Code plugin)
-qrec mcp --http   # HTTP transport on port 3031
+qrec mcp          # stdio (Claude Code MCP config)
+qrec mcp --http   # HTTP on port 3031
 ```
 
 Tools: `search(query, k?)`, `get(session_id)`, `status()`
 
-## Commands Reference
+## Commands
 
 | Command | Description |
 |---|---|
 | `qrec index [path]` | Index sessions (default: `~/.claude/projects/`) |
 | `qrec index-session <path.jsonl>` | Index a single session file |
-| `qrec index-session` | Index single session from stdin JSON payload (hook mode) |
 | `qrec serve [--daemon]` | Start HTTP server on port 3030 |
 | `qrec stop` | Stop daemon |
 | `qrec mcp [--http]` | Start MCP server |
-| `qrec status` | Print status summary |
+| `qrec status` | Status summary + log tail |
+| `qrec --version` | Print version |
 
 ## Stack
 
