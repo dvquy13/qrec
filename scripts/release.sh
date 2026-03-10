@@ -68,5 +68,10 @@ else
   gh release create "v${VERSION}" --title "v${VERSION}" --notes "$NOTES"
 fi
 
+# 8. Publish to npm
+echo "[release] Publishing to npm..."
+npm publish
+echo "[release] npm publish complete."
+
 echo "[release] Done. v${VERSION} released."
 echo "[release] https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/releases/tag/v${VERSION}"
