@@ -9,7 +9,8 @@ Purpose-built session recall engine for Claude Code. Keeps an embedding model re
 ### Claude Code plugin (recommended)
 
 ```bash
-claude plugin add dvquy13/qrec
+/plugin marketplace add dvquy13/qrec
+/plugin install qrec@dvquy13-qrec
 ```
 
 Restart Claude Code. On the first session start, everything runs automatically:
