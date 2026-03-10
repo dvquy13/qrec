@@ -161,10 +161,112 @@ function downloadFile(url, destPath) {
   });
 }
 
+// Background worker: heavy first-run setup (bun install, model download, index)
+async function runBackground(bunPath, pluginVersion, bunVersion) {
+  log(`[bg] Starting background setup: plugin@${pluginVersion}, bun@${bunVersion}`);
+
+  // Step 1: bun install in PLUGIN_ROOT
+  log("[bg] Running bun install...");
+  try {
+    const result = spawnSync(bunPath, ["install"], {
+      cwd: PLUGIN_ROOT,
+      encoding: "utf-8",
+      timeout: 300_000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (result.status !== 0) {
+      log(`[bg] ERROR: bun install failed:\n${result.stderr}`);
+      process.exit(1);
+    }
+    log("[bg] bun install complete.");
+  } catch (err) {
+    log(`[bg] ERROR: bun install threw: ${err.message}`);
+    process.exit(1);
+  }
+
+  // Step 2: bun link — registers ~/.bun/bin/qrec globally
+  log("[bg] Running bun link...");
+  try {
+    const result = spawnSync(bunPath, ["link"], {
+      cwd: PLUGIN_ROOT,
+      encoding: "utf-8",
+      timeout: 30_000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (result.status !== 0) {
+      log(`[bg] WARN: bun link failed (non-fatal):\n${result.stderr}`);
+    } else {
+      log("[bg] bun link complete. qrec CLI registered at ~/.bun/bin/qrec");
+    }
+  } catch (err) {
+    log(`[bg] WARN: bun link threw (non-fatal): ${err.message}`);
+  }
+
+  // Step 3: Download model if absent
+  if (!existsSync(MODEL_PATH)) {
+    log(`[bg] Model not found at ${MODEL_PATH}. Downloading...`);
+    const modelUrl =
+      "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/main/" +
+      MODEL_FILENAME;
+    try {
+      await downloadFile(modelUrl, MODEL_PATH);
+      log(`[bg] Model downloaded to ${MODEL_PATH}`);
+    } catch (err) {
+      log(`[bg] ERROR: Model download failed: ${err.message}`);
+      process.exit(1);
+    }
+  } else {
+    log(`[bg] Model already present at ${MODEL_PATH}`);
+  }
+
+  // Step 4: First-time index if DB absent
+  if (!existsSync(DB_PATH)) {
+    if (existsSync(INDEX_PATH)) {
+      log(`[bg] DB not found. Indexing sessions at ${INDEX_PATH}...`);
+      try {
+        const qrecCjs = join(PLUGIN_ROOT, "scripts", "qrec.cjs");
+        const result = spawnSync(bunPath, ["run", qrecCjs, "index", INDEX_PATH], {
+          encoding: "utf-8",
+          timeout: 600_000,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        if (result.status !== 0) {
+          log(`[bg] WARN: Initial index failed:\n${result.stderr}`);
+        } else {
+          log("[bg] Initial index complete.");
+        }
+      } catch (err) {
+        log(`[bg] WARN: Initial index threw: ${err.message}`);
+      }
+    } else {
+      log(`[bg] No sessions found at ${INDEX_PATH}. Skipping initial index.`);
+    }
+  } else {
+    log("[bg] DB already exists. Skipping initial index.");
+  }
+
+  // Step 5: Write marker
+  writeMarker(pluginVersion, bunVersion);
+  log("[bg] Background setup complete. qrec is ready!");
+}
+
 async function main() {
+  // Background worker mode (spawned by foreground for heavy first-run setup)
+  if (process.argv.includes("--background")) {
+    const bunPath = findBun();
+    if (!bunPath) {
+      log("[bg] ERROR: bun not found in background worker.");
+      process.exit(1);
+    }
+    const pluginVersion = getPluginVersion();
+    const bunVersion = getBunVersion(bunPath);
+    await runBackground(bunPath, pluginVersion, bunVersion);
+    process.exit(0);
+  }
+
   log(`smart-install starting. Platform: ${process.platform} ${process.arch}. Plugin root: ${PLUGIN_ROOT}`);
 
-  // Step 1: Find or install Bun
+  // Step 1: Find or install Bun (fast, always needed)
   let bunPath = findBun();
   if (!bunPath) {
     installBun();
@@ -183,96 +285,28 @@ async function main() {
 
   if (marker && marker.pluginVersion === pluginVersion && marker.bunVersion === bunVersion) {
     // Fast path: nothing changed
-    log(`Fast path: plugin@${pluginVersion}, bun@${bunVersion} — skipping reinstall.`);
+    log(`Fast path: plugin@${pluginVersion}, bun@${bunVersion} — already installed.`);
     process.exit(0);
   }
 
-  log(`Installing: plugin@${pluginVersion}, bun@${bunVersion}`);
+  // First run or update: spawn heavy work in background so this hook returns immediately.
+  // The daemon handles model-not-ready gracefully (retries loading every 30s).
+  log(`First-time setup needed (plugin@${pluginVersion}). Spawning background installer...`);
+  process.stderr.write(
+    "[qrec] First-time setup running in background (installing deps + downloading model).\n" +
+    "[qrec] Track progress: tail -f ~/.qrec/install.log\n" +
+    "[qrec] qrec server will become fully ready once setup completes.\n"
+  );
 
-  // Step 3: bun install in PLUGIN_ROOT
-  log("Running bun install...");
-  try {
-    const result = spawnSync(bunPath, ["install"], {
-      cwd: PLUGIN_ROOT,
-      encoding: "utf-8",
-      timeout: 120_000,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    if (result.status !== 0) {
-      log(`ERROR: bun install failed:\n${result.stderr}`);
-      process.exit(1);
-    }
-    log("bun install complete.");
-  } catch (err) {
-    log(`ERROR: bun install threw: ${err.message}`);
-    process.exit(1);
-  }
-
-  // Step 4: bun link — registers ~/.bun/bin/qrec globally
-  log("Running bun link...");
-  try {
-    const result = spawnSync(bunPath, ["link"], {
-      cwd: PLUGIN_ROOT,
-      encoding: "utf-8",
-      timeout: 30_000,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    if (result.status !== 0) {
-      log(`WARN: bun link failed (non-fatal):\n${result.stderr}`);
-    } else {
-      log("bun link complete. qrec CLI registered at ~/.bun/bin/qrec");
-    }
-  } catch (err) {
-    log(`WARN: bun link threw (non-fatal): ${err.message}`);
-  }
-
-  // Step 5: Download model if absent
-  if (!existsSync(MODEL_PATH)) {
-    log(`Model not found at ${MODEL_PATH}. Downloading...`);
-    const modelUrl =
-      "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/main/" +
-      MODEL_FILENAME;
-    try {
-      await downloadFile(modelUrl, MODEL_PATH);
-      log(`Model downloaded to ${MODEL_PATH}`);
-    } catch (err) {
-      log(`ERROR: Model download failed: ${err.message}`);
-      process.exit(1);
-    }
-  } else {
-    log(`Model already present at ${MODEL_PATH}`);
-  }
-
-  // Step 6: First-time index if DB absent
-  if (!existsSync(DB_PATH)) {
-    if (existsSync(INDEX_PATH)) {
-      log(`DB not found. Indexing sessions at ${INDEX_PATH}...`);
-      try {
-        const qrecCjs = join(PLUGIN_ROOT, "scripts", "qrec.cjs");
-        const result = spawnSync(bunPath, ["run", qrecCjs, "index", INDEX_PATH], {
-          encoding: "utf-8",
-          timeout: 600_000,
-          stdio: ["ignore", "pipe", "pipe"],
-        });
-        if (result.status !== 0) {
-          log(`WARN: Initial index failed:\n${result.stderr}`);
-          // Non-fatal: daemon can still start; user can re-run manually
-        } else {
-          log("Initial index complete.");
-        }
-      } catch (err) {
-        log(`WARN: Initial index threw: ${err.message}`);
-      }
-    } else {
-      log(`No sessions found at ${INDEX_PATH}. Skipping initial index.`);
-    }
-  } else {
-    log("DB already exists. Skipping initial index.");
-  }
-
-  // Step 7: Write marker
-  writeMarker(pluginVersion, bunVersion);
-  log("Setup complete.");
+  const { spawn } = require("child_process");
+  const bg = spawn(process.execPath, [__filename, "--background"], {
+    detached: true,
+    stdio: "ignore",
+    env: { ...process.env, CLAUDE_PLUGIN_ROOT: PLUGIN_ROOT },
+  });
+  bg.unref();
+  log(`Background worker spawned (PID ${bg.pid}).`);
+  process.exit(0);
 }
 
 main().catch(err => {
