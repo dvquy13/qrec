@@ -8,7 +8,9 @@ paths:
 
 ## CI bootstrap strategy
 
-`setup-bun` is NOT used. `smart-install.js` installs Bun as its first step, simulating a real new-user machine. After it runs, add `~/.bun/bin` to `$GITHUB_PATH` for subsequent steps:
+`setup-bun` is NOT used. `smart-install.js` installs Bun as its first step, simulating a real new-user machine. After it runs, add `~/.bun/bin` to `$GITHUB_PATH` for subsequent steps.
+
+**`smart-install.js` runs synchronously in CI** (`CI=true` env var detected). On a real user machine it spawns heavy work (bun install, model download, index) as a detached background process and returns immediately. In CI it must be synchronous because subsequent steps depend on `bun link` having run (which creates `~/.bun/bin/qrec`). If you ever see `qrec: command not found` in CI, check that `CI` env var is set in the step.
 
 ```yaml
 - name: Test SessionStart hook (smart-install.js)
