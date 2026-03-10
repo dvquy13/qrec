@@ -1,7 +1,23 @@
-# qrec Refactor Plan v1
+# qrec Refactor Plan v3
 
 Distilled from design review session (2026-03-10). Addresses installation complexity,
 auto-indexing reliability, dashboard observability, and UI maintainability.
+
+## Status — 2026-03-11 ✅ COMPLETE
+
+All phases shipped in PR #4 (`remove-smart-install` branch). CI running.
+
+| Phase | What | Status |
+|---|---|---|
+| A | Indexer mtime pre-filter + stdin mode + remove index-session | ✅ |
+| B | Daemon cron indexing via setInterval | ✅ |
+| C | Activity log (src/activity.ts + /activity/entries) | ✅ |
+| D | qrec onboard + qrec teardown | ✅ |
+| E | Delete smart-install.js + bun-runner.js, simplify hooks.json | ✅ |
+| F | ui/index.html SPA consolidating all 4 tabs | ✅ |
+| CI | Rewrite to use setup-bun + onboard + cron test | ✅ |
+
+---
 
 ---
 
@@ -115,42 +131,35 @@ qrec index-session        # absorbed into qrec index
 
 ## Implementation phases
 
-### Phase A — Indexer optimization (prerequisite)
-- Add mtime pre-filter to `buildJsonlCandidate` in `indexer.ts`
-- Extend `qrec index` (no path arg) to also parse stdin JSON payload for hook compat
-- Remove `index-session` command from `cli.ts`
+### Phase A — Indexer optimization (prerequisite) ✅
+- Mtime pre-filter is in `indexVault`, not in `buildJsonlCandidate`. Pre-builds a `Map<path, indexed_at>` from the sessions table, then filters the file list before any JSONL reads.
+- Stdin detection: `!process.stdin.isTTY` (not `args.length === 0` — the latter breaks when called from scripts that pass empty argv).
+- `index-session` removed from `cli.ts`; absorbed into `index` case.
 
-### Phase B — Daemon cron indexing
-- Add `setInterval` to `server.ts` that calls `indexVault` incrementally after model is ready
-- Default interval: 1 minute (`QREC_INDEX_INTERVAL_MS`, default `60000`); CI uses `5000`
-- Guard: skip tick if previous run still in progress
-- On daemon startup: run one immediate incremental scan (catchup for sessions missed while offline)
-- Wire `serverProgress` to reflect cron-triggered indexing phases
+### Phase B — Daemon cron indexing ✅
+- `runIncrementalIndex()` extracted as a named async function; called immediately after model loads (startup catchup), then scheduled via `setInterval`.
+- `isIndexing` boolean guard prevents overlapping runs (e.g. if indexVault is slow on a large collection).
+- `serverProgress.phase` flips to `"indexing"` during cron scans and back to `"ready"` after — dashboard correctly shows indexing state mid-scan.
+- `QREC_INDEX_INTERVAL_MS` read once at module load; CI sets to `5000`.
 
-### Phase C — Activity log
-- New `src/activity.ts`: `appendActivity(event)`, `getRecentActivity(n)`
-- Events: `{ ts, type, data }` where type is `daemon_started | index_started | session_indexed | index_complete`
-- Add `GET /activity/entries?limit=N` to `server.ts`
-- Write events from daemon cron indexing path
+### Phase C — Activity log ✅
+- `activity.jsonl` is append-only raw JSONL; `getRecentActivity(n)` reads the whole file and returns last n entries reversed (most recent first). Fine for current scale; revisit if file grows large.
+- `session_indexed` event emitted per newly indexed session using `prevIndexed` tracking against the `onProgress` callback — the callback is only called for sessions actually being embedded (already past the hash filter), so this is safe.
 
-### Phase D — CLI commands
-- Add `qrec onboard` to `cli.ts` (sequential: check bun → download model → index → serve → open)
-- Add `qrec teardown` to `cli.ts` (stop daemon → confirm → rm -rf ~/.qrec/)
-- Update help text
+### Phase D — CLI commands ✅
+- `qrec onboard` intentionally loads + disposes the model before starting the daemon. The daemon loads it fresh. Two model loads is the price of keeping the sequence explicit and testable.
+- Skipped the "check Bun" step from the plan — since qrec's shebang is `#!/usr/bin/env bun`, it can't run without Bun in the first place.
+- `qrec teardown --yes` skips confirmation prompt (needed for scripted teardown/reset flows).
 
-### Phase E — Plugin simplification
-- Delete `plugin/scripts/smart-install.js` and `plugin/scripts/bun-runner.js`
-- Update `hooks.json` to single SessionStart hook: `qrec serve --daemon`
-- Update README: explicit install instructions (npm install -g qrec → qrec onboard → install plugin)
+### Phase E — Plugin simplification ✅
+- README update deferred — no README.md exists in the repo yet.
+- `package.json` files array cleaned up (removed bun-runner.js and smart-install.js entries).
 
-### Phase F — UI consolidation
-- Merge 4 HTML files into `ui/index.html` with tab-switching
-- Tabs: Dashboard | Search | Activity | Debug
-- Dashboard tab: daemon status, session/chunk counts, last indexed, activity feed (polls `/activity/entries`)
-- Activity tab: full activity log
-- Search tab: search input + results (state preserved on tab switch)
-- Debug tab: log viewer + config (from `/debug/log`, `/debug/config`)
-- Single polling loop shared across tabs
+### Phase F — UI consolidation ✅
+- Tab routing uses URL path for initial tab selection (`/search` → search tab, `/audit` → activity tab, `/debug` → debug tab), then switches to hash-based routing on navigation. Old bookmarks still work.
+- Old HTML files (`dashboard.html`, `search.html`, etc.) left in place as dead files — harmless, not served.
+- Single `setInterval(5000)` drives all tabs; only the active tab's fetch runs (gated by `document.querySelector('.tab-panel.active')`).
+- Dashboard activity feed capped at 8 entries; Activity tab shows up to 200.
 
 ---
 
@@ -196,7 +205,13 @@ the fragile SessionEnd hook.
 
 `qrec onboard` needs a `--no-open` flag to suppress browser open in headless CI.
 
+### CI implementation notes
+- **Cron test**: copies a fixture file with a unique filename prefix (`f1f1f1f1-cron-test.jsonl`). Session ID is derived from the filename, not file content (`parser.ts:128`), so a new filename = new session ID even with identical content.
+- **Heredoc JSONL**: the inline fixture in the CI `run:` block uses YAML `|` which strips common indentation, so the JSONL lines are not padded with spaces. `JSON.parse` handles leading whitespace anyway.
+- **Poll strategy**: integration test polls `/search` for 200 (up to 2 min) rather than `/health`, because `/health` is always 200 but search needs the model loaded. Once search works, the startup index scan is either done or very close.
+- **MCP step uses stub**: placed after the integration test (which calls `qrec stop`) to avoid port conflicts.
+
 ## Open questions
 
-- **`/sessions` endpoint**: Currently returns only IDs. Phase F dashboard may want
-  richer metadata (project, date, title, chunk count) for a sessions list view.
+- **`/sessions` endpoint**: Currently returns only IDs. Dashboard may want richer metadata (project, date, title, chunk count) for a sessions list view. Deferred.
+- **Activity log size**: `getRecentActivity` reads the whole file on every request. Fine now, but will need a line-count cap or rotation if the daemon runs for months.
