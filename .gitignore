@@ -13,5 +13,4 @@ node_modules/
 
 eval/**/*.html
 
-# Build output
-plugin/ui/
+# plugin/ui/ is committed — UI files must be present in the installed plugin
