@@ -5,7 +5,7 @@
 
 "use strict";
 
-const { spawnSync } = require("child_process");
+const { spawnSync, spawn } = require("child_process");
 const { existsSync } = require("fs");
 const { homedir } = require("os");
 
@@ -42,6 +42,19 @@ function main() {
   }
 
   const args = process.argv.slice(2); // everything after bun-runner.js
+
+  // serve --daemon is a fire-and-fork: it never reads stdin and must return immediately.
+  // In Claude Code hooks stdin is an open pipe that never closes, so the normal stdin-buffering
+  // path would hang forever. Spawn detached and exit immediately.
+  if (args.includes("serve") && args.includes("--daemon")) {
+    const child = spawn(bunPath, args, {
+      detached: true,
+      stdio: "ignore",
+      env: process.env,
+    });
+    child.unref();
+    process.exit(0);
+  }
 
   // Buffer stdin to avoid Bun libuv crash on Linux when receiving piped input from Claude Code hooks
   const stdinChunks = [];
