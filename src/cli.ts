@@ -42,44 +42,101 @@ async function main() {
     }
 
     case "onboard": {
-      // Sequential first-time setup: model → index → serve → open
       const noOpen = args.includes("--no-open");
 
-      console.log("[onboard] Step 1/3: Loading embedding model...");
-      console.log("[onboard] (This downloads ~300 MB on first run — subsequent starts are instant)");
-
-      // Load model (downloads if missing, then initializes)
-      const { getEmbedProvider } = await import("./embed/factory.ts");
-      await getEmbedProvider();
-      console.log("[onboard] Model ready.");
-
-      console.log("[onboard] Step 2/3: Indexing sessions...");
-      const vaultPath = join(homedir(), ".claude", "projects");
-      if (!existsSync(vaultPath)) {
-        console.log(`[onboard] No Claude sessions found at ${vaultPath} — skipping index.`);
-      } else {
-        const db = openDb();
-        try {
-          await indexVault(db, vaultPath, {}, (indexed, total) => {
-            if (total > 0) process.stdout.write(`\r[onboard]   ${indexed}/${total} sessions...`);
-          });
-          process.stdout.write("\n");
-        } finally {
-          db.close();
-        }
-      }
-
-      await disposeEmbedder();
-
-      console.log("[onboard] Step 3/3: Starting daemon...");
+      // Start daemon first — server binds immediately, model loads async in background.
+      // startDaemon() polls /health until the port is open (~1-2s), then returns.
       await startDaemon();
 
-      if (!noOpen) {
-        console.log("[onboard] Opening dashboard...");
-        openBrowser();
+      // Open browser now — the UI handles "not ready" state with its own progress bars.
+      if (!noOpen) openBrowser();
+
+      // ── ncurses-style progress renderer ────────────────────────────────────
+      interface StatusResp {
+        phase: string;
+        sessions: number;
+        modelDownload: { percent: number; downloadedMB: number; totalMB: number | null };
+        indexing: { indexed: number; total: number; current: string };
+      }
+      const SPINNER = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
+      const BAR_W = 22;
+      const bar = (pct: number) => {
+        const f = Math.min(BAR_W, Math.round(pct * BAR_W / 100));
+        return "█".repeat(f) + "░".repeat(BAR_W - f);
+      };
+
+      let prevLines = 0;
+      let tick = 0;
+
+      const render = (s: StatusResp) => {
+        const { phase, modelDownload: dl, indexing: idx } = s;
+        const sp = SPINNER[tick % SPINNER.length];
+        const modelDone = ["indexing", "ready"].includes(phase);
+        const indexDone = phase === "ready";
+        const indexActive = phase === "indexing";
+        const W = 46;
+        const lines: string[] = [
+          "",
+          `  qrec — setting up`,
+          `  ${"─".repeat(W)}`,
+        ];
+
+        // Step 1: model
+        if (phase === "model_download") {
+          const pct = dl.percent;
+          lines.push(`  ${sp}  [1/3] Downloading model`);
+          lines.push(`        ${bar(pct)}  ${pct}%  (${dl.downloadedMB.toFixed(0)} / ${dl.totalMB?.toFixed(0) ?? "?"} MB)`);
+        } else if (phase === "model_loading") {
+          lines.push(`  ${sp}  [1/3] Loading model into memory…`);
+          lines.push("");
+        } else {
+          lines.push(`  ✓  [1/3] Model ready`);
+          lines.push("");
+        }
+
+        // Step 2: indexing
+        if (!modelDone) {
+          lines.push(`  ·  [2/3] Index sessions`);
+          lines.push("");
+        } else if (indexActive) {
+          const pct = idx.total > 0 ? Math.round(idx.indexed * 100 / idx.total) : 0;
+          lines.push(`  ${sp}  [2/3] Indexing sessions`);
+          lines.push(`        ${bar(pct)}  ${pct}%  (${idx.indexed}/${idx.total})  ${idx.current}`);
+        } else {
+          lines.push(`  ✓  [2/3] Sessions indexed  (${s.sessions} sessions)`);
+          lines.push("");
+        }
+
+        // Step 3: ready
+        if (indexDone) {
+          lines.push(`  ✓  [3/3] Ready  →  http://localhost:3030`);
+        } else {
+          lines.push(`  ·  [3/3] Ready`);
+        }
+
+        lines.push(`  ${"─".repeat(W)}`);
+        lines.push("");
+
+        // Move cursor up and overwrite previous block
+        if (prevLines > 0) process.stdout.write(`\x1b[${prevLines}A`);
+        for (const line of lines) process.stdout.write(`\x1b[2K${line}\n`);
+        prevLines = lines.length;
+      };
+
+      // Poll /status until ready
+      while (true) {
+        try {
+          const r = await fetch("http://localhost:3030/status");
+          if (r.ok) {
+            const s = await r.json() as StatusResp;
+            render(s);
+            if (s.phase === "ready") break;
+          }
+        } catch {}
+        tick++;
+        await Bun.sleep(500);
       }
 
-      console.log("[onboard] Done. qrec is running at http://localhost:3030");
       process.exit(0);
     }
 
