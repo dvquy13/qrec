@@ -26,7 +26,8 @@ src/
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts chunk text
   indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
-  server.ts       # HTTP server (port 3030): binds immediately, loads model in background; /health always 200; /search 503 until ready
+  server.ts       # HTTP server (port 3030): /search /health /status /sessions /audit/entries /debug/log /debug/config; serves UI at / /search /audit /debug; starts listening before model loads; auto-indexes on first run
+  progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
   mcp.ts          # MCP server (stdio + HTTP on 3031): search/get/status tools
   daemon.ts       # PID-file daemon management (~/.qrec/qrec.pid)
   embed/
@@ -53,7 +54,7 @@ scripts/
 
 **Source**: `~/.claude/projects/*/*.jsonl` (default; legacy `~/vault/sessions/*.md` still supported)
 **DB**: `~/.qrec/qrec.db`
-**Model**: `~/.qrec/models/embeddinggemma-300M-Q8_0.gguf`
+**Model**: `~/.qrec/models/` (new installs); legacy `~/.cache/qmd/models/hf_ggml-org_embeddinggemma-300M-Q8_0.gguf` still checked
 
 ## SQLite Schema
 
@@ -94,8 +95,9 @@ qrec index                                  # index ~/.claude/projects/ (default
 qrec index <path>                           # index specific path (.jsonl or dir)
 qrec index-session <path.jsonl>             # index single session (path arg)
 qrec index-session                          # index single session (stdin JSON payload — hook mode)
-qrec serve                                  # start server (foreground, port 3030)
-qrec serve --daemon                         # start as daemon
+qrec serve                                  # start server (foreground, port 3030); auto-opens browser
+qrec serve --daemon                         # start as daemon; auto-opens browser
+qrec serve --daemon --no-open               # start as daemon without opening browser
 qrec stop                                   # stop daemon
 qrec mcp                                    # MCP server (stdio)
 qrec mcp --http                             # MCP server (HTTP, port 3031)
@@ -123,6 +125,10 @@ CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed9
 **contextSize must be set to 8192** — default causes "Input too long" on session transcripts; dense code chunks hit 2000+ tokens at ~2 chars/token.
 
 **Bun quirks**: use `bun:sqlite` (not `better-sqlite3`); use `await Bun.file(path).text()` (not `.toString()` — returns `"[object Promise]"`).
+
+**Model download: use `resolveModelFile`, not `createModelDownloader`** — `createModelDownloader` fetches the HF manifest API which returns 401 on gated models (Gemma is gated). `resolveModelFile` handles this correctly. HF URI must be full form: `hf:<user>/<repo>/<file>` (e.g. `hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf`). Short form without the inner repo path → 401.
+
+**Server starts before model loads** — `Bun.serve()` binds immediately; embedder loads async in background. `/health` returns 200 right away (daemon startup fast). `/search` returns 503 until embedder is ready. Server auto-indexes on first run (sessions=0) after model loads.
 
 ## Conventions
 

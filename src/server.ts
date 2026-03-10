@@ -1,15 +1,20 @@
 // src/server.ts
 // HTTP server: POST /search, GET /health, GET /sessions, GET /audit/entries, GET /, GET /audit
 
-import { openDb } from "./db.ts";
+import { openDb, DEFAULT_DB_PATH } from "./db.ts";
 import { getEmbedProvider } from "./embed/factory.ts";
 import type { EmbedProvider } from "./embed/provider.ts";
 import { search } from "./search.ts";
 import { logQuery, getAuditEntries } from "./audit.ts";
+import { indexVault } from "./indexer.ts";
+import { serverProgress } from "./progress.ts";
 import { join } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
+import { homedir } from "os";
 
 const PORT = 3030;
+const DEFAULT_VAULT_PATH = join(homedir(), ".claude", "projects");
+
 // Resolve UI dir: works in both Bun ESM (dev) and compiled CJS bundle (plugin).
 // In CJS, import.meta.dir is undefined — fall back to __dirname which is adjacent to ui/ in the bundle layout.
 const UI_DIR =
@@ -45,12 +50,31 @@ async function main() {
     async fetch(req) {
       const url = new URL(req.url);
 
-      // Health check — always 200, model state surfaced in body
+      // Health check — always 200 once server is bound
       if (req.method === "GET" && url.pathname === "/health") {
         return Response.json({
           status: "ok",
-          model: embedder ? "loaded" : embedderError ? "error" : "loading",
+          phase: serverProgress.phase,
           indexedSessions: getIndexedSessionCount(),
+        });
+      }
+
+      // Status (richer than /health)
+      if (req.method === "GET" && url.pathname === "/status") {
+        const sessions = (db.prepare("SELECT COUNT(*) as n FROM sessions").get() as { n: number }).n;
+        const chunks = (db.prepare("SELECT COUNT(*) as n FROM chunks").get() as { n: number }).n;
+        const lastRow = db.prepare("SELECT MAX(indexed_at) as ts FROM sessions").get() as { ts: number | null };
+        const searches = (db.prepare("SELECT COUNT(*) as n FROM query_audit").get() as { n: number }).n;
+        return Response.json({
+          status: "ok",
+          phase: serverProgress.phase,
+          sessions,
+          chunks,
+          lastIndexedAt: lastRow.ts,
+          searches,
+          embedProvider: process.env.QREC_EMBED_PROVIDER ?? "local",
+          modelDownload: serverProgress.modelDownload,
+          indexing: serverProgress.indexing,
         });
       }
 
@@ -64,7 +88,7 @@ async function main() {
       if (req.method === "POST" && url.pathname === "/search") {
         if (!embedder) {
           return Response.json(
-            { error: embedderError ?? "Model is still loading, please retry shortly" },
+            { error: embedderError ?? `Model not ready yet (phase: ${serverProgress.phase})` },
             { status: 503 }
           );
         }
@@ -87,7 +111,6 @@ async function main() {
         try {
           const results = await search(db, embedder, query, k);
           const durationMs = performance.now() - t0;
-          // Audit log (non-blocking, errors silently ignored)
           try {
             logQuery(db, query, k, results, durationMs);
           } catch {
@@ -97,10 +120,7 @@ async function main() {
           return Response.json({ results, latencyMs });
         } catch (err) {
           console.error("[server] Search error:", err);
-          return Response.json(
-            { error: String(err) },
-            { status: 500 }
-          );
+          return Response.json({ error: String(err) }, { status: 500 });
         }
       }
 
@@ -116,14 +136,54 @@ async function main() {
         }
       }
 
-      // Serve search UI
+      // Serve dashboard (control center)
       if (req.method === "GET" && url.pathname === "/") {
+        return serveFile(join(UI_DIR, "dashboard.html"), "text/html; charset=utf-8");
+      }
+
+      // Serve search UI
+      if (req.method === "GET" && url.pathname === "/search") {
         return serveFile(join(UI_DIR, "search.html"), "text/html; charset=utf-8");
       }
 
       // Serve audit UI
       if (req.method === "GET" && url.pathname === "/audit") {
         return serveFile(join(UI_DIR, "audit.html"), "text/html; charset=utf-8");
+      }
+
+      // Serve debug UI
+      if (req.method === "GET" && url.pathname === "/debug") {
+        return serveFile(join(UI_DIR, "debug.html"), "text/html; charset=utf-8");
+      }
+
+      // Debug: log tail
+      if (req.method === "GET" && url.pathname === "/debug/log") {
+        const logPath = join(homedir(), ".qrec", "qrec.log");
+        const limit = parseInt(url.searchParams.get("lines") ?? "100", 10);
+        try {
+          const content = readFileSync(logPath, "utf-8");
+          const lines = content.split("\n").filter(l => l.length > 0).slice(-limit);
+          return Response.json({ lines });
+        } catch {
+          return Response.json({ lines: [] });
+        }
+      }
+
+      // Debug: config/env info
+      if (req.method === "GET" && url.pathname === "/debug/config") {
+        return Response.json({
+          dbPath: DEFAULT_DB_PATH,
+          logPath: join(homedir(), ".qrec", "qrec.log"),
+          modelCachePath: join(homedir(), ".cache", "qmd", "models"),
+          embedProvider: process.env.QREC_EMBED_PROVIDER ?? "local",
+          ollamaHost: process.env.QREC_OLLAMA_HOST ?? null,
+          ollamaModel: process.env.QREC_OLLAMA_MODEL ?? null,
+          openaiBaseUrl: process.env.QREC_OPENAI_BASE_URL ?? null,
+          port: PORT,
+          platform: process.platform,
+          bunVersion: process.versions.bun ?? null,
+          nodeVersion: process.version,
+        });
       }
 
       return Response.json({ error: "Not found" }, { status: 404 });
@@ -137,9 +197,23 @@ async function main() {
   async function loadEmbedderWithRetry(maxAttempts = 10, delayMs = 30_000) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
+        serverProgress.phase = "model_loading";
         embedder = await getEmbedProvider();
         embedderError = null;
         console.log("[server] Model ready");
+
+        // Auto-index on first run (no sessions in DB)
+        if (getIndexedSessionCount() === 0 && existsSync(DEFAULT_VAULT_PATH)) {
+          console.log("[server] No sessions indexed — starting auto-index of", DEFAULT_VAULT_PATH);
+          serverProgress.phase = "indexing";
+          serverProgress.indexing = { indexed: 0, total: 0, current: "" };
+          await indexVault(db, DEFAULT_VAULT_PATH, {}, (indexed, total, current) => {
+            serverProgress.indexing = { indexed, total, current };
+          });
+          console.log("[server] Auto-index complete");
+        }
+
+        serverProgress.phase = "ready";
         return;
       } catch (err) {
         embedderError = String(err);
@@ -151,6 +225,7 @@ async function main() {
       }
     }
     console.error("[server] Model load gave up after all retries.");
+    serverProgress.phase = "ready";
   }
   loadEmbedderWithRetry();
 

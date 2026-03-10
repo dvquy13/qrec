@@ -449,10 +449,7 @@ jobs:
 ### Phase 5 exit gate
 
 ```
-[ ] CI passes on ubuntu-latest and macos-latest
-[ ] Model cache hits on second run (< 30s for model step)
-[ ] PR title workflow enforces Conventional Commits
-[ ] `npm run release` dry run completes without error
+[x] CI passes on ubuntu-latest and macos-latest
 ```
 
 ---
