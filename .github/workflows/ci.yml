@@ -86,6 +86,12 @@ jobs:
       - name: Integration test — serve + search + audit
         run: |
           qrec serve --daemon
+          echo "Waiting for server to bind..."
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:3030/health && break
+            echo "  attempt $i: not ready yet, retrying in 1s..."
+            sleep 1
+          done
           curl -sf http://localhost:3030/health
           echo "Waiting for model to load..."
           for i in $(seq 1 24); do
