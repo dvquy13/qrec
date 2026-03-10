@@ -7,10 +7,11 @@ import { homedir } from "os";
 import { existsSync } from "fs";
 import type { EmbedProvider } from "./provider.ts";
 
-const MODEL_FILENAME = "hf_ggml-org_embeddinggemma-300M-Q8_0.gguf";
+const MODEL_FILENAME = "embeddinggemma-300M-Q8_0.gguf";
 const MODEL_PATHS = [
-  join(homedir(), ".cache", "qmd", "models", MODEL_FILENAME),
   join(homedir(), ".qrec", "models", MODEL_FILENAME),
+  // Legacy path from pre-M6 installs
+  join(homedir(), ".cache", "qmd", "models", "hf_ggml-org_embeddinggemma-300M-Q8_0.gguf"),
 ];
 
 // Singleton state
