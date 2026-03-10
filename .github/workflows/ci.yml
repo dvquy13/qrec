@@ -119,4 +119,4 @@ jobs:
 
       # Verify npm distribution: pack → global install → CLI works
       - name: npm distribution path
-        run: npm pack && npm install -g ./qrec-*.tgz && qrec --version
+        run: npm pack && npm install -g ./dvquys-qrec-*.tgz && qrec --version
