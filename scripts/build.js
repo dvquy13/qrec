@@ -12,7 +12,6 @@ await esbuild.build({
   minify: true,
   outfile: "plugin/scripts/qrec.cjs",
   external: ["bun:sqlite", "node-llama-cpp", "sqlite-vec"],
-  banner: { js: "#!/usr/bin/env bun" },
   // Suppress handled import.meta.dir warnings — replaced with CJS __dirname fallback
   logOverride: { "empty-import-meta": "silent" },
 });
