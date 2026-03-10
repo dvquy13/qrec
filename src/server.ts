@@ -1,5 +1,6 @@
 // src/server.ts
-// HTTP server: POST /search, GET /health, GET /sessions, GET /audit/entries, GET /, GET /audit
+// HTTP server: POST /search, GET /health, GET /status, GET /sessions,
+// GET /audit/entries, GET /activity/entries, GET /debug/log, GET /debug/config
 
 import { openDb, DEFAULT_DB_PATH } from "./db.ts";
 import { getEmbedProvider } from "./embed/factory.ts";
@@ -8,6 +9,7 @@ import { search } from "./search.ts";
 import { logQuery, getAuditEntries } from "./audit.ts";
 import { indexVault } from "./indexer.ts";
 import { serverProgress } from "./progress.ts";
+import { appendActivity, getRecentActivity } from "./activity.ts";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
@@ -15,8 +17,10 @@ import { homedir } from "os";
 const PORT = 3030;
 const DEFAULT_VAULT_PATH = join(homedir(), ".claude", "projects");
 
+// Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.
+const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000", 10);
+
 // Resolve UI dir: works in both Bun ESM (dev) and compiled CJS bundle (plugin).
-// In CJS, import.meta.dir is undefined — fall back to __dirname which is adjacent to ui/ in the bundle layout.
 const UI_DIR =
   typeof (import.meta as { dir?: string }).dir === "string"
     ? join((import.meta as { dir: string }).dir, "..", "ui")
@@ -35,10 +39,9 @@ async function main() {
 
   const db = openDb();
 
-  // Embedder loads in background — server binds immediately.
-  // /search returns 503 until ready; /health responds instantly.
   let embedder: EmbedProvider | null = null;
   let embedderError: string | null = null;
+  let isIndexing = false;
 
   function getIndexedSessionCount(): number {
     const row = db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number };
@@ -50,7 +53,6 @@ async function main() {
     async fetch(req) {
       const url = new URL(req.url);
 
-      // Health check — always 200 once server is bound
       if (req.method === "GET" && url.pathname === "/health") {
         return Response.json({
           status: "ok",
@@ -59,7 +61,6 @@ async function main() {
         });
       }
 
-      // Status (richer than /health)
       if (req.method === "GET" && url.pathname === "/status") {
         const sessions = (db.prepare("SELECT COUNT(*) as n FROM sessions").get() as { n: number }).n;
         const chunks = (db.prepare("SELECT COUNT(*) as n FROM chunks").get() as { n: number }).n;
@@ -78,13 +79,11 @@ async function main() {
         });
       }
 
-      // List sessions
       if (req.method === "GET" && url.pathname === "/sessions") {
         const rows = db.prepare("SELECT id FROM sessions").all() as Array<{ id: string }>;
         return Response.json({ sessions: rows.map(r => r.id) });
       }
 
-      // Search — 503 until embedder is ready
       if (req.method === "POST" && url.pathname === "/search") {
         if (!embedder) {
           return Response.json(
@@ -106,16 +105,11 @@ async function main() {
         }
 
         const k = body.k ?? 10;
-
         const t0 = performance.now();
         try {
           const results = await search(db, embedder, query, k);
           const durationMs = performance.now() - t0;
-          try {
-            logQuery(db, query, k, results, durationMs);
-          } catch {
-            // Audit log failure must not affect search response
-          }
+          try { logQuery(db, query, k, results, durationMs); } catch {}
           const latencyMs = results[0]?.latency.totalMs ?? 0;
           return Response.json({ results, latencyMs });
         } catch (err) {
@@ -124,10 +118,8 @@ async function main() {
         }
       }
 
-      // Audit entries
       if (req.method === "GET" && url.pathname === "/audit/entries") {
-        const limitParam = url.searchParams.get("limit");
-        const limit = limitParam ? parseInt(limitParam, 10) : 100;
+        const limit = parseInt(url.searchParams.get("limit") ?? "100", 10);
         try {
           const entries = getAuditEntries(db, limit);
           return Response.json({ entries });
@@ -136,27 +128,22 @@ async function main() {
         }
       }
 
-      // Serve dashboard (control center)
-      if (req.method === "GET" && url.pathname === "/") {
-        return serveFile(join(UI_DIR, "dashboard.html"), "text/html; charset=utf-8");
+      if (req.method === "GET" && url.pathname === "/activity/entries") {
+        const limit = parseInt(url.searchParams.get("limit") ?? "100", 10);
+        const entries = getRecentActivity(limit);
+        return Response.json({ entries });
       }
 
-      // Serve search UI
-      if (req.method === "GET" && url.pathname === "/search") {
-        return serveFile(join(UI_DIR, "search.html"), "text/html; charset=utf-8");
+      // Serve SPA for all UI routes
+      if (req.method === "GET" && (
+        url.pathname === "/" ||
+        url.pathname === "/search" ||
+        url.pathname === "/audit" ||
+        url.pathname === "/debug"
+      )) {
+        return serveFile(join(UI_DIR, "index.html"), "text/html; charset=utf-8");
       }
 
-      // Serve audit UI
-      if (req.method === "GET" && url.pathname === "/audit") {
-        return serveFile(join(UI_DIR, "audit.html"), "text/html; charset=utf-8");
-      }
-
-      // Serve debug UI
-      if (req.method === "GET" && url.pathname === "/debug") {
-        return serveFile(join(UI_DIR, "debug.html"), "text/html; charset=utf-8");
-      }
-
-      // Debug: log tail
       if (req.method === "GET" && url.pathname === "/debug/log") {
         const logPath = join(homedir(), ".qrec", "qrec.log");
         const limit = parseInt(url.searchParams.get("lines") ?? "100", 10);
@@ -169,16 +156,16 @@ async function main() {
         }
       }
 
-      // Debug: config/env info
       if (req.method === "GET" && url.pathname === "/debug/config") {
         return Response.json({
           dbPath: DEFAULT_DB_PATH,
           logPath: join(homedir(), ".qrec", "qrec.log"),
-          modelCachePath: join(homedir(), ".cache", "qmd", "models"),
+          modelCachePath: join(homedir(), ".qrec", "models"),
           embedProvider: process.env.QREC_EMBED_PROVIDER ?? "local",
           ollamaHost: process.env.QREC_OLLAMA_HOST ?? null,
           ollamaModel: process.env.QREC_OLLAMA_MODEL ?? null,
           openaiBaseUrl: process.env.QREC_OPENAI_BASE_URL ?? null,
+          indexIntervalMs: INDEX_INTERVAL_MS,
           port: PORT,
           platform: process.platform,
           bunVersion: process.versions.bun ?? null,
@@ -192,8 +179,39 @@ async function main() {
 
   console.log(`[server] Listening on http://localhost:${PORT}`);
 
-  // Load embedder in background — /search serves 503 until this resolves.
-  // Retries up to 10 times (5 min total) to handle background bun install on first run.
+  appendActivity({ type: "daemon_started" });
+
+  // Run an incremental index scan (fast — mtime pre-filter skips unchanged files).
+  async function runIncrementalIndex() {
+    if (isIndexing || !existsSync(DEFAULT_VAULT_PATH)) return;
+    isIndexing = true;
+    const t0 = Date.now();
+    appendActivity({ type: "index_started" });
+    serverProgress.phase = "indexing";
+    serverProgress.indexing = { indexed: 0, total: 0, current: "" };
+
+    let newSessions = 0;
+    let prevIndexed = 0;
+
+    try {
+      await indexVault(db, DEFAULT_VAULT_PATH, {}, (indexed, total, current) => {
+        serverProgress.indexing = { indexed, total, current };
+        if (current && indexed > prevIndexed) {
+          appendActivity({ type: "session_indexed", data: { sessionId: current } });
+          newSessions++;
+          prevIndexed = indexed;
+        }
+      });
+      appendActivity({ type: "index_complete", data: { newSessions, durationMs: Date.now() - t0 } });
+    } catch (err) {
+      console.error("[server] Index error:", err);
+    } finally {
+      isIndexing = false;
+      serverProgress.phase = "ready";
+    }
+  }
+
+  // Load embedder in background; /search returns 503 until ready.
   async function loadEmbedderWithRetry(maxAttempts = 10, delayMs = 30_000) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
@@ -202,18 +220,14 @@ async function main() {
         embedderError = null;
         console.log("[server] Model ready");
 
-        // Auto-index on first run (no sessions in DB)
-        if (getIndexedSessionCount() === 0 && existsSync(DEFAULT_VAULT_PATH)) {
-          console.log("[server] No sessions indexed — starting auto-index of", DEFAULT_VAULT_PATH);
-          serverProgress.phase = "indexing";
-          serverProgress.indexing = { indexed: 0, total: 0, current: "" };
-          await indexVault(db, DEFAULT_VAULT_PATH, {}, (indexed, total, current) => {
-            serverProgress.indexing = { indexed, total, current };
-          });
-          console.log("[server] Auto-index complete");
-        }
+        // Immediate catchup scan on startup
+        await runIncrementalIndex();
 
         serverProgress.phase = "ready";
+
+        // Schedule periodic incremental scans
+        setInterval(runIncrementalIndex, INDEX_INTERVAL_MS);
+
         return;
       } catch (err) {
         embedderError = String(err);
@@ -229,7 +243,6 @@ async function main() {
   }
   loadEmbedderWithRetry();
 
-  // Handle graceful shutdown
   process.on("SIGTERM", () => {
     console.log("[server] SIGTERM received, shutting down...");
     db.close();

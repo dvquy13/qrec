@@ -8,8 +8,6 @@
   "files": [
     "plugin/scripts/qrec.cjs",
     "plugin/scripts/qrec-cli.js",
-    "plugin/scripts/bun-runner.js",
-    "plugin/scripts/smart-install.js",
     "README.md"
   ],
   "scripts": {

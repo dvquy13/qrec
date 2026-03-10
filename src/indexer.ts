@@ -169,10 +169,15 @@ export async function indexVault(
   const isSingleJsonl = sourcePath.endsWith(".jsonl") && existsSync(sourcePath);
   const isDirectory = !isSingleJsonl && existsSync(sourcePath) && statSync(sourcePath).isDirectory();
 
+  // Build path → indexed_at map for mtime pre-filter
+  const indexedAtByPath = new Map<string, number>();
+  const indexedPathRows = db.prepare("SELECT path, indexed_at FROM sessions").all() as Array<{ path: string; indexed_at: number }>;
+  for (const row of indexedPathRows) indexedAtByPath.set(row.path, row.indexed_at);
+
   let candidates: SessionMeta[] = [];
 
   if (isSingleJsonl) {
-    // Single-file mode (SessionEnd hook)
+    // Single-file mode
     const candidate = await buildJsonlCandidate(sourcePath, MIN_TURNS);
     if (!candidate) {
       console.log("[indexer] Session skipped (too few user turns or empty)");
@@ -183,8 +188,15 @@ export async function indexVault(
     // Detect: prefer JSONL, fallback to .md
     const jsonlFiles = collectJsonlFiles(sourcePath);
     if (jsonlFiles.length > 0) {
-      console.log(`[indexer] Found ${jsonlFiles.length} JSONL files`);
-      const results = await Promise.all(jsonlFiles.map(f => buildJsonlCandidate(f, MIN_TURNS)));
+      // Mtime pre-filter: skip files not modified since last index
+      const filesToCheck = jsonlFiles.filter(f => {
+        const indexedAt = indexedAtByPath.get(f);
+        if (!indexedAt) return true;
+        return statSync(f).mtimeMs >= indexedAt;
+      });
+      const skippedByMtime = jsonlFiles.length - filesToCheck.length;
+      console.log(`[indexer] Found ${jsonlFiles.length} JSONL files (${skippedByMtime} skipped by mtime, ${filesToCheck.length} to check)`);
+      const results = await Promise.all(filesToCheck.map(f => buildJsonlCandidate(f, MIN_TURNS)));
       candidates = results.filter((c): c is SessionMeta => c !== null);
     } else {
       const mdFiles = collectMdFiles(sourcePath);

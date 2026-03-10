@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // src/cli.ts
-// Commands: `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`
+// Commands: qrec onboard, qrec teardown, qrec index, qrec serve [--daemon],
+//           qrec stop, qrec mcp [--http], qrec status
 
 import { openDb } from "./db.ts";
 import { indexVault } from "./indexer.ts";
@@ -8,11 +9,12 @@ import { disposeEmbedder } from "./embed/local.ts";
 import { startDaemon, stopDaemon, getDaemonPid } from "./daemon.ts";
 import { join } from "path";
 import { homedir } from "os";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, rmSync } from "fs";
 
 const [, , command, ...args] = process.argv;
 
 const LOG_FILE = join(homedir(), ".qrec", "qrec.log");
+const QREC_DIR = join(homedir(), ".qrec");
 
 function getLogTail(lines: number = 20): string[] {
   if (!existsSync(LOG_FILE)) return [];
@@ -39,48 +41,106 @@ async function main() {
       process.exit(0);
     }
 
+    case "onboard": {
+      // Sequential first-time setup: model → index → serve → open
+      const noOpen = args.includes("--no-open");
+
+      console.log("[onboard] Step 1/3: Loading embedding model...");
+      console.log("[onboard] (This downloads ~300 MB on first run — subsequent starts are instant)");
+
+      // Load model (downloads if missing, then initializes)
+      const { getEmbedProvider } = await import("./embed/factory.ts");
+      await getEmbedProvider();
+      console.log("[onboard] Model ready.");
+
+      console.log("[onboard] Step 2/3: Indexing sessions...");
+      const vaultPath = join(homedir(), ".claude", "projects");
+      if (!existsSync(vaultPath)) {
+        console.log(`[onboard] No Claude sessions found at ${vaultPath} — skipping index.`);
+      } else {
+        const db = openDb();
+        try {
+          await indexVault(db, vaultPath, {}, (indexed, total) => {
+            if (total > 0) process.stdout.write(`\r[onboard]   ${indexed}/${total} sessions...`);
+          });
+          process.stdout.write("\n");
+        } finally {
+          db.close();
+        }
+      }
+
+      await disposeEmbedder();
+
+      console.log("[onboard] Step 3/3: Starting daemon...");
+      await startDaemon();
+
+      if (!noOpen) {
+        console.log("[onboard] Opening dashboard...");
+        openBrowser();
+      }
+
+      console.log("[onboard] Done. qrec is running at http://localhost:3030");
+      process.exit(0);
+    }
+
+    case "teardown": {
+      const yes = args.includes("--yes");
+
+      await stopDaemon();
+
+      if (!existsSync(QREC_DIR)) {
+        console.log("[teardown] ~/.qrec/ not found, nothing to remove.");
+        process.exit(0);
+      }
+
+      if (!yes) {
+        process.stdout.write(`[teardown] Remove ${QREC_DIR} (DB, model, logs, pid, activity log)? [y/N] `);
+        const answer = await new Promise<string>(resolve => {
+          process.stdin.setEncoding("utf-8");
+          process.stdin.once("data", d => resolve(String(d).trim()));
+        });
+        if (answer.toLowerCase() !== "y") {
+          console.log("[teardown] Aborted.");
+          process.exit(0);
+        }
+      }
+
+      rmSync(QREC_DIR, { recursive: true, force: true });
+      console.log("[teardown] Removed ~/.qrec/");
+      process.exit(0);
+    }
+
     case "index": {
-      const vaultPath = args[0] ?? `${homedir()}/.claude/projects/`;
-      const force = args.includes("--force");
-      const sessionsIdx = args.indexOf("--sessions");
-      const sessions = sessionsIdx !== -1 ? parseInt(args[sessionsIdx + 1], 10) : undefined;
-      const seedIdx = args.indexOf("--seed");
-      const seed = seedIdx !== -1 ? parseInt(args[seedIdx + 1], 10) : undefined;
-      const resolvedPath = vaultPath.replace("~", process.env.HOME ?? "");
+      let resolvedPath: string;
+      let force = false;
+      let sessions: number | undefined;
+      let seed: number | undefined;
+
+      // Stdin JSON payload mode: no args + piped stdin (hook compat)
+      if (!args[0] && !process.stdin.isTTY) {
+        const raw = await Bun.stdin.text();
+        try {
+          const payload = JSON.parse(raw.trim()) as { transcript_path?: string };
+          if (!payload.transcript_path) throw new Error("Missing transcript_path");
+          resolvedPath = payload.transcript_path;
+        } catch (err) {
+          console.error(`[cli] index: failed to parse stdin: ${err}`);
+          process.exit(1);
+        }
+      } else {
+        const vaultPath = args[0] ?? `${homedir()}/.claude/projects/`;
+        force = args.includes("--force");
+        const sessionsIdx = args.indexOf("--sessions");
+        sessions = sessionsIdx !== -1 ? parseInt(args[sessionsIdx + 1], 10) : undefined;
+        const seedIdx = args.indexOf("--seed");
+        seed = seedIdx !== -1 ? parseInt(args[seedIdx + 1], 10) : undefined;
+        resolvedPath = vaultPath.replace("~", process.env.HOME ?? "");
+      }
 
       console.log(`[cli] Indexing: ${resolvedPath}${sessions ? ` (${sessions} sessions, seed=${seed ?? 42})` : ""}`);
       const db = openDb();
       try {
         await indexVault(db, resolvedPath, { force, sessions, seed });
-      } finally {
-        db.close();
-        await disposeEmbedder();
-      }
-      process.exit(0);
-    }
-
-    case "index-session": {
-      // Single-session indexing — called by the SessionEnd hook.
-      // Accepts a path as argument OR reads a JSON payload from stdin.
-      let transcriptPath: string;
-      if (args[0]) {
-        transcriptPath = args[0].replace("~", process.env.HOME ?? "");
-      } else {
-        const raw = await Bun.stdin.text();
-        try {
-          const payload = JSON.parse(raw.trim()) as { transcript_path?: string };
-          if (!payload.transcript_path) throw new Error("Missing transcript_path");
-          transcriptPath = payload.transcript_path;
-        } catch (err) {
-          console.error(`[cli] index-session: failed to parse stdin: ${err}`);
-          process.exit(1);
-        }
-      }
-
-      console.log(`[cli] Indexing session: ${transcriptPath}`);
-      const db = openDb();
-      try {
-        await indexVault(db, transcriptPath, {});
       } finally {
         db.close();
         await disposeEmbedder();
@@ -96,9 +156,7 @@ async function main() {
         await startDaemon();
         if (!noOpen) openBrowser();
       } else {
-        // Open after short delay to let server bind
         if (!noOpen) setTimeout(openBrowser, 1000);
-        // Run server in-process (blocking) — import the server module which starts serving
         await import("./server.ts");
       }
       break;
@@ -159,9 +217,7 @@ async function main() {
         if (tail.length === 0) {
           console.log("(no log entries)");
         } else {
-          for (const line of tail) {
-            console.log(line);
-          }
+          for (const line of tail) console.log(line);
         }
       } finally {
         db.close();
@@ -172,10 +228,11 @@ async function main() {
     default: {
       console.error(`Unknown command: ${command}`);
       console.error("Usage:");
-      console.error("  qrec index [source_path] [--force]         # default: ~/.claude/projects/");
-      console.error("  qrec index-session <path.jsonl>            # index a single session");
-      console.error("  qrec index-session                         # read JSON payload from stdin (hook mode)");
-      console.error("  qrec serve [--daemon]");
+      console.error("  qrec onboard [--no-open]          # first-time setup");
+      console.error("  qrec teardown [--yes]             # remove all qrec data");
+      console.error("  qrec index [path] [--force]       # default: ~/.claude/projects/");
+      console.error("  qrec index                        # stdin JSON {transcript_path} (hook mode)");
+      console.error("  qrec serve [--daemon] [--no-open]");
       console.error("  qrec stop");
       console.error("  qrec mcp [--http]");
       console.error("  qrec status");
