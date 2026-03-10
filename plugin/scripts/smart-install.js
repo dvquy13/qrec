@@ -6,9 +6,10 @@
 //   1. Check/install Bun
 //   2. Check .install-version marker → skip if unchanged
 //   3. bun install in $PLUGIN_ROOT
-//   4. Download model if absent
-//   5. First-time index if DB absent
-//   6. Write .install-version marker
+//   4. bun link → registers ~/.bun/bin/qrec
+//   5. Download model if absent
+//   6. First-time index if DB absent (~/.claude/projects/)
+//   7. Write .install-version marker
 
 "use strict";
 
@@ -21,12 +22,12 @@ const https = require("https");
 const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT || dirname(__dirname);
 const QREC_DIR = join(homedir(), ".qrec");
 const LOG_FILE = join(QREC_DIR, "install.log");
-const MODEL_DIR = join(homedir(), ".cache", "qmd", "models");
-const MODEL_FILENAME = "hf_ggml-org_embeddinggemma-300M-Q8_0.gguf";
+const MODEL_DIR = join(homedir(), ".qrec", "models");
+const MODEL_FILENAME = "embeddinggemma-300M-Q8_0.gguf";
 const MODEL_PATH = join(MODEL_DIR, MODEL_FILENAME);
 const DB_PATH = join(QREC_DIR, "qrec.db");
 const MARKER_FILE = join(PLUGIN_ROOT, ".install-version");
-const VAULT_PATH = join(homedir(), "vault", "sessions");
+const INDEX_PATH = join(homedir(), ".claude", "projects");
 
 // Read plugin version from plugin.json
 function getPluginVersion() {
@@ -123,7 +124,7 @@ function downloadFile(url, destPath) {
     function doRequest(reqUrl) {
       https.get(reqUrl, (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
-          file.close();
+          res.resume(); // drain and discard redirect body — keep file stream open
           doRequest(res.headers.location);
           return;
         }
@@ -207,11 +208,29 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 4: Download model if absent
+  // Step 4: bun link — registers ~/.bun/bin/qrec globally
+  log("Running bun link...");
+  try {
+    const result = spawnSync(bunPath, ["link"], {
+      cwd: PLUGIN_ROOT,
+      encoding: "utf-8",
+      timeout: 30_000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (result.status !== 0) {
+      log(`WARN: bun link failed (non-fatal):\n${result.stderr}`);
+    } else {
+      log("bun link complete. qrec CLI registered at ~/.bun/bin/qrec");
+    }
+  } catch (err) {
+    log(`WARN: bun link threw (non-fatal): ${err.message}`);
+  }
+
+  // Step 5: Download model if absent
   if (!existsSync(MODEL_PATH)) {
     log(`Model not found at ${MODEL_PATH}. Downloading...`);
     const modelUrl =
-      "https://huggingface.co/ggml-org/embeddinggemma-300M-Q8_0/resolve/main/" +
+      "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/main/" +
       MODEL_FILENAME;
     try {
       await downloadFile(modelUrl, MODEL_PATH);
@@ -224,13 +243,13 @@ async function main() {
     log(`Model already present at ${MODEL_PATH}`);
   }
 
-  // Step 5: First-time index if DB absent
+  // Step 6: First-time index if DB absent
   if (!existsSync(DB_PATH)) {
-    if (existsSync(VAULT_PATH)) {
-      log(`DB not found. Indexing vault at ${VAULT_PATH}...`);
+    if (existsSync(INDEX_PATH)) {
+      log(`DB not found. Indexing sessions at ${INDEX_PATH}...`);
       try {
         const qrecCjs = join(PLUGIN_ROOT, "scripts", "qrec.cjs");
-        const result = spawnSync(bunPath, ["run", qrecCjs, "index", VAULT_PATH], {
+        const result = spawnSync(bunPath, ["run", qrecCjs, "index", INDEX_PATH], {
           encoding: "utf-8",
           timeout: 600_000,
           stdio: ["ignore", "pipe", "pipe"],
@@ -245,13 +264,13 @@ async function main() {
         log(`WARN: Initial index threw: ${err.message}`);
       }
     } else {
-      log(`Vault not found at ${VAULT_PATH}. Skipping initial index.`);
+      log(`No sessions found at ${INDEX_PATH}. Skipping initial index.`);
     }
   } else {
     log("DB already exists. Skipping initial index.");
   }
 
-  // Step 6: Write marker
+  // Step 7: Write marker
   writeMarker(pluginVersion, bunVersion);
   log("Setup complete.");
 }

@@ -3,6 +3,7 @@
 
 import { openDb } from "./db.ts";
 import { getEmbedProvider } from "./embed/factory.ts";
+import type { EmbedProvider } from "./embed/provider.ts";
 import { search } from "./search.ts";
 import { logQuery, getAuditEntries } from "./audit.ts";
 import { join } from "path";
@@ -28,26 +29,27 @@ async function main() {
   console.log("[server] Starting qrec server...");
 
   const db = openDb();
-  const embedder = await getEmbedProvider();
 
-  // Get indexed session count for health endpoint
+  // Embedder loads in background — server binds immediately.
+  // /search returns 503 until ready; /health responds instantly.
+  let embedder: EmbedProvider | null = null;
+  let embedderError: string | null = null;
+
   function getIndexedSessionCount(): number {
     const row = db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number };
     return row.count;
   }
-
-  console.log(`[server] Listening on http://localhost:${PORT}`);
 
   const server = Bun.serve({
     port: PORT,
     async fetch(req) {
       const url = new URL(req.url);
 
-      // Health check
+      // Health check — always 200, model state surfaced in body
       if (req.method === "GET" && url.pathname === "/health") {
         return Response.json({
           status: "ok",
-          model: "loaded",
+          model: embedder ? "loaded" : embedderError ? "error" : "loading",
           indexedSessions: getIndexedSessionCount(),
         });
       }
@@ -58,8 +60,15 @@ async function main() {
         return Response.json({ sessions: rows.map(r => r.id) });
       }
 
-      // Search
+      // Search — 503 until embedder is ready
       if (req.method === "POST" && url.pathname === "/search") {
+        if (!embedder) {
+          return Response.json(
+            { error: embedderError ?? "Model is still loading, please retry shortly" },
+            { status: 503 }
+          );
+        }
+
         let body: { query?: string; k?: number };
         try {
           body = await req.json();
@@ -120,6 +129,19 @@ async function main() {
       return Response.json({ error: "Not found" }, { status: 404 });
     },
   });
+
+  console.log(`[server] Listening on http://localhost:${PORT}`);
+
+  // Load embedder in background — /search serves 503 until this resolves
+  getEmbedProvider()
+    .then(e => {
+      embedder = e;
+      console.log("[server] Model ready");
+    })
+    .catch(err => {
+      embedderError = String(err);
+      console.error("[server] Model load failed:", err);
+    });
 
   // Handle graceful shutdown
   process.on("SIGTERM", () => {

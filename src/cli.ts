@@ -27,6 +27,12 @@ function getLogTail(lines: number = 20): string[] {
 
 async function main() {
   switch (command) {
+    case "--version":
+    case "-v": {
+      console.log(`qrec ${__QREC_VERSION__}`);
+      process.exit(0);
+    }
+
     case "index": {
       const vaultPath = args[0] ?? `${homedir()}/.claude/projects/`;
       const force = args.includes("--force");
