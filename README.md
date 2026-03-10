@@ -6,44 +6,31 @@ Purpose-built session recall engine for Claude Code. Keeps an embedding model re
 
 ## Install
 
-### Claude Code plugin (recommended)
-
-```bash
-/plugin marketplace add dvquy13/qrec
-/plugin install qrec@dvquy13-qrec
-```
-
-Restart Claude Code. On the first session start, everything runs automatically:
-- Installs Bun if missing
-- Downloads the embedding model (~313MB, once)
-- Indexes your sessions at `~/.claude/projects/`
-- Starts the daemon at `http://localhost:3030`
-
-### npm (CLI / CI)
+### npm (recommended)
 
 ```bash
 npm install -g qrec
-qrec index
-qrec serve --daemon
+qrec onboard
 ```
+
+`qrec onboard` handles everything in one step: downloads the embedding model (~313 MB, once), indexes your Claude sessions, and starts the daemon. Your browser opens automatically to show live progress.
 
 ### Local dev
 
 ```bash
 bun install
-bun link   # registers qrec globally → ~/.bun/bin/qrec
+bun link        # register qrec globally → ~/.bun/bin/qrec
+qrec onboard
 ```
 
 ## Usage
 
-Once the daemon is running, open **http://localhost:3030** — the onboarding dashboard walks you through the first-run setup and then becomes the search interface.
+The daemon runs at **http://localhost:3030**. Open it in your browser to search sessions and monitor indexing activity.
 
-### Search UI
-
-| URL | Description |
-|---|---|
-| `http://localhost:3030/` | Dashboard / onboarding + search |
-| `http://localhost:3030/audit` | Query audit log |
+```bash
+qrec status     # check if daemon is running
+qrec stop       # stop the daemon
+```
 
 ### API
 
@@ -82,13 +69,13 @@ Tools: `search(query, k?)`, `get(session_id)`, `status()`
 
 | Command | Description |
 |---|---|
-| `qrec index [path]` | Index sessions (default: `~/.claude/projects/`) |
-| `qrec index-session <path.jsonl>` | Index a single session file |
+| `qrec onboard` | First-time setup: model download + index + start daemon + open browser |
+| `qrec teardown` | Stop daemon and remove all qrec data (`~/.qrec/`) |
+| `qrec index [path]` | Re-index sessions (default: `~/.claude/projects/`) |
 | `qrec serve [--daemon]` | Start HTTP server on port 3030 |
 | `qrec stop` | Stop daemon |
-| `qrec mcp [--http]` | Start MCP server |
+| `qrec mcp [--http]` | Start MCP server (stdio or HTTP) |
 | `qrec status` | Status summary + log tail |
-| `qrec --version` | Print version |
 
 ## Stack
 
