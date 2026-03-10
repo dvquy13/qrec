@@ -51,6 +51,20 @@ The short form hits the HF manifest API which requires auth. The full form resol
 
 All other commands (stdin pipe mode for `qrec index`, etc.) buffer stdin before spawning bun to avoid Linux libuv pipe crashes.
 
+## npm publish gotchas
+
+Package name is **`@dvquys/qrec`** (scoped). Three things that will bite you:
+
+**`--access public` is required** — scoped packages default to private on npm. `release.sh` already includes this; don't remove it.
+
+**Granular token scope** — a token scoped to `@dvquys` covers `@dvquys/*` packages only. It will NOT work for unscoped packages. `@dvquys/qrec` is covered; a plain `qrec` package would not be.
+
+**Auth method** — `npm publish --_authToken=<token>` silently fails. Use the env var form:
+```bash
+NPM_TOKEN=<token> npm publish --access public
+```
+Or set in `~/.npmrc`: `//registry.npmjs.org/:_authToken=<token>`
+
 ## Plugin skills: disable-model-invocation
 
 `disable-model-invocation: true` in a skill's frontmatter **hides the skill from Claude entirely** — the skill description is not loaded into context and Claude cannot auto-invoke it. Only the user can trigger it manually with `/skill-name`.
