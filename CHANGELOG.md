@@ -1,3 +1,9 @@
+## [0.1.4](https://github.com/dvquy13/qrec/compare/v0.1.3...v0.1.4) (2026-03-10)
+
+
+### Features
+
+* **ui:** add control center dashboard with automated onboarding and progress tracking ([8ff2773](https://github.com/dvquy13/qrec/commit/8ff27734872759d78ba2bb148d38e4609b5e9a70))
 ## [0.1.3](https://github.com/dvquy13/qrec/compare/v0.1.2...v0.1.3) (2026-03-10)
 
 
