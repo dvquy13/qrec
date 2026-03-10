@@ -70,7 +70,7 @@ fi
 
 # 8. Publish to npm
 echo "[release] Publishing to npm..."
-npm publish
+npm publish --access public
 echo "[release] npm publish complete."
 
 echo "[release] Done. v${VERSION} released."
