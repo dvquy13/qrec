@@ -132,16 +132,27 @@ async function main() {
 
   console.log(`[server] Listening on http://localhost:${PORT}`);
 
-  // Load embedder in background — /search serves 503 until this resolves
-  getEmbedProvider()
-    .then(e => {
-      embedder = e;
-      console.log("[server] Model ready");
-    })
-    .catch(err => {
-      embedderError = String(err);
-      console.error("[server] Model load failed:", err);
-    });
+  // Load embedder in background — /search serves 503 until this resolves.
+  // Retries up to 10 times (5 min total) to handle background bun install on first run.
+  async function loadEmbedderWithRetry(maxAttempts = 10, delayMs = 30_000) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        embedder = await getEmbedProvider();
+        embedderError = null;
+        console.log("[server] Model ready");
+        return;
+      } catch (err) {
+        embedderError = String(err);
+        console.error(`[server] Model load failed (attempt ${attempt}/${maxAttempts}):`, err);
+        if (attempt < maxAttempts) {
+          console.log(`[server] Retrying in ${delayMs / 1000}s...`);
+          await Bun.sleep(delayMs);
+        }
+      }
+    }
+    console.error("[server] Model load gave up after all retries.");
+  }
+  loadEmbedderWithRetry();
 
   // Handle graceful shutdown
   process.on("SIGTERM", () => {

@@ -33,7 +33,7 @@ async function findOrDownloadModel(): Promise<string> {
   mkdirSync(targetDir, { recursive: true });
 
   const downloader = await createModelDownloader({
-    modelUri: `hf:ggml-org/embeddinggemma-300M-Q8_0`,
+    modelUri: `hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf`,
     dirPath: targetDir,
   });
 
@@ -70,7 +70,11 @@ export async function disposeEmbedder(): Promise<void> {
 
 export async function getEmbedder(): Promise<EmbedProvider> {
   if (!initPromise) {
-    initPromise = initEmbeddingContext();
+    initPromise = initEmbeddingContext().catch(err => {
+      // Reset so a subsequent call can retry (e.g. after background bun install completes)
+      initPromise = null;
+      throw err;
+    });
   }
 
   if (!embeddingContext) {
