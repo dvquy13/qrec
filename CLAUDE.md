@@ -2,8 +2,6 @@
 
 qrec is a purpose-built session recall engine. It replaces QMD's per-invocation CLI model loading (~2600ms cold start) with a persistent daemon that keeps the embedding model resident in memory (~55ms warm query).
 
-Full spec: `.claude/plans/qrec-plan-v2.md` — read this before starting any work.
-
 ## Stack
 
 | Layer | Choice |
@@ -92,7 +90,7 @@ POST /search {query, k}
 bun link                                    # registers qrec globally → ~/.bun/bin/qrec
 
 # Engine (short form after bun link)
-qrec onboard [--no-open]                    # first-time setup: model → index → daemon → browser
+qrec onboard [--no-open]                    # first-time setup: daemon → browser → (model + index async in background)
 qrec teardown [--yes]                       # stop daemon + remove ~/.qrec/
 qrec index                                  # index ~/.claude/projects/ (default)
 qrec index <path>                           # index specific path (.jsonl or dir)
