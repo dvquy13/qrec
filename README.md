@@ -9,7 +9,7 @@ Purpose-built session recall engine for Claude Code. Keeps an embedding model re
 ### Step 1 — Install the CLI
 
 ```bash
-npm install -g qrec
+npm install -g @dvquys/qrec
 qrec onboard
 ```
 

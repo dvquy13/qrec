@@ -1,5 +1,5 @@
 {
-  "name": "qrec",
+  "name": "@dvquys/qrec",
   "version": "0.2.0",
   "description": "Purpose-built session recall engine — persistent daemon with BM25 + vector hybrid search",
   "bin": {
