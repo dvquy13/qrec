@@ -1,5 +1,7 @@
 import * as esbuild from "esbuild";
-import { mkdirSync, cpSync } from "fs";
+import { mkdirSync, cpSync, readFileSync } from "fs";
+
+const pkg = JSON.parse(readFileSync("package.json", "utf-8"));
 
 mkdirSync("plugin/scripts", { recursive: true });
 mkdirSync("plugin/ui", { recursive: true });
@@ -12,6 +14,7 @@ await esbuild.build({
   minify: true,
   outfile: "plugin/scripts/qrec.cjs",
   external: ["bun:sqlite", "node-llama-cpp", "sqlite-vec"],
+  define: { __QREC_VERSION__: JSON.stringify(pkg.version) },
   // Suppress handled import.meta.dir warnings — replaced with CJS __dirname fallback
   logOverride: { "empty-import-meta": "silent" },
 });
