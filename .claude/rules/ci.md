@@ -40,6 +40,16 @@ Exit code 0 = approved, 2 = blocked. Official Anthropic pattern from `anthropics
 
 Set `QREC_EMBED_PROVIDER: stub` on steps that need fast startup (MCP test). The real model is downloaded + cached by the `smart-install.js` step and used for `serve + search` integration test.
 
+**`qrec serve --daemon` is fire-and-fork** — it exits immediately (bun-runner.js spawns bun detached). Always poll `/health` with retry before running curl assertions:
+
+```bash
+qrec serve --daemon
+for i in $(seq 1 15); do
+  curl -sf http://localhost:3030/health && break
+  sleep 1
+done
+```
+
 For serve+search with real model: server binds immediately but model loads in background. Poll `/search` until 200 before asserting:
 
 ```bash
@@ -66,6 +76,10 @@ Always use `jq -e '.results | length > 0'` not `jq '.results | length'`. Error J
 ```
 
 Key suffix `-v2` was added to bust a corrupt cache entry caused by the redirect bug in `downloadFile()`. Do not revert to `-v1` or un-suffixed.
+
+## bun-runner.js regression test ordering
+
+Any CI step that invokes `bun-runner.js serve --daemon` (regression tests, etc.) must run **after** the integration test that ends with `qrec stop`. Placing it before causes an orphan-daemon race: bun-runner exits immediately (fire-and-fork), `qrec stop` runs before the PID file is written, stop does nothing, the orphan daemon persists, and the integration test sees "already running" — it skips the health poll and curl immediately fails (exit code 7).
 
 ## `downloadFile` redirect handling
 

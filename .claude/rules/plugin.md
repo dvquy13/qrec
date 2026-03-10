@@ -39,6 +39,16 @@ Always use the **full three-part URI**: `hf:<user>/<repo>/<filename>`
 
 The short form hits the HF manifest API which requires auth. The full form resolves directly.
 
+## bun-runner.js: routing and fire-and-fork
+
+`plugin/qrec-cli.js` (the `bin` entry for the `qrec` CLI) splices `run qrec.cjs` into `process.argv` and then `require('./bun-runner.js')`. This means **every `qrec` command** — not just hooks — is routed through `bun-runner.js`. Changes to bun-runner.js affect all `qrec` invocations.
+
+**`serve --daemon` is fire-and-fork** — bun-runner.js detects `args.includes("serve") && args.includes("--daemon")` and spawns bun detached + unrefs + exits 0 immediately, without touching stdin. The daemon starts in the background.
+
+**Consequence**: `qrec serve --daemon` returns before the server is bound. Any caller (CI, scripts) that needs the server ready must poll `/health` with retry — it cannot assume readiness after `qrec serve --daemon` returns.
+
+All other commands (`mcp`, `index-session`, etc.) still use the stdin-buffering path (buffers stdin, waits for EOF, then spawnSync).
+
 ## smart-install.js: background mode
 
 On first run (missing or stale `.install-version` marker), `smart-install.js` **detaches the heavy work** (bun install + model download + initial index) as a background process and exits immediately — so the Claude Code hook returns fast and doesn't block the session.
