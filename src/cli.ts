@@ -34,7 +34,8 @@ async function main() {
   switch (command) {
     case "--version":
     case "-v": {
-      console.log(`qrec ${__QREC_VERSION__}`);
+      const version = typeof __QREC_VERSION__ !== "undefined" ? __QREC_VERSION__ : "(dev)";
+      console.log(`qrec ${version}`);
       process.exit(0);
     }
 
