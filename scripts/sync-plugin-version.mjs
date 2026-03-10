@@ -22,8 +22,13 @@ function updateJson(filePath, updateFn) {
 // Update root package.json
 updateJson("package.json", obj => { obj.version = version; });
 
-// Update marketplace manifest
-updateJson(".claude-plugin/marketplace.json", obj => { obj.version = version; });
+// Update marketplace manifest (top-level version + nested plugins[].version)
+updateJson(".claude-plugin/marketplace.json", obj => {
+  obj.version = version;
+  if (Array.isArray(obj.plugins)) {
+    obj.plugins.forEach(p => { p.version = version; });
+  }
+});
 
 // Update plugin manifest
 updateJson("plugin/.claude-plugin/plugin.json", obj => { obj.version = version; });

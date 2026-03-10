@@ -9,7 +9,7 @@
     {
       "name": "qrec",
       "description": "Session recall engine — persistent daemon with BM25 + vector hybrid search over Claude Code conversation history",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "author": {
         "name": "dvquy13"
       },
