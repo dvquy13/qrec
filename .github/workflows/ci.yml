@@ -81,12 +81,9 @@ jobs:
             | grep -q '"search"'
           echo "MCP tools/list: OK"
 
-      # Uses the qrec CLI registered via bun link. Stub embed keeps startup fast and
-      # avoids model load race — API correctness is what we're testing here.
+      # Uses real model (downloaded + cached by smart-install.js above).
       # Fixture sessions were indexed by smart-install.js so search returns results.
       - name: Integration test — serve + search + audit
-        env:
-          QREC_EMBED_PROVIDER: stub
         run: |
           qrec serve --daemon
           curl -sf http://localhost:3030/health
