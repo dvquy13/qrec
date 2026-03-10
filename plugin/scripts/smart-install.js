@@ -289,8 +289,16 @@ async function main() {
     process.exit(0);
   }
 
-  // First run or update: spawn heavy work in background so this hook returns immediately.
-  // The daemon handles model-not-ready gracefully (retries loading every 30s).
+  // In CI, run synchronously so subsequent steps can rely on installed deps.
+  // In interactive plugin hook context, spawn background so the hook returns immediately
+  // (the daemon handles model-not-ready gracefully with 10x retries, 30s apart).
+  const isCI = process.env.CI === "true" || process.env.CI === "1";
+  if (isCI) {
+    log(`CI detected — running setup synchronously (plugin@${pluginVersion}).`);
+    await runBackground(bunPath, pluginVersion, bunVersion);
+    process.exit(0);
+  }
+
   log(`First-time setup needed (plugin@${pluginVersion}). Spawning background installer...`);
   process.stderr.write(
     "[qrec] First-time setup running in background (installing deps + downloading model).\n" +
