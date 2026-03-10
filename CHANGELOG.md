@@ -1,3 +1,15 @@
+## [0.1.3](https://github.com/dvquy13/qrec/compare/v0.1.2...v0.1.3) (2026-03-10)
+
+
+### Bug Fixes
+
+* **ci:** run smart-install synchronously in CI environment ([6de2e9d](https://github.com/dvquy13/qrec/commit/6de2e9dba650f8a77bd66f12d4b17abb17bb2a93))
+* sync plugins[].version in marketplace.json + fix sync script ([255aaa9](https://github.com/dvquy13/qrec/commit/255aaa9122b11224e26d69fe379f96f9508e202d))
+
+
+### Features
+
+* **skills:** comprehensive qrec skill — auto-invokable, full knowledge base ([6a04993](https://github.com/dvquy13/qrec/commit/6a04993fbfb8e3e01233ace8f4ad5a367bcc1965))
 ## [0.1.2](https://github.com/dvquy13/qrec/compare/v0.1.1...v0.1.2) (2026-03-10)
 
 
