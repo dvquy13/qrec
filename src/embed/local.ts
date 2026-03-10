@@ -1,16 +1,17 @@
 // src/embed/local.ts
 // node-llama-cpp singleton: loads model once, reuses across queries
 
-import { getLlama, LlamaEmbeddingContext, type Llama } from "node-llama-cpp";
+import type { LlamaEmbeddingContext, Llama } from "node-llama-cpp";
 import { join } from "path";
 import { homedir } from "os";
 import { existsSync } from "fs";
 import type { EmbedProvider } from "./provider.ts";
 
-const MODEL_FILENAME = "hf_ggml-org_embeddinggemma-300M-Q8_0.gguf";
+const MODEL_FILENAME = "embeddinggemma-300M-Q8_0.gguf";
 const MODEL_PATHS = [
-  join(homedir(), ".cache", "qmd", "models", MODEL_FILENAME),
   join(homedir(), ".qrec", "models", MODEL_FILENAME),
+  // Legacy path from pre-M6 installs
+  join(homedir(), ".cache", "qmd", "models", "hf_ggml-org_embeddinggemma-300M-Q8_0.gguf"),
 ];
 
 // Singleton state
@@ -48,6 +49,7 @@ async function initEmbeddingContext(): Promise<LlamaEmbeddingContext> {
   const modelPath = await findOrDownloadModel();
   console.log(`[embed] Loading model from ${modelPath}`);
 
+  const { getLlama } = await import("node-llama-cpp");
   llamaInstance = await getLlama();
   const model = await llamaInstance.loadModel({ modelPath });
   const ctx = await model.createEmbeddingContext({ contextSize: 8192 });
