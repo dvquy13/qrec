@@ -81,12 +81,20 @@ jobs:
             | grep -q '"search"'
           echo "MCP tools/list: OK"
 
-      # Uses real model (downloaded + cached by smart-install.js above).
-      # Fixture sessions were indexed by smart-install.js so search returns results.
+      # Uses real model. Server now binds immediately (Bun.serve before getEmbedProvider),
+      # so /health responds at once. Poll /search until model is ready (exits 503 while loading).
       - name: Integration test — serve + search + audit
         run: |
           qrec serve --daemon
           curl -sf http://localhost:3030/health
+          echo "Waiting for model to load..."
+          for i in $(seq 1 24); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:3030/search \
+              -H 'Content-Type: application/json' -d '{"query":"sqlite","k":3}')
+            [ "$status" = "200" ] && break
+            echo "  attempt $i: status=$status, retrying in 5s..."
+            sleep 5
+          done
           curl -sf -X POST http://localhost:3030/search \
             -H 'Content-Type: application/json' \
             -d '{"query":"sqlite","k":3}' | jq '.results | length'
