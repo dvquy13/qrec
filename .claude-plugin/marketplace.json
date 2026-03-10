@@ -16,5 +16,6 @@
       "source": "./plugin",
       "category": "productivity"
     }
-  ]
+  ],
+  "version": "0.1.1"
 }

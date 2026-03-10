@@ -1,3 +1,9 @@
+## [0.1.1](https://github.com/dvquy13/qrec/compare/v0.1.0...v0.1.1) (2026-03-10)
+
+
+### Bug Fixes
+
+* correct marketplace.json schema — owner as object, add plugins array ([c8bb94d](https://github.com/dvquy13/qrec/commit/c8bb94d5d3642ba47e50125e85f08dcccec16adb))
 # 0.1.0 (2026-03-10)
 
 
