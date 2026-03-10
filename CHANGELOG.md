@@ -1,3 +1,9 @@
+## [0.1.5](https://github.com/dvquy13/qrec/compare/v0.1.4...v0.1.5) (2026-03-10)
+
+
+### Bug Fixes
+
+* bun-runner.js stdin hang causes SessionStart hook error ([75af8fb](https://github.com/dvquy13/qrec/commit/75af8fb555ccd2f16620549bf8627f8e64fb92e0))
 ## [0.1.4](https://github.com/dvquy13/qrec/compare/v0.1.3...v0.1.4) (2026-03-10)
 
 
