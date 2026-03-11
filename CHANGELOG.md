@@ -1,3 +1,9 @@
+## [0.2.3](https://github.com/dvquy13/qrec/compare/v0.2.2...v0.2.3) (2026-03-11)
+
+
+### Bug Fixes
+
+* pass TTY stdin through to bun child in qrec-cli.js ([cf36eb6](https://github.com/dvquy13/qrec/commit/cf36eb61841178b9c3d74f04fdc407c89e962919))
 ## [0.2.2](https://github.com/dvquy13/qrec/compare/v0.2.1...v0.2.2) (2026-03-11)
 
 
