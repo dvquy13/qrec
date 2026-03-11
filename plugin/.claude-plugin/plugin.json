@@ -3,6 +3,13 @@
   "version": "0.2.3",
   "description": "qrec session recall engine",
   "skills": [
-    "./skills/qrec"
-  ]
+    "./skills/qrec",
+    "./skills/recall"
+  ],
+  "mcpServers": {
+    "qrec": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/qrec-mcp.js"]
+    }
+  }
 }

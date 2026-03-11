@@ -65,6 +65,27 @@ NPM_TOKEN=<token> npm publish --access public
 ```
 Or set in `~/.npmrc`: `//registry.npmjs.org/:_authToken=<token>`
 
+## Plugin MCP bundle (`qrec-mcp.cjs`)
+
+**Use `qrec-mcp.cjs`, never `qrec.cjs`, for the plugin MCP process.**
+
+`qrec.cjs` is built from `src/cli.ts` which imports `db.ts` → `sqlite-vec` at module load. `sqlite-vec` then requires its platform sibling (`sqlite-vec-darwin-arm64`), which bun cannot resolve in the plugin cache (no `node_modules`). The process crashes on startup.
+
+`qrec-mcp.cjs` is built from `src/mcp-entry.ts` — pure JS, proxies all tool calls to the daemon over HTTP at `localhost:3030`. No native deps.
+
+**Rule**: any plugin bun script must either bundle ALL its dependencies or use only bun built-ins + Node.js core. Do not rely on bun's global module cache for packages with platform-specific optional deps.
+
+**Entry file must call the function** — `src/mcp.ts` only exports `runMcpServer()`. A bundle built directly from `mcp.ts` starts, defines the function, and exits silently. `src/mcp-entry.ts` exists solely to call `runMcpServer()` and is the esbuild entry point for `qrec-mcp.cjs`.
+
+**`bun-finder.js` is shared** — `plugin/scripts/bun-finder.js` provides `findBun()` used by both `qrec-cli.js` and `qrec-mcp.js`. Edit once, not twice.
+
+**Debugging MCP connection failures:**
+- `~/.claude/debug/<session-id>.txt` — grep for `MCP server "plugin:qrec:qrec"` and `Server stderr:`
+- `claude --debug` — prints real-time to terminal stderr
+- Test shim manually: `echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | node plugin/scripts/qrec-mcp.js`
+
+**`--no-open` in hooks.json** — `qrec serve --daemon --no-open` prevents the browser from auto-opening on every `SessionStart` hook fire. Always keep `--no-open` in the hook command.
+
 ## Plugin skills: disable-model-invocation
 
 `disable-model-invocation: true` in a skill's frontmatter **hides the skill from Claude entirely** — the skill description is not loaded into context and Claude cannot auto-invoke it. Only the user can trigger it manually with `/skill-name`.

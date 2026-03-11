@@ -51,15 +51,13 @@ qrec status                          # health + session/chunk counts + log tail
 qrec serve --daemon                  # start HTTP server in background
 qrec stop                            # stop daemon
 qrec index [path]                    # index path (default: ~/.claude/projects/)
-qrec index-session <path.jsonl>      # index a single session file
 qrec mcp [--http]                    # MCP server (stdio or port 3031)
 qrec --version
 ```
 
-If `qrec` is not in PATH yet (background install still running), use the full path:
+If `qrec` is not in PATH yet, use the full path:
 ```bash
-node $CLAUDE_PLUGIN_ROOT/scripts/bun-runner.js \
-     $CLAUDE_PLUGIN_ROOT/scripts/qrec.cjs <command>
+node $CLAUDE_PLUGIN_ROOT/scripts/qrec-cli.js <command>
 ```
 
 ## HTTP API (port 3030)

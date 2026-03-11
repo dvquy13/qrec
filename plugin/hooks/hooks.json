@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "qrec serve --daemon",
+            "command": "qrec serve --daemon --no-open",
             "timeout": 60
           }
         ]

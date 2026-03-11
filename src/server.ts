@@ -8,7 +8,7 @@ import type { EmbedProvider } from "./embed/provider.ts";
 import { search } from "./search.ts";
 import { logQuery, getAuditEntries } from "./audit.ts";
 import { indexVault } from "./indexer.ts";
-import { parseSession } from "./parser.ts";
+import { parseSession, renderMarkdown } from "./parser.ts";
 import { serverProgress } from "./progress.ts";
 import { appendActivity, getRecentActivity } from "./activity.ts";
 import { join } from "path";
@@ -91,6 +91,26 @@ async function main() {
           .all() as Array<{ id: string; title: string | null; project: string; date: string; indexed_at: number }>;
         const total = (db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number }).count;
         return Response.json({ sessions: rows, total });
+      }
+
+      if (req.method === "GET" && url.pathname.startsWith("/sessions/") && url.pathname.endsWith("/markdown")) {
+        const id = url.pathname.slice("/sessions/".length, -"/markdown".length);
+        if (!id) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
+        const row = db
+          .prepare("SELECT path FROM sessions WHERE id = ?")
+          .get(id) as { path: string } | null;
+        if (!row) {
+          return new Response("Session not found", { status: 404 });
+        }
+        try {
+          const parsed = await parseSession(row.path);
+          return new Response(renderMarkdown(parsed), { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        } catch (err) {
+          console.error("[server] Failed to render session markdown:", err);
+          return new Response(String(err), { status: 500 });
+        }
       }
 
       if (req.method === "GET" && url.pathname.startsWith("/sessions/")) {
