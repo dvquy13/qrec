@@ -1,3 +1,10 @@
+## [0.2.2](https://github.com/dvquy13/qrec/compare/v0.2.1...v0.2.2) (2026-03-11)
+
+
+### Bug Fixes
+
+* **ci:** update /sessions jq query for new metadata response format ([7d1731f](https://github.com/dvquy13/qrec/commit/7d1731fcf77474603fbb5cc4cf7bc5f1249a1b5b))
+* inline ui/index.html into CJS bundle at build time ([68f59da](https://github.com/dvquy13/qrec/commit/68f59dac79d5102ab5a236b014613c294520663e))
 ## [0.2.1](https://github.com/dvquy13/qrec/compare/v0.2.0...v0.2.1) (2026-03-11)
 
 
