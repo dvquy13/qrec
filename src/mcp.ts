@@ -44,6 +44,19 @@ async function daemonHealth(): Promise<unknown> {
   return res.json();
 }
 
+async function daemonQueryDb(sql: string): Promise<unknown> {
+  const res = await fetch(`${DAEMON_BASE}/query_db`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `Daemon returned ${res.status}`);
+  }
+  return res.json();
+}
+
 function isDaemonDown(err: unknown): boolean {
   const msg = String(err);
   return (
@@ -86,6 +99,31 @@ const TOOLS = [
       properties: {},
     },
   },
+  {
+    name: "query_db",
+    description: `Run a read-only SQL SELECT query against the qrec SQLite database.
+Use for structured/temporal/project questions (dates, project names, counts, listings).
+Prefer over search when the question is about: dates, project names, counts, or listing sessions.
+
+Schema:
+  sessions(id TEXT, path TEXT, project TEXT, date TEXT, title TEXT, hash TEXT, indexed_at INTEGER)
+  chunks(id TEXT, session_id TEXT, seq INTEGER, pos INTEGER, text TEXT, created_at INTEGER)
+  query_audit(id INTEGER, query TEXT, k INTEGER, result_count INTEGER, top_session_id TEXT, top_score REAL, duration_ms REAL, created_at INTEGER)
+
+Only SELECT statements. No semicolons.
+
+Examples:
+  SELECT id, title, project, date FROM sessions WHERE date = '2026-03-11' ORDER BY indexed_at DESC
+  SELECT project, COUNT(*) as sessions FROM sessions GROUP BY project ORDER BY sessions DESC
+  SELECT id, title, date FROM sessions WHERE project = 'qrec' ORDER BY date DESC LIMIT 10`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        sql: { type: "string", description: "A read-only SELECT SQL query" },
+      },
+      required: ["sql"],
+    },
+  },
 ];
 
 type MCPResult = { content: [{ type: "text"; text: string }]; isError?: true };
@@ -118,6 +156,12 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
 
   if (name === "status") {
     return callDaemon(daemonHealth, (d) => JSON.stringify(d));
+  }
+
+  if (name === "query_db") {
+    const sql = String(args?.sql ?? "").trim();
+    if (!sql) return mcpError("Missing required field: sql");
+    return callDaemon(() => daemonQueryDb(sql), (d) => JSON.stringify(d));
   }
 
   return mcpError(`Unknown tool: ${name}`);

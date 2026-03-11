@@ -104,6 +104,9 @@ function migrate(db: Database): void {
       indexed_at  INTEGER NOT NULL
     );
 
+    CREATE INDEX IF NOT EXISTS idx_sessions_date    ON sessions(date);
+    CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project);
+
     CREATE TABLE IF NOT EXISTS query_cache (
       query_hash  TEXT PRIMARY KEY,
       embedding   BLOB NOT NULL,

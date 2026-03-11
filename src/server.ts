@@ -173,6 +173,21 @@ async function main() {
         }
       }
 
+      if (req.method === "POST" && url.pathname === "/query_db") {
+        let body: { sql?: string };
+        try { body = await req.json(); } catch { return Response.json({ error: "Invalid JSON body" }, { status: 400 }); }
+        const sql = body.sql?.trim() ?? "";
+        if (!sql) return Response.json({ error: "Missing required field: sql" }, { status: 400 });
+        if (!sql.toUpperCase().startsWith("SELECT")) return Response.json({ error: "Only SELECT queries are allowed" }, { status: 400 });
+        if (sql.includes(";")) return Response.json({ error: "Semicolons are not allowed (no statement stacking)" }, { status: 400 });
+        try {
+          const rows = db.prepare(sql).all() as Array<Record<string, unknown>>;
+          return Response.json({ rows, count: rows.length });
+        } catch (err) {
+          return Response.json({ error: String(err) }, { status: 500 });
+        }
+      }
+
       if (req.method === "GET" && url.pathname === "/audit/entries") {
         const limit = parseInt(url.searchParams.get("limit") ?? "100", 10);
         try {

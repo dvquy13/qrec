@@ -24,10 +24,10 @@ src/
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts thinking blocks (Turn.thinking: string[]), extracts chunk text
   indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store; mtime pre-filter skips unchanged files
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
-  server.ts       # HTTP server (port 3030): /search /health /status /sessions /sessions/:id /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms)
+  server.ts       # HTTP server (port 3030): /search /query_db /health /status /sessions /sessions/:id /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms)
   progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
   activity.ts     # Append-only event log (~/.qrec/activity.jsonl); events: daemon_started|index_started|session_indexed|index_complete
-  mcp.ts          # MCP server (stdio + HTTP on 3031): proxies search/get/status to daemon at localhost:3030; no model/DB loaded
+  mcp.ts          # MCP server (stdio + HTTP on 3031): proxies search/get/status/query_db to daemon at localhost:3030; no model/DB loaded
   mcp-entry.ts    # Standalone entry point for qrec-mcp.cjs bundle — calls runMcpServer() (mcp.ts only exports it)
   daemon.ts       # PID-file daemon management (~/.qrec/qrec.pid)
   embed/
