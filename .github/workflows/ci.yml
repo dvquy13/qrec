@@ -95,7 +95,7 @@ jobs:
           echo "Cron: waiting up to 20s for incremental index to pick up new session..."
           for i in $(seq 1 4); do
             sleep 5
-            found=$(curl -sf http://localhost:3030/sessions | jq '[.sessions[] | select(. == "f1f1f1f1")] | length')
+            found=$(curl -sf http://localhost:3030/sessions | jq '[.sessions[] | select(.id == "f1f1f1f1")] | length')
             if [ "$found" = "1" ]; then
               echo "Cron: new session f1f1f1f1 indexed after ~$((i * 5))s — OK"
               break
