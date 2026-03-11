@@ -21,10 +21,10 @@ src/
   cli.ts          # Entry: `qrec onboard`, `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
   chunk.ts        # Heading-aware markdown chunker (~900 tokens/chunk, 15% overlap)
-  parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts chunk text
+  parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts thinking blocks (Turn.thinking: string[]), extracts chunk text
   indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store; mtime pre-filter skips unchanged files
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
-  server.ts       # HTTP server (port 3030): /search /health /status /sessions /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms)
+  server.ts       # HTTP server (port 3030): /search /health /status /sessions /sessions/:id /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms)
   progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
   activity.ts     # Append-only event log (~/.qrec/activity.jsonl); events: daemon_started|index_started|session_indexed|index_complete
   mcp.ts          # MCP server (stdio + HTTP on 3031): search/get/status tools
@@ -47,6 +47,8 @@ eval/
     results/      # Per-run JSON + HTML results
   cache/
     cache.json    # Silver cache: keyed on query_gen_fingerprint + session_body_hash
+ui/
+  index.html      # SPA: dashboard/search/sessions/activity/debug tabs + session detail (#session/:id); hash routing; marked.js for markdown; served fresh on every request (browser refresh picks up changes — no server restart needed)
 scripts/
   reset.sh        # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
 ```

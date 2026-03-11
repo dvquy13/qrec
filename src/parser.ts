@@ -19,6 +19,7 @@ export interface Turn {
   role: "user" | "assistant";
   text: string;          // clean extracted text
   tools: string[];       // ["Bash: `ls /foo`", "Read: `/path/to/file`"]
+  thinking: string[];    // extracted thinking blocks (extended thinking)
   timestamp: string | null;
 }
 
@@ -76,18 +77,20 @@ function extractUserContent(
   return { text: parts.join("\n").trim(), isToolResult: false };
 }
 
-/** Extract text + tool summaries from assistant content blocks. */
+/** Extract text, tool summaries, and thinking blocks from assistant content. */
 function extractAssistantContent(
   content: unknown
-): { text: string; tools: string[] } {
-  if (!Array.isArray(content)) return { text: "", tools: [] };
+): { text: string; tools: string[]; thinking: string[] } {
+  if (!Array.isArray(content)) return { text: "", tools: [], thinking: [] };
 
   const textParts: string[] = [];
   const tools: string[] = [];
+  const thinking: string[] = [];
 
   for (const block of content as Array<{
     type?: string;
     text?: string;
+    thinking?: string;
     name?: string;
     input?: Record<string, unknown>;
   }>) {
@@ -96,11 +99,13 @@ function extractAssistantContent(
       if (t) textParts.push(t);
     } else if (block?.type === "tool_use" && block.name) {
       tools.push(summarizeTool(block.name, block.input ?? {}));
+    } else if (block?.type === "thinking" && typeof block.thinking === "string") {
+      const t = block.thinking.trim();
+      if (t) thinking.push(t);
     }
-    // thinking blocks → skip
   }
 
-  return { text: textParts.join("\n").trim(), tools };
+  return { text: textParts.join("\n").trim(), tools, thinking };
 }
 
 // ---------------------------------------------------------------------------
@@ -169,13 +174,13 @@ export async function parseSession(jsonlPath: string): Promise<ParsedSession> {
       if (!title) {
         title = text.slice(0, 120);
       }
-      turns.push({ role: "user", text, tools: [], timestamp: line.timestamp ?? null });
+      turns.push({ role: "user", text, tools: [], thinking: [], timestamp: line.timestamp ?? null });
     }
 
     if (msg.role === "assistant" && line.type === "assistant") {
-      const { text, tools } = extractAssistantContent(msg.content);
-      if (!text && tools.length === 0) continue;
-      turns.push({ role: "assistant", text, tools, timestamp: line.timestamp ?? null });
+      const { text, tools, thinking } = extractAssistantContent(msg.content);
+      if (!text && tools.length === 0 && thinking.length === 0) continue;
+      turns.push({ role: "assistant", text, tools, thinking, timestamp: line.timestamp ?? null });
     }
   }
 

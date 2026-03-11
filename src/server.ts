@@ -8,6 +8,7 @@ import type { EmbedProvider } from "./embed/provider.ts";
 import { search } from "./search.ts";
 import { logQuery, getAuditEntries } from "./audit.ts";
 import { indexVault } from "./indexer.ts";
+import { parseSession } from "./parser.ts";
 import { serverProgress } from "./progress.ts";
 import { appendActivity, getRecentActivity } from "./activity.ts";
 import { join } from "path";
@@ -80,8 +81,37 @@ async function main() {
       }
 
       if (req.method === "GET" && url.pathname === "/sessions") {
-        const rows = db.prepare("SELECT id FROM sessions").all() as Array<{ id: string }>;
-        return Response.json({ sessions: rows.map(r => r.id) });
+        const rows = db
+          .prepare("SELECT id, title, project, date, indexed_at FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT 100")
+          .all() as Array<{ id: string; title: string | null; project: string; date: string; indexed_at: number }>;
+        const total = (db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number }).count;
+        return Response.json({ sessions: rows, total });
+      }
+
+      if (req.method === "GET" && url.pathname.startsWith("/sessions/")) {
+        const id = url.pathname.slice("/sessions/".length);
+        if (!id || id.includes("/")) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
+        const row = db
+          .prepare("SELECT id, title, project, date, path FROM sessions WHERE id = ?")
+          .get(id) as { id: string; title: string | null; project: string; date: string; path: string } | null;
+        if (!row) {
+          return Response.json({ error: "Session not found" }, { status: 404 });
+        }
+        try {
+          const parsed = await parseSession(row.path);
+          return Response.json({
+            id: row.id,
+            title: row.title,
+            project: row.project,
+            date: row.date,
+            turns: parsed.turns,
+          });
+        } catch (err) {
+          console.error("[server] Failed to parse session:", err);
+          return Response.json({ error: String(err) }, { status: 500 });
+        }
       }
 
       if (req.method === "POST" && url.pathname === "/search") {
