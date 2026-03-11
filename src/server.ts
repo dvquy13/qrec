@@ -21,18 +21,23 @@ const DEFAULT_VAULT_PATH = join(homedir(), ".claude", "projects");
 // Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.
 const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000", 10);
 
-// Resolve UI dir: works in both Bun ESM (dev) and compiled CJS bundle (plugin).
-const UI_DIR =
-  typeof (import.meta as { dir?: string }).dir === "string"
-    ? join((import.meta as { dir: string }).dir, "..", "ui")
-    : join(__dirname, "..", "ui");
+// In the compiled CJS bundle, __UI_HTML__ is injected by esbuild at build time.
+// In Bun dev mode the constant is undefined, so we fall back to reading from disk (live reload).
+declare const __UI_HTML__: string | undefined;
 
-async function serveFile(filePath: string, contentType: string): Promise<Response> {
-  if (!existsSync(filePath)) {
-    return Response.json({ error: "Not found" }, { status: 404 });
+const UI_HTML_INLINE: string | null = typeof __UI_HTML__ !== "undefined" ? __UI_HTML__ : null;
+const UI_HTML_PATH = join((import.meta as { dir?: string }).dir ?? __dirname, "..", "ui", "index.html");
+
+async function serveUiHtml(): Promise<Response> {
+  if (UI_HTML_INLINE !== null) {
+    return new Response(UI_HTML_INLINE, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }
-  const content = await Bun.file(filePath).text();
-  return new Response(content, { headers: { "Content-Type": contentType } });
+  // Dev mode: read fresh from disk on every request so browser refresh picks up changes
+  if (!existsSync(UI_HTML_PATH)) {
+    return Response.json({ error: "UI not found" }, { status: 404 });
+  }
+  const content = await Bun.file(UI_HTML_PATH).text();
+  return new Response(content, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
 async function main() {
@@ -171,7 +176,7 @@ async function main() {
         url.pathname === "/audit" ||
         url.pathname === "/debug"
       )) {
-        return serveFile(join(UI_DIR, "index.html"), "text/html; charset=utf-8");
+        return serveUiHtml();
       }
 
       if (req.method === "GET" && url.pathname === "/debug/log") {
