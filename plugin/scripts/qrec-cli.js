@@ -48,7 +48,16 @@ if (userArgs.includes("serve") && userArgs.includes("--daemon")) {
   process.exit(0);
 }
 
-// Buffer stdin before passing to bun (avoids libuv pipe crash on Linux).
+// TTY: pass stdin directly so interactive prompts (e.g. teardown Y/N) work.
+if (process.stdin.isTTY) {
+  const result = spawnSync(bunPath, bunArgs, {
+    stdio: "inherit",
+    env: process.env,
+  });
+  process.exit(result.status ?? 1);
+}
+
+// Non-TTY (hook/pipe): buffer stdin before passing to bun (avoids libuv pipe crash on Linux).
 const stdinChunks = [];
 process.stdin.on("data", chunk => stdinChunks.push(chunk));
 process.stdin.on("end", () => {
@@ -60,12 +69,3 @@ process.stdin.on("end", () => {
   });
   process.exit(result.status ?? 1);
 });
-
-if (process.stdin.isTTY) {
-  process.stdin.destroy();
-  const result = spawnSync(bunPath, bunArgs, {
-    stdio: ["ignore", "inherit", "inherit"],
-    env: process.env,
-  });
-  process.exit(result.status ?? 1);
-}
