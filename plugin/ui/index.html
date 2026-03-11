@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>qrec</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -231,10 +232,10 @@
   .results { display: flex; flex-direction: column; gap: 12px; }
   .card {
     background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
-    padding: 16px 20px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    padding: 16px 20px; transition: border-color 0.15s, background 0.15s;
   }
   .card:hover { border-color: var(--accent); background: var(--bg); }
-  .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+  .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; cursor: pointer; }
   .card-meta { flex: 1; min-width: 0; }
   .card-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
   .card-subtitle { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -243,15 +244,18 @@
   .preview {
     font-size: 13px; color: var(--text-muted); line-height: 1.5;
     overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    cursor: pointer;
   }
   .expanded .preview { -webkit-line-clamp: unset; display: block; }
   .expanded-body { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
   .expanded .expanded-body { display: block; }
-  .expanded-body pre {
-    font-size: 12px; color: var(--text-muted); white-space: pre-wrap; word-break: break-word;
-    max-height: 400px; overflow-y: auto; background: var(--bg3); border-radius: 6px;
-    padding: 12px; font-family: var(--mono);
+  .card-actions { display: flex; justify-content: flex-end; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .view-btn {
+    font-family: inherit; font-size: 12px; padding: 5px 12px; border-radius: 6px;
+    cursor: pointer; border: 1px solid var(--accent-border); background: var(--accent-light);
+    color: var(--accent); font-weight: 500; transition: background 0.1s;
   }
+  .view-btn:hover { background: var(--accent); color: white; }
 
   /* ── Activity tab ──────────────────────────────────────── */
   .activity-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
@@ -320,6 +324,168 @@
   .tool-row:last-child { border-bottom: none; }
   .tool-desc { font-size: 13px; }
   .tool-desc small { display: block; font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+  /* ── Sessions tab ──────────────────────────────────────── */
+  .sessions-toolbar {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .sessions-toolbar h2 { font-size: 16px; font-weight: 600; }
+  .sessions-filter {
+    flex: 1; min-width: 160px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 12px; color: var(--text);
+    font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.15s;
+  }
+  .sessions-filter:focus { border-color: var(--accent); }
+  .sessions-grid { display: flex; flex-direction: column; gap: 8px; }
+  .session-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .session-card:hover { border-color: var(--accent); background: var(--bg); }
+  .session-card-body { flex: 1; min-width: 0; }
+  .session-card-title {
+    font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; margin-bottom: 5px;
+  }
+  .session-card-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .session-id { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+  .session-card-arrow { color: var(--text-muted); font-size: 16px; flex-shrink: 0; }
+
+  /* ── Session detail ──────────────────────────────────────── */
+  .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .back-btn {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 12px; font-family: inherit; font-size: 13px; color: var(--text-muted);
+    cursor: pointer; transition: background 0.15s; flex-shrink: 0;
+  }
+  .back-btn:hover { background: var(--bg3); color: var(--text); }
+  .detail-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .detail-meta { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+  .turns { display: flex; flex-direction: column; gap: 12px; }
+  .turn {
+    border-radius: 8px; padding: 14px 18px;
+    border: 1px solid var(--border); border-left-width: 3px;
+  }
+  .turn.user { border-left-color: var(--accent); background: var(--bg2); }
+  .turn.assistant { border-left-color: var(--green); background: var(--bg2); }
+  .turn-role {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 8px;
+  }
+  .turn.user .turn-role { color: var(--accent); }
+  .turn.assistant .turn-role { color: var(--green); }
+  .turn-text { font-size: 13px; line-height: 1.65; }
+  .turn-text > *:last-child { margin-bottom: 0; }
+  .turn-text p { margin-bottom: 8px; }
+  .turn-text h1, .turn-text h2, .turn-text h3, .turn-text h4 {
+    font-weight: 700; letter-spacing: -0.02em; margin: 14px 0 6px;
+  }
+  .turn-text h1 { font-size: 16px; }
+  .turn-text h2 { font-size: 14px; }
+  .turn-text h3 { font-size: 13px; }
+  .turn-text h4 { font-size: 13px; color: var(--text-muted); }
+  .turn-text ul, .turn-text ol { padding-left: 20px; margin-bottom: 8px; }
+  .turn-text li { margin-bottom: 3px; }
+  .turn-text blockquote {
+    border-left: 3px solid var(--border); margin: 8px 0;
+    padding: 4px 12px; color: var(--text-muted); font-style: italic;
+  }
+  .turn-text hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  .turn-text a { color: var(--accent); text-decoration: none; }
+  .turn-text a:hover { text-decoration: underline; }
+  .turn-text code {
+    font-family: var(--mono); font-size: 12px;
+    background: var(--bg3); padding: 1px 5px; border-radius: 3px;
+  }
+  .turn-text pre {
+    background: var(--bg3); border-radius: 6px; padding: 10px 12px;
+    margin: 8px 0; overflow-x: auto; font-size: 12px; font-family: var(--mono); line-height: 1.5;
+  }
+  .turn-text pre code { background: none; padding: 0; }
+  /* Thinking block */
+  .agent-thinking {
+    margin-top: 10px;
+    border: 1px solid #c4b5fd; border-radius: 6px; overflow: hidden;
+  }
+  .agent-thinking > summary {
+    padding: 7px 12px; font-size: 12px; cursor: pointer;
+    background: #f5f3ff; user-select: none;
+    list-style: none; display: flex; align-items: center; gap: 6px;
+    color: #7c3aed; font-weight: 500;
+  }
+  .agent-thinking > summary::-webkit-details-marker { display: none; }
+  .agent-thinking > summary::before {
+    content: '▶'; font-size: 9px; transition: transform 0.15s; flex-shrink: 0; color: #7c3aed;
+  }
+  .agent-thinking[open] > summary::before { transform: rotate(90deg); }
+  .agent-thinking-body {
+    padding: 10px 14px; font-size: 12px; line-height: 1.65;
+    background: #faf5ff; color: #6d28d9; font-style: italic;
+    white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto;
+  }
+
+  /* Agent actions collapsible wrapper */
+  .agent-actions {
+    margin-top: 10px;
+    border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  }
+  .agent-actions > summary {
+    padding: 7px 12px; font-size: 12px; cursor: pointer;
+    background: var(--bg3); user-select: none;
+    list-style: none; display: flex; align-items: center; gap: 6px;
+    color: var(--text-muted); font-weight: 500;
+  }
+  .agent-actions > summary::-webkit-details-marker { display: none; }
+  .agent-actions > summary::before {
+    content: '▶'; font-size: 9px; transition: transform 0.15s; flex-shrink: 0; color: var(--text-muted);
+  }
+  .agent-actions[open] > summary::before { transform: rotate(90deg); }
+  .agent-actions-body {
+    display: flex; flex-direction: column; gap: 1px;
+    background: var(--border);
+  }
+  .tool-detail { overflow: hidden; }
+  .tool-detail summary {
+    padding: 7px 12px; font-size: 12px; font-family: var(--mono);
+    cursor: pointer; background: var(--bg2); user-select: none;
+    list-style: none; display: flex; align-items: center; gap: 6px;
+    color: var(--text-muted);
+  }
+  .tool-detail summary::-webkit-details-marker { display: none; }
+  .tool-detail summary::before {
+    content: '▶'; font-size: 9px; transition: transform 0.15s; flex-shrink: 0; color: var(--text-muted);
+  }
+  .tool-detail[open] summary::before { transform: rotate(90deg); }
+  .tool-detail .tool-content {
+    padding: 10px 12px; font-size: 12px; font-family: var(--mono);
+    background: var(--bg2); white-space: pre-wrap; word-break: break-all;
+    max-height: 300px; overflow-y: auto; color: var(--text-muted);
+    border-top: 1px solid var(--border);
+  }
+  .turn-ts { font-size: 11px; color: var(--text-muted); margin-top: 10px; font-family: var(--mono); }
+
+  /* ── Mobile ─────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    header { padding: 10px 14px; gap: 8px; }
+    header h1 { font-size: 14px; }
+    nav { gap: 2px; overflow-x: auto; flex-shrink: 1; }
+    nav button { font-size: 11px; padding: 5px 7px; white-space: nowrap; }
+    main { padding: 16px 12px; max-width: 100%; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .info-grid { grid-template-columns: 1fr; }
+    .actions { flex-wrap: wrap; }
+    .search-bar { flex-wrap: wrap; }
+    .search-bar .k-input { width: 60px; }
+    .turn-text pre { overflow-x: auto; }
+    .detail-title { font-size: 15px; }
+    .stat-value { font-size: 22px; }
+    .stats-strip { flex-wrap: wrap; }
+    .stat-item { min-width: 50%; border-bottom: 1px solid var(--border); }
+    .sessions-toolbar { flex-direction: column; align-items: flex-start; }
+    .sessions-filter { width: 100%; }
+    .detail-header { gap: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -329,6 +495,7 @@
   <nav>
     <button id="nav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
     <button id="nav-search" onclick="showTab('search')">Search</button>
+    <button id="nav-sessions" onclick="showTab('sessions')">Sessions</button>
     <button id="nav-activity" onclick="showTab('activity')">Activity</button>
     <button id="nav-debug" onclick="showTab('debug')">Debug</button>
   </nav>
@@ -386,6 +553,7 @@
 
     <div class="actions">
       <button class="action-btn primary" onclick="showTab('search')">Search sessions →</button>
+      <button class="action-btn secondary" onclick="showTab('sessions')">Browse sessions</button>
       <button class="action-btn secondary" onclick="showTab('activity')">Activity log</button>
     </div>
 
@@ -409,6 +577,36 @@
   </div>
   <div id="latency-bar" class="latency-bar" style="display:none;"></div>
   <div id="results" class="results"></div>
+</main>
+</div>
+
+<!-- ── Sessions tab ──────────────────────────────────────── -->
+<div id="tab-sessions" class="tab-panel">
+<main>
+  <div class="sessions-toolbar">
+    <h2>Sessions</h2>
+    <span class="badge" id="sessions-count">—</span>
+    <input type="text" class="sessions-filter" id="sessions-filter" placeholder="Filter by title or project…" oninput="filterSessions()">
+  </div>
+  <div id="sessions-content">
+    <div class="loading-state"><span class="spinner"></span></div>
+  </div>
+</main>
+</div>
+
+<!-- ── Session detail ─────────────────────────────────────── -->
+<div id="tab-session-detail" class="tab-panel">
+<main style="max-width:860px;">
+  <div id="detail-loading" class="loading-state"><span class="spinner"></span></div>
+  <div id="detail-error" class="error-state" style="display:none;"></div>
+  <div id="detail-content" style="display:none;">
+    <div class="detail-header">
+      <button class="back-btn" id="detail-back-btn" onclick="goBack()">← Back</button>
+      <div class="detail-title" id="detail-title"></div>
+    </div>
+    <div class="detail-meta" id="detail-meta"></div>
+    <div class="turns" id="detail-turns"></div>
+  </div>
 </main>
 </div>
 
@@ -494,7 +692,18 @@
 <script>
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
-const PATH_TO_TAB = { '/': 'dashboard', '/search': 'search', '/audit': 'activity', '/debug': 'debug' };
+let _detailOrigin = 'sessions'; // tracks where session detail was opened from
+
+function navigate(hash) {
+  if (!hash) hash = 'dashboard';
+  if (hash.startsWith('session/')) {
+    const id = hash.slice('session/'.length);
+    openSessionDetail(id);
+    history.replaceState(null, '', '#' + hash);
+  } else {
+    showTab(hash);
+  }
+}
 
 function showTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -510,22 +719,23 @@ function showTab(name) {
 function onTabActivated(name) {
   if (name === 'dashboard') loadDashboard();
   if (name === 'activity') loadActivity();
+  if (name === 'sessions') loadSessions();
   if (name === 'debug') { fetchStats(); fetchLog(); fetchConfig(); }
   if (name === 'search') document.getElementById('query')?.focus();
 }
 
 // Initial tab from URL path or hash
-const initTab = PATH_TO_TAB[location.pathname] || location.hash.slice(1) || 'dashboard';
-showTab(initTab);
-window.addEventListener('hashchange', () => showTab(location.hash.slice(1) || 'dashboard'));
+const initHash = location.hash.slice(1) || 'dashboard';
+navigate(initHash);
+window.addEventListener('hashchange', () => navigate(location.hash.slice(1) || 'dashboard'));
 
 // ── Shared polling ──────────────────────────────────────────────────────────
 
-// Single interval drives all background refresh
 setInterval(() => {
   const active = document.querySelector('.tab-panel.active')?.id?.replace('tab-', '');
   if (active === 'dashboard') loadDashboard();
   if (active === 'activity') loadActivity();
+  if (active === 'sessions') loadSessions();
   if (active === 'debug') { fetchStats(); fetchLog(); }
 }, 5000);
 
@@ -545,6 +755,16 @@ function formatRelative(ts) {
 
 function formatDate(ts) {
   return new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+/** Render markdown to HTML using marked, falling back to plain text. */
+function renderText(text) {
+  if (!text) return '';
+  if (typeof marked !== 'undefined') {
+    return marked.parse(text, { breaks: true, gfm: true });
+  }
+  // Fallback: escape and preserve line breaks
+  return '<p>' + escHtml(text).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>') + '</p>';
 }
 
 // ── Dashboard ───────────────────────────────────────────────────────────────
@@ -769,20 +989,22 @@ async function doSearch() {
     `;
 
     resultsEl.innerHTML = results.map((r, i) => `
-      <div class="card" onclick="toggleCard(this, ${i})" data-session="${r.session_id}">
-        <div class="card-header">
+      <div class="card" data-session="${escHtml(r.session_id)}" data-idx="${i}">
+        <div class="card-header" onclick="toggleCard(this.closest('.card'))">
           <div class="card-meta">
             <div class="card-title">${escHtml(r.title || r.session_id)}</div>
             <div class="card-subtitle">
               <span class="tag">${escHtml(r.project)}</span>
               <span class="tag">${escHtml(r.date)}</span>
-              <span class="tag">${r.session_id}</span>
+              <span class="tag">${escHtml(r.session_id)}</span>
             </div>
           </div>
           <div class="score">${r.score.toFixed(4)}</div>
         </div>
-        <div class="preview">${escHtml(r.preview)}</div>
-        <div class="expanded-body"><pre>Loading…</pre></div>
+        <div class="preview" onclick="toggleCard(this.closest('.card'))">${escHtml(r.preview)}</div>
+        <div class="card-actions">
+          <button class="view-btn" onclick="openFromSearch('${escHtml(r.session_id)}')">View session →</button>
+        </div>
       </div>
     `).join('');
   } catch (err) {
@@ -795,12 +1017,212 @@ async function doSearch() {
 
 function toggleCard(card) {
   card.classList.toggle('expanded');
-  if (card.classList.contains('expanded')) {
-    const pre = card.querySelector('pre');
-    if (pre.textContent === 'Loading…') {
-      pre.textContent = card.querySelector('.preview').textContent +
-        '\n\n[Full session: GET /sessions/' + card.dataset.session + ']';
+}
+
+function openFromSearch(sessionId) {
+  _detailOrigin = 'search';
+  navigate('session/' + sessionId);
+}
+
+// ── Sessions list ────────────────────────────────────────────────────────────
+
+let _allSessions = [];
+
+async function loadSessions() {
+  const content = document.getElementById('sessions-content');
+  try {
+    const res = await fetch('/sessions');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { sessions, total } = await res.json();
+
+    _allSessions = sessions;
+    document.getElementById('sessions-count').textContent = String(total);
+    renderSessionsList(sessions);
+  } catch (err) {
+    content.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
+  }
+}
+
+function filterSessions() {
+  const q = document.getElementById('sessions-filter').value.toLowerCase();
+  if (!q) {
+    renderSessionsList(_allSessions);
+    return;
+  }
+  const filtered = _allSessions.filter(s =>
+    (s.title ?? '').toLowerCase().includes(q) || (s.project ?? '').toLowerCase().includes(q)
+  );
+  renderSessionsList(filtered);
+}
+
+function renderSessionsList(sessions) {
+  const content = document.getElementById('sessions-content');
+  if (!sessions || sessions.length === 0) {
+    content.innerHTML = '<div class="empty-state">No sessions found.</div>';
+    return;
+  }
+  content.innerHTML = `<div class="sessions-grid">${sessions.map(s => `
+    <div class="session-card" onclick="openSession('${escHtml(s.id)}')">
+      <div class="session-card-body">
+        <div class="session-card-title">${escHtml(s.title || '(untitled)')}</div>
+        <div class="session-card-meta">
+          <span class="tag">${escHtml(s.project || '—')}</span>
+          <span class="tag">${escHtml(s.date || '—')}</span>
+          <span class="session-id">${escHtml(s.id)}</span>
+        </div>
+      </div>
+      <div class="session-card-arrow">›</div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function openSession(id) {
+  _detailOrigin = 'sessions';
+  navigate('session/' + id);
+}
+
+// ── Session detail ───────────────────────────────────────────────────────────
+
+function openSessionDetail(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-session-detail').classList.add('active');
+  // Highlight the sessions nav button as parent context
+  document.getElementById('nav-sessions').classList.add('active');
+
+  document.getElementById('detail-loading').style.display = '';
+  document.getElementById('detail-error').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'none';
+
+  // Update back button label based on origin
+  const backBtn = document.getElementById('detail-back-btn');
+  backBtn.textContent = _detailOrigin === 'search' ? '← Search Results' : '← Sessions';
+
+  loadSessionDetail(id);
+}
+
+async function loadSessionDetail(id) {
+  try {
+    const res = await fetch('/sessions/' + id);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      document.getElementById('detail-loading').style.display = 'none';
+      const errEl = document.getElementById('detail-error');
+      errEl.style.display = '';
+      errEl.textContent = 'Error: ' + (err.error ?? 'Failed to load session');
+      return;
     }
+
+    const session = await res.json();
+    document.getElementById('detail-loading').style.display = 'none';
+
+    document.getElementById('detail-title').textContent = session.title || '(untitled)';
+    document.getElementById('detail-meta').innerHTML = `
+      <span class="tag">${escHtml(session.project || '—')}</span>
+      <span class="tag">${escHtml(session.date || '—')}</span>
+      <span class="tag" style="font-family:var(--mono);font-size:11px;">${escHtml(session.id)}</span>
+      <span class="tag">${session.turns ? session.turns.length + ' turns' : ''}</span>
+    `;
+
+    const turnsEl = document.getElementById('detail-turns');
+    if (!session.turns || session.turns.length === 0) {
+      turnsEl.innerHTML = '<div class="empty-state">No turns found in this session.</div>';
+    } else {
+      turnsEl.innerHTML = groupTurns(session.turns).map(g => renderGroup(g)).join('');
+    }
+
+    document.getElementById('detail-content').style.display = '';
+  } catch (err) {
+    document.getElementById('detail-loading').style.display = 'none';
+    const errEl = document.getElementById('detail-error');
+    errEl.style.display = '';
+    errEl.textContent = 'Error: ' + String(err);
+  }
+}
+
+/** Group flat turn list: consecutive assistant turns → one agent group. */
+function groupTurns(turns) {
+  const groups = [];
+  let i = 0;
+  while (i < turns.length) {
+    if (turns[i].role === 'user') {
+      groups.push({ type: 'user', turn: turns[i] });
+      i++;
+    } else {
+      const agentTurns = [];
+      while (i < turns.length && turns[i].role === 'assistant') {
+        agentTurns.push(turns[i]);
+        i++;
+      }
+      groups.push({ type: 'agent', turns: agentTurns });
+    }
+  }
+  return groups;
+}
+
+function renderGroup(group) {
+  if (group.type === 'user') {
+    const t = group.turn;
+    const tsHtml = t.timestamp
+      ? `<div class="turn-ts">${escHtml(new Date(t.timestamp).toLocaleString())}</div>`
+      : '';
+    return `
+      <div class="turn user">
+        <div class="turn-role">User</div>
+        <div class="turn-text">${renderText(t.text)}</div>
+        ${tsHtml}
+      </div>`;
+  }
+
+  // Agent group: collect all tools, thinking, and text across consecutive turns
+  const allTools = group.turns.flatMap(t => t.tools ?? []);
+  const allThinking = group.turns.flatMap(t => t.thinking ?? []);
+  const texts = group.turns.map(t => t.text).filter(Boolean);
+  const lastTs = group.turns.map(t => t.timestamp).filter(Boolean).at(-1);
+
+  const textHtml = texts.length
+    ? `<div class="turn-text">${texts.map(renderText).join('<hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">')}</div>`
+    : '';
+
+  const thinkingHtml = allThinking.length
+    ? `<details class="agent-thinking">
+        <summary>Thinking (${allThinking.length})</summary>
+        <div class="agent-thinking-body">${allThinking.map(t => escHtml(t)).join('\n\n---\n\n')}</div>
+      </details>`
+    : '';
+
+  const actionsHtml = allTools.length
+    ? `<details class="agent-actions">
+        <summary>${allTools.length} tool call${allTools.length === 1 ? '' : 's'}</summary>
+        <div class="agent-actions-body">
+          ${allTools.map(tool => `
+            <details class="tool-detail">
+              <summary>${escHtml(tool)}</summary>
+              <div class="tool-content">${escHtml(tool)}</div>
+            </details>`).join('')}
+        </div>
+      </details>`
+    : '';
+
+  const tsHtml = lastTs
+    ? `<div class="turn-ts">${escHtml(new Date(lastTs).toLocaleString())}</div>`
+    : '';
+
+  return `
+    <div class="turn assistant">
+      <div class="turn-role">Agent</div>
+      ${textHtml}
+      ${thinkingHtml}
+      ${actionsHtml}
+      ${tsHtml}
+    </div>`;
+}
+
+function goBack() {
+  if (_detailOrigin === 'search') {
+    showTab('search');
+  } else {
+    showTab('sessions');
   }
 }
 

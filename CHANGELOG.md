@@ -1,3 +1,15 @@
+## [0.2.1](https://github.com/dvquy13/qrec/compare/v0.2.0...v0.2.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* add --access public to npm publish in release.sh ([270b8ae](https://github.com/dvquy13/qrec/commit/270b8ae6b57d65f366f20eca674f5ce74c9c09d7))
+* **ci:** update npm pack glob for scoped package @dvquys/qrec ([dc0ac91](https://github.com/dvquy13/qrec/commit/dc0ac91cb01af7da04d4e5c8451d8f40eb88bf98))
+
+
+### Features
+
+* **ui:** sessions list, detail view, mobile responsive, markdown rendering ([172f4ba](https://github.com/dvquy13/qrec/commit/172f4bae77bec01bd9ed0c0cb11b883be996504c)), closes [#sessions](https://github.com/dvquy13/qrec/issues/sessions)
 # [0.2.0](https://github.com/dvquy13/qrec/compare/v0.1.5...v0.2.0) (2026-03-10)
 ## [0.1.5](https://github.com/dvquy13/qrec/compare/v0.1.4...v0.1.5) (2026-03-10)
 
