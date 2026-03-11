@@ -7,7 +7,9 @@
     {
       "name": "qrec",
       "source": "./plugin",
-      "description": "qrec session recall engine"
+      "description": "qrec session recall engine",
+      "version": "0.2.4"
     }
-  ]
+  ],
+  "version": "0.2.4"
 }

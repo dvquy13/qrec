@@ -1,3 +1,10 @@
+## [0.2.4](https://github.com/dvquy13/qrec/compare/v0.2.3...v0.2.4) (2026-03-11)
+
+
+### Features
+
+* add query_db MCP tool for structured SQL recall ([9f737d1](https://github.com/dvquy13/qrec/commit/9f737d156e65f3b51aec114fc5bd7b7a8f748b4c))
+* plugin MCP agent recall integration ([42b3c8b](https://github.com/dvquy13/qrec/commit/42b3c8b349bd59652b4c08e82d948b0289bdef79))
 ## [0.2.3](https://github.com/dvquy13/qrec/compare/v0.2.2...v0.2.3) (2026-03-11)
 
 
