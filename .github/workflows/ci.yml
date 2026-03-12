@@ -66,7 +66,7 @@ jobs:
 
           echo "Waiting for search to be ready (model loading in daemon)..."
           for i in $(seq 1 24); do
-            status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:3030/search \
+            status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:25729/search \
               -H 'Content-Type: application/json' -d '{"query":"sqlite","k":3}')
             [ "$status" = "200" ] && break
             echo "  attempt $i: status=$status, retrying in 5s..."
@@ -74,13 +74,13 @@ jobs:
           done
 
           echo "Search: verifying results..."
-          curl -sf -X POST http://localhost:3030/search \
+          curl -sf -X POST http://localhost:25729/search \
             -H 'Content-Type: application/json' \
             -d '{"query":"sqlite","k":3}' | jq -e '.results | length > 0'
           echo "Search: OK"
 
           echo "Activity: verifying daemon events logged..."
-          curl -sf http://localhost:3030/activity/entries | jq -e '.entries | length > 0'
+          curl -sf http://localhost:25729/activity/entries | jq -e '.entries | length > 0'
           echo "Activity: OK"
 
           echo "Cron: adding new session with unique session_id..."
@@ -95,7 +95,7 @@ jobs:
           echo "Cron: waiting up to 20s for incremental index to pick up new session..."
           for i in $(seq 1 4); do
             sleep 5
-            found=$(curl -sf http://localhost:3030/sessions | jq '[.sessions[] | select(.id == "f1f1f1f1")] | length')
+            found=$(curl -sf http://localhost:25729/sessions | jq '[.sessions[] | select(.id == "f1f1f1f1")] | length')
             if [ "$found" = "1" ]; then
               echo "Cron: new session f1f1f1f1 indexed after ~$((i * 5))s — OK"
               break

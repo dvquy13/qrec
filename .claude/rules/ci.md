@@ -21,7 +21,7 @@ For direct `qrec serve --daemon` usage (if needed): it exits immediately. Poll `
 
 ```bash
 for i in $(seq 1 24); do
-  status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:3030/search \
+  status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:25729/search \
     -H 'Content-Type: application/json' -d '{"query":"test","k":3}')
   [ "$status" = "200" ] && break
   sleep 5
