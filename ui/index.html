@@ -13,7 +13,6 @@
   <h1>qrec</h1>
   <nav>
     <button id="nav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
-    <button id="nav-search" onclick="showTab('search')">Search</button>
     <button id="nav-sessions" onclick="showTab('sessions')">Sessions</button>
     <button id="nav-activity" onclick="showTab('activity')">Activity</button>
     <button id="nav-debug" onclick="showTab('debug')">Debug</button>
@@ -85,8 +84,7 @@
     </div>
 
     <div class="actions">
-      <button class="action-btn primary" onclick="showTab('search')">Search sessions →</button>
-      <button class="action-btn secondary" onclick="showTab('sessions')">Browse sessions</button>
+      <button class="action-btn primary" onclick="showTab('sessions')">Search sessions →</button>
       <button class="action-btn secondary" onclick="showTab('activity')">Activity log</button>
     </div>
 
@@ -100,29 +98,25 @@
 </main>
 </div>
 
-<!-- ── Search tab ────────────────────────────────────────── -->
-<div id="tab-search" class="tab-panel">
-<main style="max-width:860px;">
+<!-- ── Sessions tab ──────────────────────────────────────── -->
+<div id="tab-sessions" class="tab-panel">
+<main>
   <div class="search-bar">
     <input type="text" id="query" placeholder="Search sessions…">
     <input type="number" id="k" class="k-input" value="10" min="1" max="50" title="Results (k)">
     <button id="search-btn" onclick="doSearch()">Search</button>
+    <button class="btn" id="clear-search-btn" onclick="clearSearch()" style="display:none;">✕</button>
   </div>
   <div id="latency-bar" class="latency-bar" style="display:none;"></div>
-  <div id="results" class="results"></div>
-</main>
-</div>
-
-<!-- ── Sessions tab ──────────────────────────────────────── -->
-<div id="tab-sessions" class="tab-panel">
-<main>
   <div class="sessions-toolbar">
     <h2>Sessions</h2>
     <span class="badge" id="sessions-count">—</span>
     <div class="sessions-filters">
-      <input type="text" class="sessions-filter" id="filter-project" list="project-list" placeholder="Project…" oninput="applyFilters()" onchange="applyFilters()">
+      <input type="text" class="sessions-filter" id="filter-project" list="project-list"
+             placeholder="Project…" oninput="applyFilters()" onchange="applyFilters()">
       <datalist id="project-list"></datalist>
-      <input type="text" class="sessions-filter" id="filter-tag" list="tag-list" placeholder="Tag…" oninput="applyFilters()" onchange="applyFilters()">
+      <input type="text" class="sessions-filter" id="filter-tag" list="tag-list"
+             placeholder="Tag…" oninput="applyFilters()" onchange="applyFilters()">
       <datalist id="tag-list"></datalist>
       <span id="date-chip" class="date-chip" style="display:none;"></span>
       <button class="btn" id="clear-filters-btn" onclick="clearFilters()" style="display:none;">Clear</button>

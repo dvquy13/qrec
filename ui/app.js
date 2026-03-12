@@ -1,7 +1,5 @@
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
-let _detailOrigin = 'sessions'; // tracks where session detail was opened from
-
 function navigate(hash) {
   if (!hash) hash = 'dashboard';
   if (hash.startsWith('session/')) {
@@ -27,9 +25,11 @@ function showTab(name) {
 function onTabActivated(name) {
   if (name === 'dashboard') loadDashboard();
   if (name === 'activity') loadActivity();
-  if (name === 'sessions') loadSessions();
+  if (name === 'sessions') {
+    document.getElementById('query')?.focus();
+    loadSessions();
+  }
   if (name === 'debug') { fetchStats(); fetchLog(); fetchConfig(); }
-  if (name === 'search') document.getElementById('query')?.focus();
 }
 
 // Initial tab from URL path or hash
@@ -161,7 +161,7 @@ function showOnboarding(data) {
       desc: searchDone
         ? 'qrec is fully set up and working.'
         : 'Open the search tab and try a query — or use the MCP tool in Claude.',
-      link: (!searchDone && indexDone) ? { label: 'Go to search →', tab: 'search' } : null,
+      link: (!searchDone && indexDone) ? { label: 'Go to search →', tab: 'sessions' } : null,
     },
   ];
 
@@ -293,6 +293,8 @@ function activityLabel(e) {
 
 // ── Search ──────────────────────────────────────────────────────────────────
 
+let _lastSearchResults = null;
+
 document.getElementById('query').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
@@ -303,12 +305,9 @@ async function doSearch() {
   const k = parseInt(document.getElementById('k').value, 10) || 10;
 
   const btn = document.getElementById('search-btn');
-  const resultsEl = document.getElementById('results');
-  const latencyEl = document.getElementById('latency-bar');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
-  resultsEl.innerHTML = '';
-  latencyEl.style.display = 'none';
+  document.getElementById('latency-bar').style.display = 'none';
 
   try {
     const res = await fetch('/search', {
@@ -319,65 +318,78 @@ async function doSearch() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      resultsEl.innerHTML = `<div class="error-state">Error: ${escHtml(err.error ?? 'Search failed')}</div>`;
+      document.getElementById('sessions-content').innerHTML =
+        `<div class="error-state">Error: ${escHtml(err.error ?? 'Search failed')}</div>`;
       return;
     }
 
     const { results } = await res.json();
-    if (!results || results.length === 0) {
-      resultsEl.innerHTML = '<div class="empty-state">No results found.</div>';
-      return;
+    _lastSearchResults = results ?? [];
+
+    const lat = results?.[0]?.latency;
+    const latencyEl = document.getElementById('latency-bar');
+    if (lat) {
+      latencyEl.style.display = 'flex';
+      latencyEl.innerHTML = `
+        <span>BM25 <strong>${lat.bm25Ms.toFixed(1)}ms</strong></span>
+        <span>Embed <strong>${lat.embedMs.toFixed(1)}ms</strong></span>
+        <span>KNN <strong>${lat.knnMs.toFixed(1)}ms</strong></span>
+        <span>Fusion <strong>${lat.fusionMs.toFixed(1)}ms</strong></span>
+        <span>Total <strong>${lat.totalMs.toFixed(1)}ms</strong></span>
+      `;
     }
-
-    const lat = results[0].latency;
-    latencyEl.style.display = 'flex';
-    latencyEl.innerHTML = `
-      <span>BM25 <strong>${lat.bm25Ms.toFixed(1)}ms</strong></span>
-      <span>Embed <strong>${lat.embedMs.toFixed(1)}ms</strong></span>
-      <span>KNN <strong>${lat.knnMs.toFixed(1)}ms</strong></span>
-      <span>Fusion <strong>${lat.fusionMs.toFixed(1)}ms</strong></span>
-      <span>Total <strong>${lat.totalMs.toFixed(1)}ms</strong></span>
-      <span>${results.length} results</span>
-    `;
-
-    resultsEl.innerHTML = results.map((r, i) => {
-      const summaryHtml = r.summary
-        ? `<div class="result-summary">${escHtml(r.summary)}</div>` : '';
-      return `
-      <div class="card" data-session="${escHtml(r.session_id)}" data-idx="${i}">
-        <div class="card-header" onclick="toggleCard(this.closest('.card'))">
-          <div class="card-meta">
-            <div class="card-title">${escHtml(r.title || r.session_id)}</div>
-            <div class="card-subtitle">
-              <span class="tag">${escHtml(r.project)}</span>
-              <span class="tag">${escHtml(r.date)}</span>
-              <span class="tag">${escHtml(r.session_id)}</span>
-            </div>
-            ${summaryHtml}
-          </div>
-          <div class="score">${r.score.toFixed(4)}</div>
-        </div>
-        <div class="preview" onclick="toggleCard(this.closest('.card'))">${renderText(r.highlightedPreview ?? r.preview)}</div>
-        <div class="card-actions">
-          <button class="view-btn" onclick="openFromSearch('${escHtml(r.session_id)}')">View session →</button>
-        </div>
-      </div>`;
-    }).join('');
+    document.getElementById('clear-search-btn').style.display = '';
+    applyFilters();
   } catch (err) {
-    resultsEl.innerHTML = `<div class="error-state">Error: ${escHtml(String(err))}</div>`;
+    document.getElementById('sessions-content').innerHTML =
+      `<div class="error-state">Error: ${escHtml(String(err))}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Search';
   }
 }
 
-function toggleCard(card) {
-  card.classList.toggle('expanded');
+function renderSearchResults(results) {
+  const content = document.getElementById('sessions-content');
+  if (!results || results.length === 0) {
+    content.innerHTML = '<div class="empty-state">No results found.</div>';
+    return;
+  }
+  content.innerHTML = `<div class="sessions-grid">${results.map(r => {
+    const tagPills = (r.tags ?? []).map(t =>
+      `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
+    ).join('');
+    const summaryHtml = r.summary
+      ? `<div class="session-card-summary">${escHtml(r.summary)}</div>` : '';
+    const previewHtml = (r.highlightedPreview ?? r.preview)
+      ? `<details class="result-preview">
+           <summary>Preview <span class="score">${r.score.toFixed(4)}</span></summary>
+           <div class="result-preview-body">${renderText(r.highlightedPreview ?? r.preview)}</div>
+         </details>` : '';
+    return `
+    <div class="session-card" onclick="openSession('${escHtml(r.session_id)}')">
+      <div class="session-card-body">
+        <div class="session-card-title">${escHtml(r.title || r.session_id)}</div>
+        <div class="session-card-meta">
+          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(r.project || '')}')">${escHtml(r.project || '—')}</span>
+          <span class="tag">${escHtml(r.date || '—')}</span>
+          <span class="session-id">${escHtml(r.session_id)}</span>
+          ${tagPills}
+        </div>
+        ${summaryHtml}
+        ${previewHtml}
+      </div>
+      <div class="session-card-arrow">›</div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
-function openFromSearch(sessionId) {
-  _detailOrigin = 'search';
-  navigate('session/' + sessionId);
+function clearSearch() {
+  _lastSearchResults = null;
+  document.getElementById('query').value = '';
+  document.getElementById('latency-bar').style.display = 'none';
+  document.getElementById('clear-search-btn').style.display = 'none';
+  applyFilters();
 }
 
 // ── Sessions list ────────────────────────────────────────────────────────────
@@ -393,7 +405,6 @@ async function loadSessions() {
     const { sessions, total } = await res.json();
 
     _allSessions = sessions;
-    document.getElementById('sessions-count').textContent = String(total);
 
     // Populate project + tag datalists
     const projects = [...new Set(sessions.map(s => s.project).filter(Boolean))].sort();
@@ -413,13 +424,22 @@ function applyFilters() {
   const hasFilter = project || tag || _filterDate;
   document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
 
-  const filtered = _allSessions.filter(s => {
+  const filteredSessions = _allSessions.filter(s => {
     if (project && !(s.project ?? '').toLowerCase().includes(project)) return false;
     if (tag && !(s.tags ?? []).some(t => t.toLowerCase().includes(tag))) return false;
     if (_filterDate && s.date !== _filterDate) return false;
     return true;
   });
-  renderSessionsList(filtered);
+
+  if (_lastSearchResults !== null) {
+    const filteredIds = new Set(filteredSessions.map(s => s.id));
+    const intersected = _lastSearchResults.filter(r => filteredIds.has(r.session_id));
+    document.getElementById('sessions-count').textContent = String(intersected.length);
+    renderSearchResults(intersected);
+  } else {
+    document.getElementById('sessions-count').textContent = String(filteredSessions.length);
+    renderSessionsList(filteredSessions);
+  }
 }
 
 function filterByProject(project) {
@@ -489,7 +509,6 @@ function renderSessionsList(sessions) {
 }
 
 function openSession(id) {
-  _detailOrigin = 'sessions';
   navigate('session/' + id);
 }
 
@@ -506,9 +525,8 @@ function openSessionDetail(id) {
   document.getElementById('detail-error').style.display = 'none';
   document.getElementById('detail-content').style.display = 'none';
 
-  // Update back button label based on origin
   const backBtn = document.getElementById('detail-back-btn');
-  backBtn.textContent = _detailOrigin === 'search' ? '← Search Results' : '← Sessions';
+  backBtn.textContent = '← Sessions';
 
   loadSessionDetail(id);
 }
@@ -649,11 +667,7 @@ function renderGroup(group) {
 }
 
 function goBack() {
-  if (_detailOrigin === 'search') {
-    showTab('search');
-  } else {
-    showTab('sessions');
-  }
+  showTab('sessions');
 }
 
 // ── Activity ─────────────────────────────────────────────────────────────────
