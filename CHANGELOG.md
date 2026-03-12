@@ -1,3 +1,9 @@
+# [0.3.0](https://github.com/dvquy13/qrec/compare/v0.2.4...v0.3.0) (2026-03-12)
+
+
+### Features
+
+* session enrichment — AI summaries, tags, entities via Qwen3-1.7B ([807b040](https://github.com/dvquy13/qrec/commit/807b040bafaffb76f2f3cbaa79264101feebc07c))
 ## [0.2.4](https://github.com/dvquy13/qrec/compare/v0.2.3...v0.2.4) (2026-03-11)
 
 
