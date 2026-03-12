@@ -17,7 +17,7 @@ import { homedir } from "os";
 import { isEnrichAlive, readEnrichPid, isProcessAlive, ENRICHMENT_VERSION } from "./enrich.ts";
 import { readConfig, writeConfig } from "./config.ts";
 
-const PORT = 25729;
+const PORT = 25927;
 const DEFAULT_VAULT_PATH = join(homedir(), ".claude", "projects");
 
 // Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.

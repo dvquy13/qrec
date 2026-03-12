@@ -29,7 +29,7 @@ function getLogTail(lines: number = 20): string[] {
 
 function openBrowser() {
   const cmd = process.platform === "darwin" ? "open" : "xdg-open";
-  try { Bun.spawnSync([cmd, "http://localhost:25729"]); } catch {}
+  try { Bun.spawnSync([cmd, "http://localhost:25927"]); } catch {}
 }
 
 async function main() {
@@ -109,7 +109,7 @@ async function main() {
 
         // Step 3: ready
         if (indexDone) {
-          lines.push(`  ✓  [3/3] Ready  →  http://localhost:25729`);
+          lines.push(`  ✓  [3/3] Ready  →  http://localhost:25927`);
         } else {
           lines.push(`  ·  [3/3] Ready`);
         }
@@ -126,7 +126,7 @@ async function main() {
       // Poll /status until ready
       while (true) {
         try {
-          const r = await fetch("http://localhost:25729/status");
+          const r = await fetch("http://localhost:25927/status");
           if (r.ok) {
             const s = await r.json() as StatusResp;
             render(s);
@@ -246,7 +246,7 @@ async function main() {
         let httpHealth = "not checked";
         if (daemonRunning) {
           try {
-            const res = await fetch("http://localhost:25729/health");
+            const res = await fetch("http://localhost:25927/health");
             if (res.ok) {
               const data = await res.json() as { status?: string };
               httpHealth = data.status ?? "unknown";

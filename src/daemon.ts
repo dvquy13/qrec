@@ -76,7 +76,7 @@ export async function startDaemon(): Promise<void> {
   while (Date.now() < deadline) {
     await Bun.sleep(500);
     try {
-      const res = await fetch("http://localhost:25729/health");
+      const res = await fetch("http://localhost:25927/health");
       if (res.ok) {
         ready = true;
         break;
@@ -87,7 +87,7 @@ export async function startDaemon(): Promise<void> {
   }
 
   if (ready) {
-    console.log(`[daemon] Server ready at http://localhost:25729`);
+    console.log(`[daemon] Server ready at http://localhost:25927`);
   } else {
     console.error(`[daemon] Server failed to start within 30 seconds. Check logs: ${logFile}`);
     process.exit(1);
