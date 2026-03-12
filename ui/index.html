@@ -331,12 +331,22 @@
     display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
   }
   .sessions-toolbar h2 { font-size: 16px; font-weight: 600; }
+  .sessions-filters { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
   .sessions-filter {
-    flex: 1; min-width: 160px; background: var(--bg); border: 1px solid var(--border);
+    min-width: 140px; background: var(--bg); border: 1px solid var(--border);
     border-radius: 8px; padding: 7px 12px; color: var(--text);
     font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.15s;
   }
   .sessions-filter:focus { border-color: var(--accent); }
+  .date-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-border);
+    border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 500;
+  }
+  .date-chip-x { cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.7; }
+  .date-chip-x:hover { opacity: 1; }
+  .clickable-tag { cursor: pointer; }
+  .clickable-tag:hover { background: var(--accent-light); color: var(--accent); }
   .sessions-grid { display: flex; flex-direction: column; gap: 8px; }
   .session-card {
     background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
@@ -503,6 +513,7 @@
     .stats-strip { flex-wrap: wrap; }
     .stat-item { min-width: 50%; border-bottom: 1px solid var(--border); }
     .sessions-toolbar { flex-direction: column; align-items: flex-start; }
+    .sessions-filters { width: 100%; }
     .sessions-filter { width: 100%; }
     .detail-header { gap: 8px; }
   }
@@ -620,7 +631,14 @@
   <div class="sessions-toolbar">
     <h2>Sessions</h2>
     <span class="badge" id="sessions-count">—</span>
-    <input type="text" class="sessions-filter" id="sessions-filter" placeholder="Filter by title or project…" oninput="filterSessions()">
+    <div class="sessions-filters">
+      <input type="text" class="sessions-filter" id="filter-project" list="project-list" placeholder="Project…" oninput="applyFilters()" onchange="applyFilters()">
+      <datalist id="project-list"></datalist>
+      <input type="text" class="sessions-filter" id="filter-tag" list="tag-list" placeholder="Tag…" oninput="applyFilters()" onchange="applyFilters()">
+      <datalist id="tag-list"></datalist>
+      <span id="date-chip" class="date-chip" style="display:none;"></span>
+      <button class="btn" id="clear-filters-btn" onclick="clearFilters()" style="display:none;">Clear</button>
+    </div>
   </div>
   <div id="sessions-content">
     <div class="loading-state"><span class="spinner"></span></div>
@@ -1109,6 +1127,7 @@ function openFromSearch(sessionId) {
 // ── Sessions list ────────────────────────────────────────────────────────────
 
 let _allSessions = [];
+let _filterDate = null;
 
 async function loadSessions() {
   const content = document.getElementById('sessions-content');
@@ -1119,30 +1138,68 @@ async function loadSessions() {
 
     _allSessions = sessions;
     document.getElementById('sessions-count').textContent = String(total);
-    renderSessionsList(sessions);
+
+    // Populate project + tag datalists
+    const projects = [...new Set(sessions.map(s => s.project).filter(Boolean))].sort();
+    const tags = [...new Set(sessions.flatMap(s => s.tags ?? []))].sort();
+    document.getElementById('project-list').innerHTML = projects.map(p => `<option value="${escHtml(p)}">`).join('');
+    document.getElementById('tag-list').innerHTML = tags.map(t => `<option value="${escHtml(t)}">`).join('');
+
+    applyFilters(); // preserve any active filters after (re)load
   } catch (err) {
     content.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
   }
 }
 
-function filterSessions() {
-  const q = document.getElementById('sessions-filter').value.toLowerCase();
-  if (!q) {
-    renderSessionsList(_allSessions);
-    return;
-  }
-  const filtered = _allSessions.filter(s =>
-    (s.title ?? '').toLowerCase().includes(q) ||
-    (s.project ?? '').toLowerCase().includes(q) ||
-    (s.summary ?? '').toLowerCase().includes(q) ||
-    (s.tags ?? []).some(t => t.toLowerCase().includes(q))
-  );
+function applyFilters() {
+  const project = document.getElementById('filter-project').value.trim().toLowerCase();
+  const tag = document.getElementById('filter-tag').value.trim().toLowerCase();
+  const hasFilter = project || tag || _filterDate;
+  document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
+
+  const filtered = _allSessions.filter(s => {
+    if (project && !(s.project ?? '').toLowerCase().includes(project)) return false;
+    if (tag && !(s.tags ?? []).some(t => t.toLowerCase().includes(tag))) return false;
+    if (_filterDate && s.date !== _filterDate) return false;
+    return true;
+  });
   renderSessionsList(filtered);
 }
 
+function filterByProject(project) {
+  document.getElementById('filter-project').value = project;
+  applyFilters();
+  if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
+}
+
 function filterByTag(tag) {
-  document.getElementById('sessions-filter').value = tag;
-  filterSessions();
+  document.getElementById('filter-tag').value = tag;
+  applyFilters();
+  if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
+}
+
+function filterByDate(date) {
+  _filterDate = date;
+  const chip = document.getElementById('date-chip');
+  chip.style.display = '';
+  chip.innerHTML = `📅 ${escHtml(date)} <span class="date-chip-x" onclick="clearDateFilter()">×</span>`;
+  applyFilters();
+  if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
+}
+
+function clearDateFilter() {
+  _filterDate = null;
+  document.getElementById('date-chip').style.display = 'none';
+  applyFilters();
+}
+
+function clearFilters() {
+  document.getElementById('filter-project').value = '';
+  document.getElementById('filter-tag').value = '';
+  _filterDate = null;
+  document.getElementById('date-chip').style.display = 'none';
+  document.getElementById('clear-filters-btn').style.display = 'none';
+  renderSessionsList(_allSessions);
 }
 
 function renderSessionsList(sessions) {
@@ -1163,8 +1220,8 @@ function renderSessionsList(sessions) {
       <div class="session-card-body">
         <div class="session-card-title">${escHtml(s.title || '(untitled)')}</div>
         <div class="session-card-meta">
-          <span class="tag">${escHtml(s.project || '—')}</span>
-          <span class="tag">${escHtml(s.date || '—')}</span>
+          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(s.project || '')}')">${escHtml(s.project || '—')}</span>
+          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(s.date || '')}')">${escHtml(s.date || '—')}</span>
           <span class="session-id">${escHtml(s.id)}</span>
           ${tagPills}
         </div>
@@ -1217,8 +1274,8 @@ async function loadSessionDetail(id) {
 
     document.getElementById('detail-title').textContent = session.title || '(untitled)';
     document.getElementById('detail-meta').innerHTML = `
-      <span class="tag">${escHtml(session.project || '—')}</span>
-      <span class="tag">${escHtml(session.date || '—')}</span>
+      <span class="tag clickable-tag" onclick="filterByProject('${escHtml(session.project || '')}')">${escHtml(session.project || '—')}</span>
+      <span class="tag clickable-tag" onclick="filterByDate('${escHtml(session.date || '')}')">${escHtml(session.date || '—')}</span>
       <span class="tag" style="font-family:var(--mono);font-size:11px;">${escHtml(session.id)}</span>
       <span class="tag">${session.turns ? session.turns.length + ' turns' : ''}</span>
     `;
