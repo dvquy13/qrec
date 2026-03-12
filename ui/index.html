@@ -246,6 +246,7 @@
     overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
     cursor: pointer;
   }
+  .preview mark { background: var(--accent-light); color: var(--accent); font-weight: 600; border-radius: 2px; padding: 0 1px; }
   .expanded .preview { -webkit-line-clamp: unset; display: block; }
   .expanded-body { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
   .expanded .expanded-body { display: block; }
@@ -1082,7 +1083,7 @@ async function doSearch() {
           </div>
           <div class="score">${r.score.toFixed(4)}</div>
         </div>
-        <div class="preview" onclick="toggleCard(this.closest('.card'))">${renderText(r.preview)}</div>
+        <div class="preview" onclick="toggleCard(this.closest('.card'))">${renderText(r.highlightedPreview ?? r.preview)}</div>
         <div class="card-actions">
           <button class="view-btn" onclick="openFromSearch('${escHtml(r.session_id)}')">View session →</button>
         </div>

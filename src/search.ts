@@ -9,6 +9,7 @@ export interface SearchResult {
   session_id: string;
   score: number;
   preview: string; // best matching chunk text
+  highlightedPreview?: string; // preview with <mark> tags wrapping BM25-matched terms (only present for BM25 hits)
   project: string;
   date: string;
   title: string | null;
@@ -103,15 +104,12 @@ export async function search(
   // === BM25 via FTS5 ===
   const bm25Start = performance.now();
   let bm25Rows: BM25Row[] = [];
+  // ftsQuery kept outside try so highlight() can reuse it after fusion
+  let ftsQuery = query
+    .replace(/[^a-zA-Z0-9\s'-]/g, " ")  // keep alphanumerics, spaces, hyphens, apostrophes
+    .replace(/\s+/g, " ")
+    .trim();
   try {
-    // Sanitize query for FTS5: replace punctuation that breaks syntax with spaces,
-    // then collapse whitespace and trim. This converts e.g. "plugin.json ./ prefix" →
-    // "plugin json prefix" which FTS5 handles as AND over these terms.
-    const ftsQuery = query
-      .replace(/[^a-zA-Z0-9\s'-]/g, " ")  // keep alphanumerics, spaces, hyphens, apostrophes
-      .replace(/\s+/g, " ")
-      .trim();
-
     if (ftsQuery.length > 0) {
       // FTS5 rank is negative (lower = better match)
       bm25Rows = db
@@ -123,6 +121,7 @@ export async function search(
   } catch {
     // FTS5 query may fail — fallback to empty
     bm25Rows = [];
+    ftsQuery = "";
   }
   const bm25Ms = performance.now() - bm25Start;
 
@@ -160,6 +159,7 @@ export async function search(
   // Get chunk_id for BM25 rowids
   const allRowids = bm25Rows.map(r => r.rowid);
   const rowidToChunkId = new Map<number, string>();
+  const chunkIdToRowid = new Map<string, number>(); // reverse map for highlight lookup
   if (allRowids.length > 0) {
     const placeholders = allRowids.map(() => "?").join(",");
     const chunkRows = db
@@ -167,6 +167,7 @@ export async function search(
       .all(...allRowids) as Array<{ rowid: number; id: string }>;
     for (const row of chunkRows) {
       rowidToChunkId.set(row.rowid, row.id);
+      chunkIdToRowid.set(row.id, row.rowid);
     }
   }
 
@@ -246,6 +247,28 @@ export async function search(
     .all(...bestChunkIds) as ChunkRow[];
   const chunkTextMap = new Map(chunkTexts.map(c => [c.id, c]));
 
+  // Fetch FTS5-highlighted previews for best chunks that ranked via BM25.
+  // highlight(chunks_fts, 1, ...) wraps matched terms in <mark> tags (column 1 = text).
+  // Only possible for BM25 hits — KNN-only matches have no term-level signal.
+  const highlightMap = new Map<string, string>(); // chunkId → highlighted text
+  if (ftsQuery.length > 0) {
+    for (const [, { bestChunkId }] of sortedSessions) {
+      const rowid = chunkIdToRowid.get(bestChunkId);
+      if (rowid !== undefined) {
+        try {
+          const row = db
+            .prepare(
+              `SELECT highlight(chunks_fts, 1, '<mark>', '</mark>') as hl FROM chunks_fts WHERE chunks_fts MATCH ? AND rowid = ?`
+            )
+            .get(ftsQuery, rowid) as { hl: string } | undefined;
+          if (row?.hl) highlightMap.set(bestChunkId, row.hl);
+        } catch {
+          // ignore — highlight is best-effort
+        }
+      }
+    }
+  }
+
   const results: SearchResult[] = [];
   for (const [sessionId, { score, bestChunkId }] of sortedSessions) {
     const meta = sessionMetaMap.get(sessionId);
@@ -258,6 +281,7 @@ export async function search(
       session_id: sessionId,
       score,
       preview,
+      highlightedPreview: highlightMap.get(bestChunkId),
       project: meta.project,
       date: meta.date,
       title: meta.title,
