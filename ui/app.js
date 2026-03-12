@@ -1,24 +1,24 @@
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
-function navigate(hash) {
+function navigate(hash, push = true) {
   if (!hash) hash = 'dashboard';
   if (hash.startsWith('session/')) {
     const id = hash.slice('session/'.length);
     openSessionDetail(id);
-    history.replaceState(null, '', '#' + hash);
+    if (push) history.pushState(null, '', '#' + hash);
   } else {
-    showTab(hash);
+    showTab(hash, push);
   }
 }
 
-function showTab(name) {
+function showTab(name, push = true) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   const panel = document.getElementById('tab-' + name);
   if (panel) panel.classList.add('active');
   const btn = document.getElementById('nav-' + name);
   if (btn) btn.classList.add('active');
-  history.replaceState(null, '', '#' + name);
+  if (push) history.pushState(null, '', '#' + name);
   onTabActivated(name);
 }
 
@@ -32,10 +32,11 @@ function onTabActivated(name) {
   if (name === 'debug') { fetchStats(); fetchLog(); fetchConfig(); }
 }
 
-// Initial tab from URL path or hash
+// Initial tab from URL — replaceState so the blank entry isn't a back-button stop
 const initHash = location.hash.slice(1) || 'dashboard';
-navigate(initHash);
-window.addEventListener('hashchange', () => navigate(location.hash.slice(1) || 'dashboard'));
+navigate(initHash, false);
+history.replaceState(null, '', '#' + initHash);
+window.addEventListener('popstate', () => navigate(location.hash.slice(1) || 'dashboard', false));
 
 // ── Shared polling ──────────────────────────────────────────────────────────
 
