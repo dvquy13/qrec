@@ -29,7 +29,8 @@ const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000"
 declare const __UI_HTML__: string | undefined;
 
 const UI_HTML_INLINE: string | null = typeof __UI_HTML__ !== "undefined" ? __UI_HTML__ : null;
-const UI_HTML_PATH = join((import.meta as { dir?: string }).dir ?? __dirname, "..", "ui", "index.html");
+const UI_DIR = join((import.meta as { dir?: string }).dir ?? __dirname, "..", "ui");
+const UI_HTML_PATH = join(UI_DIR, "index.html");
 
 async function serveUiHtml(): Promise<Response> {
   if (UI_HTML_INLINE !== null) {
@@ -41,6 +42,27 @@ async function serveUiHtml(): Promise<Response> {
   }
   const content = await Bun.file(UI_HTML_PATH).text();
   return new Response(content, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+
+async function serveStaticFile(pathname: string): Promise<Response> {
+  const rel = pathname.slice("/ui/".length);
+  if (rel.includes("..") || rel.startsWith("/")) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  const filePath = join(UI_DIR, rel);
+  const file = Bun.file(filePath);
+  if (!await file.exists()) {
+    return new Response("Not found", { status: 404 });
+  }
+  const ext = rel.split(".").pop()?.toLowerCase() ?? "";
+  const contentType =
+    ext === "css"   ? "text/css; charset=utf-8" :
+    ext === "js"    ? "text/javascript; charset=utf-8" :
+    ext === "woff2" ? "font/woff2" :
+    ext === "woff"  ? "font/woff" :
+    ext === "ttf"   ? "font/ttf" :
+    "application/octet-stream";
+  return new Response(file, { headers: { "Content-Type": contentType } });
 }
 
 async function main() {
@@ -251,6 +273,11 @@ async function main() {
         const limit = parseInt(url.searchParams.get("limit") ?? "100", 10);
         const entries = getRecentActivity(limit);
         return Response.json({ entries });
+      }
+
+      // Serve static UI assets (CSS, JS, fonts)
+      if (req.method === "GET" && url.pathname.startsWith("/ui/")) {
+        return serveStaticFile(url.pathname);
       }
 
       // Serve SPA for all UI routes
