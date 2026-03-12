@@ -1,3 +1,20 @@
+## [0.3.1](https://github.com/dvquy13/qrec/compare/v0.3.0...v0.3.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* **ci:** update port 3030 → 25729 after server port change ([2fab56d](https://github.com/dvquy13/qrec/commit/2fab56d9fc1ee92e2b1d44572cc65ebb13b24301))
+* **ui:** browser back button + logo navigates to dashboard ([c5c5b64](https://github.com/dvquy13/qrec/commit/c5c5b64edc590850ab427e5cf8ce22e9c4522801))
+* **ui:** default font ([3dec14b](https://github.com/dvquy13/qrec/commit/3dec14bd97b69e333e868dbd02567d3a8cebf2a9))
+
+
+### Features
+
+* search highlight ([fcef661](https://github.com/dvquy13/qrec/commit/fcef6610105a56fd74d72cdf637532cd2533bace))
+* session UI filters rework ([d7ba77a](https://github.com/dvquy13/qrec/commit/d7ba77a6834e4854c1af206e84b4176606824fed))
+* **ui:** merge Search + Sessions into unified tab ([d81c088](https://github.com/dvquy13/qrec/commit/d81c088de4c929b20c9e14f5c6b0950527020578)), closes [#tab-search](https://github.com/dvquy13/qrec/issues/tab-search)
+* **ui:** search highlight preview ([bb69d6e](https://github.com/dvquy13/qrec/commit/bb69d6e20cc5a296df1d2fa288b140188dcd5220))
+* **ui:** use Inter Variable for body text, Google Sans Flex for UI chrome ([f69578c](https://github.com/dvquy13/qrec/commit/f69578c31d96fb80f15d25c6f6a41dd57cdb01b8))
 # [0.3.0](https://github.com/dvquy13/qrec/compare/v0.2.4...v0.3.0) (2026-03-12)
 
 
