@@ -361,11 +361,12 @@ function renderSearchResults(results) {
     ).join('');
     const summaryHtml = r.summary
       ? `<div class="session-card-summary">${escHtml(r.summary)}</div>` : '';
-    const previewHtml = (r.highlightedPreview ?? r.preview)
-      ? `<details class="result-preview">
-           <summary>Preview <span class="score">${r.score.toFixed(4)}</span></summary>
-           <div class="result-preview-body">${renderText(r.highlightedPreview ?? r.preview)}</div>
-         </details>` : '';
+    const snippetText = r.highlightedPreview ?? r.preview;
+    const previewHtml = snippetText
+      ? `<div class="result-snippet">
+           <span class="result-snippet-score">${r.score.toFixed(4)}</span>
+           <div class="result-snippet-body">${renderText(snippetText)}</div>
+         </div>` : '';
     return `
     <div class="session-card" onclick="openSession('${escHtml(r.session_id)}')">
       <div class="session-card-body">

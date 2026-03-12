@@ -5,11 +5,55 @@ import { createHash } from "crypto";
 import type { Database } from "bun:sqlite";
 import type { EmbedProvider } from "./embed/provider.ts";
 
+/** Extract ±`window` char snippets around each <mark> in highlighted HTML, merged and joined with " … ". */
+function extractHighlightSnippets(html: string, window = 150): string {
+  // Find all <mark>…</mark> positions in the plain text (strip tags to get offsets)
+  // We work on the raw HTML string to preserve mark tags, but measure offsets in display text.
+  // Strategy: scan the HTML for <mark> positions, extract surrounding raw HTML slices.
+  const ranges: Array<[number, number]> = [];
+  const markRe = /<mark>/g;
+  let m: RegExpExecArray | null;
+  while ((m = markRe.exec(html)) !== null) {
+    const start = Math.max(0, m.index - window);
+    // find matching </mark> to set end boundary
+    const closeIdx = html.indexOf("</mark>", m.index);
+    const end = Math.min(html.length, (closeIdx === -1 ? m.index : closeIdx + 7) + window);
+    ranges.push([start, end]);
+  }
+  if (ranges.length === 0) return html.slice(0, window * 2); // fallback: first 300 chars
+
+  // Merge overlapping ranges
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: Array<[number, number]> = [ranges[0]];
+  for (let i = 1; i < ranges.length; i++) {
+    const last = merged[merged.length - 1];
+    if (ranges[i][0] <= last[1]) {
+      last[1] = Math.max(last[1], ranges[i][1]);
+    } else {
+      merged.push(ranges[i]);
+    }
+  }
+
+  return merged
+    .map(([s, e]) => {
+      const prefix = s > 0 ? "…" : "";
+      const suffix = e < html.length ? "…" : "";
+      // Trim partial HTML tags at boundaries to avoid broken markup
+      let slice = html.slice(s, e);
+      // Drop leading partial tag (only if we started mid-tag)
+      if (s > 0) slice = slice.replace(/^[^<>]*>/, "");
+      // Drop trailing partial tag
+      slice = slice.replace(/<[^>]*$/, "");
+      return `${prefix}${slice}${suffix}`;
+    })
+    .join(" <span class='snippet-gap'>…</span> ");
+}
+
 export interface SearchResult {
   session_id: string;
   score: number;
-  preview: string; // best matching chunk text
-  highlightedPreview?: string; // preview with <mark> tags wrapping BM25-matched terms (only present for BM25 hits)
+  preview: string; // best matching chunk text (trimmed to ~300 chars)
+  highlightedPreview?: string; // windowed snippets with <mark> tags around BM25-matched terms
   project: string;
   date: string;
   title: string | null;
@@ -275,13 +319,16 @@ export async function search(
     if (!meta) continue; // session not in sessions table (shouldn't happen)
 
     const chunk = chunkTextMap.get(bestChunkId);
-    const preview = chunk ? chunk.text : "";
+    const rawPreview = chunk ? chunk.text : "";
+    const preview = rawPreview.slice(0, 300) + (rawPreview.length > 300 ? "…" : "");
+    const rawHighlight = highlightMap.get(bestChunkId);
+    const highlightedPreview = rawHighlight ? extractHighlightSnippets(rawHighlight) : undefined;
 
     results.push({
       session_id: sessionId,
       score,
       preview,
-      highlightedPreview: highlightMap.get(bestChunkId),
+      highlightedPreview,
       project: meta.project,
       date: meta.date,
       title: meta.title,
