@@ -16,7 +16,7 @@ Extracted from the **auto-recall-cc** plugin, which handles Claude Code JSONL �
 
 **contextSize: 8192** — Gemma embedding model's full trained context. Default (when unspecified) is implementation-defined and may be as low as 512. Session transcripts with dense code can exceed 2048 tokens at ~2 chars/token; 8192 covers all realistic chunk sizes.
 
-**node-llama-cpp 3.15.1 pinned** — 3.17.x introduced a NAPI regression that segfaults on exit under Bun 1.3.10. QMD also uses 3.15.1. Match this version until a known-good 3.17.x+ is confirmed.
+**node-llama-cpp 3.17.1** — Upgraded from 3.15.1. The Bun segfault-on-exit NAPI regression introduced in 3.17.x was fixed in 3.17.0 (PR #564: "fix: Bun segmentation fault on process exit with undisposed Llama instance"). Verified clean exit under Bun 1.3.10 on 2026-03-12.
 
 **disposeEmbedder() before process.exit()** — node-llama-cpp registers NAPI finalizers that keep the Bun event loop alive. Without dispose: hangs. With process.exit() but no dispose: Bun crashes (`NAPI FATAL ERROR: Error::New`). Correct sequence: dispose embedding context → dispose llama instance → process.exit(0).
 

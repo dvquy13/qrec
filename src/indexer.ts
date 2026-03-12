@@ -11,6 +11,7 @@ import { createHash } from "crypto";
 import type { Database } from "bun:sqlite";
 import { chunkMarkdown } from "./chunk.ts";
 import { getEmbedProvider } from "./embed/factory.ts";
+import type { EmbedProvider } from "./embed/provider.ts";
 import { parseSession, extractChunkText } from "./parser.ts";
 
 interface SessionMeta {
@@ -230,9 +231,20 @@ export async function indexVault(
   console.log(`[indexer] ${toIndex.length} sessions to index (${total} total, ${skipped} up-to-date)`);
 
   // Prepared statements
+  // ON CONFLICT DO UPDATE preserves enrichment columns (summary/tags/entities/enriched_at/enrichment_version)
+  // that may have been written by the enrich process. INSERT OR REPLACE would clear them.
+  // When content changes (hash mismatch), enrichment columns ARE cleared so the session gets re-queued.
   const insertSession = db.prepare(`
-    INSERT OR REPLACE INTO sessions (id, path, project, date, title, hash, indexed_at)
+    INSERT INTO sessions (id, path, project, date, title, hash, indexed_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      path=excluded.path, project=excluded.project, date=excluded.date,
+      title=excluded.title, hash=excluded.hash, indexed_at=excluded.indexed_at,
+      summary=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.summary END,
+      tags=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.tags END,
+      entities=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.entities END,
+      enriched_at=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.enriched_at END,
+      enrichment_version=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.enrichment_version END
   `);
   const insertChunk = db.prepare(`
     INSERT OR REPLACE INTO chunks (id, session_id, seq, pos, text, created_at)
@@ -282,4 +294,28 @@ export async function indexVault(
 
   onProgress?.(toIndex.length, toIndex.length, "");
   console.log(`[indexer] Done. Total sessions indexed: ${toIndex.length}`);
+}
+
+/**
+ * Embed summary chunks (seq=-1) that exist in `chunks` but have no row in `chunks_vec`.
+ * Called from server.ts cron so the daemon's already-resident embedder does the work —
+ * no extra model load. Fast no-op when nothing is pending.
+ */
+export async function embedSummaryChunks(db: Database, embedder: EmbedProvider): Promise<void> {
+  const pending = db.prepare(`
+    SELECT c.id, c.text FROM chunks c
+    LEFT JOIN chunks_vec v ON v.chunk_id = c.id
+    WHERE c.seq = -1 AND v.chunk_id IS NULL
+  `).all() as Array<{ id: string; text: string }>;
+
+  if (pending.length === 0) return;
+
+  console.log(`[indexer] Embedding ${pending.length} summary chunk(s) into chunks_vec`);
+  const insertVec = db.prepare("INSERT OR REPLACE INTO chunks_vec (chunk_id, embedding) VALUES (?, ?)");
+
+  for (const { id, text } of pending) {
+    const embedding = await embedder.embed(text);
+    insertVec.run(id, Buffer.from(embedding.buffer));
+  }
+  console.log(`[indexer] Summary chunks embedded.`);
 }

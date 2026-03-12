@@ -93,6 +93,7 @@ function migrate(db: Database): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_chunks_session_id ON chunks(session_id);
+    CREATE INDEX IF NOT EXISTS idx_chunks_seq ON chunks(seq);
 
     CREATE TABLE IF NOT EXISTS sessions (
       id          TEXT PRIMARY KEY,
@@ -124,6 +125,17 @@ function migrate(db: Database): void {
       created_at     INTEGER NOT NULL
     );
   `);
+
+  // Enrichment columns on sessions (idempotent — ignore if already exist)
+  for (const col of [
+    "ALTER TABLE sessions ADD COLUMN summary TEXT",
+    "ALTER TABLE sessions ADD COLUMN tags TEXT",
+    "ALTER TABLE sessions ADD COLUMN entities TEXT",
+    "ALTER TABLE sessions ADD COLUMN enriched_at INTEGER",
+    "ALTER TABLE sessions ADD COLUMN enrichment_version INTEGER",
+  ]) {
+    try { db.exec(col); } catch { /* column already exists */ }
+  }
 
   // FTS5 virtual table — content='chunks' means FTS5 reads from chunks table
   // Column names must match the content table (chunks.session_id, chunks.text)

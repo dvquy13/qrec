@@ -8,10 +8,11 @@ import type { EmbedProvider } from "./embed/provider.ts";
 export interface SearchResult {
   session_id: string;
   score: number;
-  preview: string; // first 200 chars of best matching chunk
+  preview: string; // best matching chunk text
   project: string;
   date: string;
   title: string | null;
+  summary: string | null;
   latency: {
     bm25Ms: number;
     embedMs: number;
@@ -43,6 +44,7 @@ interface SessionRow {
   project: string;
   date: string;
   title: string | null;
+  summary: string | null;
 }
 
 const RRF_K = 60;
@@ -232,7 +234,7 @@ export async function search(
   const sessPlaceholders = sessionIds.map(() => "?").join(",");
 
   const sessionMeta = db
-    .prepare(`SELECT id, project, date, title FROM sessions WHERE id IN (${sessPlaceholders})`)
+    .prepare(`SELECT id, project, date, title, summary FROM sessions WHERE id IN (${sessPlaceholders})`)
     .all(...sessionIds) as SessionRow[];
   const sessionMetaMap = new Map(sessionMeta.map(s => [s.id, s]));
 
@@ -250,7 +252,7 @@ export async function search(
     if (!meta) continue; // session not in sessions table (shouldn't happen)
 
     const chunk = chunkTextMap.get(bestChunkId);
-    const preview = chunk ? chunk.text.slice(0, 200) : "";
+    const preview = chunk ? chunk.text : "";
 
     results.push({
       session_id: sessionId,
@@ -259,6 +261,7 @@ export async function search(
       project: meta.project,
       date: meta.date,
       title: meta.title,
+      summary: meta.summary ?? null,
       latency: {
         bm25Ms,
         embedMs,

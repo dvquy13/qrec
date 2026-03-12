@@ -1,13 +1,13 @@
 // src/mcp.ts
 // MCP server: stdio transport (primary) and HTTP transport (--http flag)
-// Proxies all tool calls to the running qrec daemon at http://localhost:3030.
+// Proxies all tool calls to the running qrec daemon at http://localhost:25729.
 // No model or DB loaded here — reuses the daemon's already-loaded embedder.
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-const DAEMON_BASE = "http://localhost:3030";
+const DAEMON_BASE = "http://localhost:25729";
 const MCP_HTTP_PORT = 3031;
 const DAEMON_DOWN_MSG = "qrec daemon is not running. Start it with: qrec serve --daemon";
 
@@ -106,7 +106,7 @@ Use for structured/temporal/project questions (dates, project names, counts, lis
 Prefer over search when the question is about: dates, project names, counts, or listing sessions.
 
 Schema:
-  sessions(id TEXT, path TEXT, project TEXT, date TEXT, title TEXT, hash TEXT, indexed_at INTEGER)
+  sessions(id TEXT, path TEXT, project TEXT, date TEXT, title TEXT, hash TEXT, indexed_at INTEGER, summary TEXT, tags TEXT, entities TEXT, enriched_at INTEGER, enrichment_version INTEGER)
   chunks(id TEXT, session_id TEXT, seq INTEGER, pos INTEGER, text TEXT, created_at INTEGER)
   query_audit(id INTEGER, query TEXT, k INTEGER, result_count INTEGER, top_session_id TEXT, top_score REAL, duration_ms REAL, created_at INTEGER)
 
@@ -227,6 +227,6 @@ export async function runMcpServer(useHttp: boolean = false): Promise<void> {
   } else {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error("[mcp] qrec MCP server running on stdio (proxying to daemon at localhost:3030)");
+    console.error("[mcp] qrec MCP server running on stdio (proxying to daemon at localhost:25729)");
   }
 }

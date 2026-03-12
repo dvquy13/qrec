@@ -465,6 +465,25 @@
   }
   .turn-ts { font-size: 11px; color: var(--text-muted); margin-top: 10px; font-family: var(--mono); }
 
+  /* ── Enrichment UI ─────────────────────────────────────── */
+  .session-card-summary {
+    font-size: 12px; color: var(--text-muted); margin-top: 5px; line-height: 1.5;
+  }
+  .enrich-tag {
+    background: var(--accent-light); color: var(--accent);
+    padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer;
+  }
+  .enrich-tag:hover { background: var(--accent); color: white; }
+  .enrich-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; vertical-align: middle; margin-right: 4px; }
+  .summary-block {
+    background: var(--accent-light); border: 1px solid var(--accent-border);
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;
+  }
+  .summary-block p { font-size: 13px; line-height: 1.6; color: var(--text); margin-bottom: 8px; }
+  .summary-block p:last-child { margin-bottom: 0; }
+  .summary-block-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .result-summary { font-size: 12px; color: var(--accent); margin-top: 6px; line-height: 1.5; }
+
   /* ── Mobile ─────────────────────────────────────────────── */
   @media (max-width: 600px) {
     header { padding: 10px 14px; gap: 8px; }
@@ -548,6 +567,20 @@
       <div class="info-row">
         <span class="info-key">Last indexed</span>
         <span class="info-val" id="info-last-indexed">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Daemon memory usage</span>
+        <span class="info-val" id="info-memory">—</span>
+      </div>
+      <div class="info-row" style="grid-column:1/-1;justify-content:space-between;" id="settings-section">
+        <span class="info-key" style="display:flex;align-items:center;gap:8px;">
+          AI summaries
+          <span style="font-size:11px;color:var(--text-muted);font-weight:400;">~1.3 GB model</span>
+        </span>
+        <span style="display:flex;align-items:center;gap:12px;">
+          <span class="info-val" id="info-enriching">—</span>
+          <button id="enrich-toggle-btn" class="btn" onclick="toggleEnrichment()" style="font-size:12px;padding:4px 14px;">—</button>
+        </span>
       </div>
     </div>
 
@@ -904,7 +937,35 @@ function showDashboardPanel(data, actEntries) {
   document.getElementById('info-provider').textContent = data.embedProvider;
   document.getElementById('info-last-indexed').textContent =
     data.lastIndexedAt ? formatRelative(data.lastIndexedAt) : '—';
+  document.getElementById('info-memory').textContent =
+    data.memoryMB != null ? data.memoryMB + ' MB' : '—';
+  const enrichTotal = data.sessions ?? 0;
+  const enrichDone = data.enrichedCount ?? 0;
+  const enrichPending = data.pendingCount ?? 0;
+  let enrichHtml;
+  if (!data.enrichEnabled) {
+    enrichHtml = '<span style="color:var(--text-muted)">disabled</span>';
+  } else if (data.enriching) {
+    const pct = enrichTotal > 0 ? Math.round((enrichDone / enrichTotal) * 100) : 0;
+    enrichHtml = `<span class="enrich-dot"></span>${enrichDone} / ${enrichTotal} (${pct}%)`;
+  } else if (enrichPending === 0) {
+    enrichHtml = `<span style="color:var(--green)">✓ ${enrichDone} / ${enrichTotal}</span>`;
+  } else {
+    enrichHtml = `${enrichDone} / ${enrichTotal} <span style="color:var(--text-muted);font-size:11px;">(${enrichPending} pending)</span>`;
+  }
+  document.getElementById('info-enriching').innerHTML = enrichHtml;
   document.getElementById('db-last-updated').textContent = 'Last updated ' + new Date().toLocaleTimeString();
+
+  const toggleBtn = document.getElementById('enrich-toggle-btn');
+  if (data.enrichEnabled) {
+    toggleBtn.textContent = 'Enabled';
+    toggleBtn.style.color = 'var(--green)';
+    toggleBtn.style.borderColor = 'var(--green-border)';
+  } else {
+    toggleBtn.textContent = 'Disabled';
+    toggleBtn.style.color = 'var(--text-muted)';
+    toggleBtn.style.borderColor = 'var(--border)';
+  }
 
   // Activity feed
   const listEl = document.getElementById('db-activity-list');
@@ -923,6 +984,22 @@ function showDashboardPanel(data, actEntries) {
   }
 
   document.getElementById('dashboard').style.display = 'block';
+}
+
+async function toggleEnrichment() {
+  const btn = document.getElementById('enrich-toggle-btn');
+  const current = btn.textContent === 'Enabled';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enrichEnabled: !current }),
+    });
+    if (res.ok) loadDashboard();
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function activityLabel(e) {
@@ -988,7 +1065,10 @@ async function doSearch() {
       <span>${results.length} results</span>
     `;
 
-    resultsEl.innerHTML = results.map((r, i) => `
+    resultsEl.innerHTML = results.map((r, i) => {
+      const summaryHtml = r.summary
+        ? `<div class="result-summary">${escHtml(r.summary)}</div>` : '';
+      return `
       <div class="card" data-session="${escHtml(r.session_id)}" data-idx="${i}">
         <div class="card-header" onclick="toggleCard(this.closest('.card'))">
           <div class="card-meta">
@@ -998,15 +1078,16 @@ async function doSearch() {
               <span class="tag">${escHtml(r.date)}</span>
               <span class="tag">${escHtml(r.session_id)}</span>
             </div>
+            ${summaryHtml}
           </div>
           <div class="score">${r.score.toFixed(4)}</div>
         </div>
-        <div class="preview" onclick="toggleCard(this.closest('.card'))">${escHtml(r.preview)}</div>
+        <div class="preview" onclick="toggleCard(this.closest('.card'))">${renderText(r.preview)}</div>
         <div class="card-actions">
           <button class="view-btn" onclick="openFromSearch('${escHtml(r.session_id)}')">View session →</button>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   } catch (err) {
     resultsEl.innerHTML = `<div class="error-state">Error: ${escHtml(String(err))}</div>`;
   } finally {
@@ -1050,9 +1131,17 @@ function filterSessions() {
     return;
   }
   const filtered = _allSessions.filter(s =>
-    (s.title ?? '').toLowerCase().includes(q) || (s.project ?? '').toLowerCase().includes(q)
+    (s.title ?? '').toLowerCase().includes(q) ||
+    (s.project ?? '').toLowerCase().includes(q) ||
+    (s.summary ?? '').toLowerCase().includes(q) ||
+    (s.tags ?? []).some(t => t.toLowerCase().includes(q))
   );
   renderSessionsList(filtered);
+}
+
+function filterByTag(tag) {
+  document.getElementById('sessions-filter').value = tag;
+  filterSessions();
 }
 
 function renderSessionsList(sessions) {
@@ -1061,7 +1150,14 @@ function renderSessionsList(sessions) {
     content.innerHTML = '<div class="empty-state">No sessions found.</div>';
     return;
   }
-  content.innerHTML = `<div class="sessions-grid">${sessions.map(s => `
+  content.innerHTML = `<div class="sessions-grid">${sessions.map(s => {
+    const tagPills = (s.tags ?? []).map(t =>
+      `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
+    ).join('');
+    const summaryHtml = s.summary
+      ? `<div class="session-card-summary">${escHtml(s.summary)}</div>`
+      : '';
+    return `
     <div class="session-card" onclick="openSession('${escHtml(s.id)}')">
       <div class="session-card-body">
         <div class="session-card-title">${escHtml(s.title || '(untitled)')}</div>
@@ -1069,11 +1165,13 @@ function renderSessionsList(sessions) {
           <span class="tag">${escHtml(s.project || '—')}</span>
           <span class="tag">${escHtml(s.date || '—')}</span>
           <span class="session-id">${escHtml(s.id)}</span>
+          ${tagPills}
         </div>
+        ${summaryHtml}
       </div>
       <div class="session-card-arrow">›</div>
-    </div>
-  `).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function openSession(id) {
@@ -1124,7 +1222,25 @@ async function loadSessionDetail(id) {
       <span class="tag">${session.turns ? session.turns.length + ' turns' : ''}</span>
     `;
 
+    // Summary block (shown above turns when enriched)
+    document.querySelector('.summary-block')?.remove();
     const turnsEl = document.getElementById('detail-turns');
+    if (session.summary) {
+      const tagPills = (session.tags ?? []).map(t =>
+        `<span class="enrich-tag" onclick="filterByTag('${escHtml(t)}');showTab('sessions')">${escHtml(t)}</span>`
+      ).join('');
+      const entityPills = (session.entities ?? []).map(e =>
+        `<span class="tag" style="font-family:var(--mono);font-size:11px;">${escHtml(e)}</span>`
+      ).join('');
+      const tagsHtml = (tagPills || entityPills)
+        ? `<div class="summary-block-tags">${tagPills}${entityPills}</div>` : '';
+      turnsEl.insertAdjacentHTML('beforebegin', `
+        <div class="summary-block">
+          <p>${escHtml(session.summary)}</p>
+          ${tagsHtml}
+        </div>`);
+    }
+
     if (!session.turns || session.turns.length === 0) {
       turnsEl.innerHTML = '<div class="empty-state">No turns found in this session.</div>';
     } else {

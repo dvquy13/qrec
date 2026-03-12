@@ -7,19 +7,22 @@ import { getEmbedProvider } from "./embed/factory.ts";
 import type { EmbedProvider } from "./embed/provider.ts";
 import { search } from "./search.ts";
 import { logQuery, getAuditEntries } from "./audit.ts";
-import { indexVault } from "./indexer.ts";
+import { indexVault, embedSummaryChunks } from "./indexer.ts";
 import { parseSession, renderMarkdown } from "./parser.ts";
 import { serverProgress } from "./progress.ts";
 import { appendActivity, getRecentActivity } from "./activity.ts";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
+import { isEnrichAlive, readEnrichPid, isProcessAlive, ENRICHMENT_VERSION } from "./enrich.ts";
+import { readConfig, writeConfig } from "./config.ts";
 
-const PORT = 3030;
+const PORT = 25729;
 const DEFAULT_VAULT_PATH = join(homedir(), ".claude", "projects");
 
 // Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.
 const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000", 10);
+
 
 // In the compiled CJS bundle, __UI_HTML__ is injected by esbuild at build time.
 // In Bun dev mode the constant is undefined, so we fall back to reading from disk (live reload).
@@ -72,6 +75,8 @@ async function main() {
         const chunks = (db.prepare("SELECT COUNT(*) as n FROM chunks").get() as { n: number }).n;
         const lastRow = db.prepare("SELECT MAX(indexed_at) as ts FROM sessions").get() as { ts: number | null };
         const searches = (db.prepare("SELECT COUNT(*) as n FROM query_audit").get() as { n: number }).n;
+        const enrichedCount = (db.prepare("SELECT COUNT(*) as n FROM sessions WHERE enriched_at IS NOT NULL AND enrichment_version >= ?").get(ENRICHMENT_VERSION) as { n: number }).n;
+        const pendingCount = sessions - enrichedCount;
         return Response.json({
           status: "ok",
           phase: serverProgress.phase,
@@ -82,15 +87,28 @@ async function main() {
           embedProvider: process.env.QREC_EMBED_PROVIDER ?? "local",
           modelDownload: serverProgress.modelDownload,
           indexing: serverProgress.indexing,
+          memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+          enriching: isEnrichAlive(),
+          enrichedCount,
+          pendingCount,
+          enrichEnabled: readConfig().enrichEnabled,
         });
       }
 
       if (req.method === "GET" && url.pathname === "/sessions") {
         const rows = db
-          .prepare("SELECT id, title, project, date, indexed_at FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT 100")
-          .all() as Array<{ id: string; title: string | null; project: string; date: string; indexed_at: number }>;
+          .prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT 100")
+          .all() as Array<{
+            id: string; title: string | null; project: string; date: string; indexed_at: number;
+            summary: string | null; tags: string | null; entities: string | null;
+          }>;
         const total = (db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number }).count;
-        return Response.json({ sessions: rows, total });
+        const sessions = rows.map(r => ({
+          ...r,
+          tags: r.tags ? JSON.parse(r.tags) as string[] : null,
+          entities: r.entities ? JSON.parse(r.entities) as string[] : null,
+        }));
+        return Response.json({ sessions, total });
       }
 
       if (req.method === "GET" && url.pathname.startsWith("/sessions/") && url.pathname.endsWith("/markdown")) {
@@ -99,14 +117,31 @@ async function main() {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
         const row = db
-          .prepare("SELECT path FROM sessions WHERE id = ?")
-          .get(id) as { path: string } | null;
+          .prepare("SELECT path, summary, tags, entities FROM sessions WHERE id = ?")
+          .get(id) as { path: string; summary: string | null; tags: string | null; entities: string | null } | null;
         if (!row) {
           return new Response("Session not found", { status: 404 });
         }
         try {
           const parsed = await parseSession(row.path);
-          return new Response(renderMarkdown(parsed), { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+          let md = renderMarkdown(parsed);
+          if (row.summary) {
+            const tagsArr: string[] = row.tags ? JSON.parse(row.tags) as string[] : [];
+            const entitiesArr: string[] = row.entities ? JSON.parse(row.entities) as string[] : [];
+            const header = [
+              "## Summary",
+              "",
+              row.summary,
+              "",
+              tagsArr.length > 0 ? `**Tags:** ${tagsArr.join(", ")}` : "",
+              entitiesArr.length > 0 ? `**Entities:** ${entitiesArr.join(", ")}` : "",
+              "",
+              "---",
+              "",
+            ].filter((l, i, arr) => !(l === "" && arr[i - 1] === "")).join("\n");
+            md = header + md;
+          }
+          return new Response(md, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
         } catch (err) {
           console.error("[server] Failed to render session markdown:", err);
           return new Response(String(err), { status: 500 });
@@ -119,8 +154,8 @@ async function main() {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
         const row = db
-          .prepare("SELECT id, title, project, date, path FROM sessions WHERE id = ?")
-          .get(id) as { id: string; title: string | null; project: string; date: string; path: string } | null;
+          .prepare("SELECT id, title, project, date, path, summary, tags, entities FROM sessions WHERE id = ?")
+          .get(id) as { id: string; title: string | null; project: string; date: string; path: string; summary: string | null; tags: string | null; entities: string | null } | null;
         if (!row) {
           return Response.json({ error: "Session not found" }, { status: 404 });
         }
@@ -131,6 +166,9 @@ async function main() {
             title: row.title,
             project: row.project,
             date: row.date,
+            summary: row.summary ?? null,
+            tags: row.tags ? JSON.parse(row.tags) as string[] : null,
+            entities: row.entities ? JSON.parse(row.entities) as string[] : null,
             turns: parsed.turns,
           });
         } catch (err) {
@@ -186,6 +224,17 @@ async function main() {
         } catch (err) {
           return Response.json({ error: String(err) }, { status: 500 });
         }
+      }
+
+      if (req.method === "GET" && url.pathname === "/settings") {
+        return Response.json(readConfig());
+      }
+
+      if (req.method === "POST" && url.pathname === "/settings") {
+        let body: { enrichEnabled?: boolean };
+        try { body = await req.json(); } catch { return Response.json({ error: "Invalid JSON body" }, { status: 400 }); }
+        const updated = writeConfig({ enrichEnabled: body.enrichEnabled });
+        return Response.json(updated);
       }
 
       if (req.method === "GET" && url.pathname === "/audit/entries") {
@@ -251,6 +300,27 @@ async function main() {
 
   appendActivity({ type: "daemon_started" });
 
+  // Spawn qrec enrich as a detached child (non-blocking). PID-guarded to prevent double-spawn.
+  function spawnEnrichIfNeeded(): void {
+    if (!readConfig().enrichEnabled) return;
+    const pid = readEnrichPid();
+    if (pid !== null && isProcessAlive(pid)) {
+      console.log("[server] Enrich child already running, skipping spawn.");
+      return;
+    }
+    const logFile = join(homedir(), ".qrec", "qrec.log");
+    const spawnArgs: string[] =
+      typeof (import.meta as { dir?: string }).dir === "string"
+        ? ["bun", "run", join((import.meta as { dir: string }).dir, "cli.ts"), "enrich"]
+        : [process.argv[0], process.argv[1], "enrich"];
+    const child = Bun.spawn(spawnArgs, {
+      detached: true,
+      stdio: ["ignore", Bun.file(logFile), Bun.file(logFile)],
+    });
+    child.unref();
+    console.log(`[server] Spawned enrich child (PID ${child.pid})`);
+  }
+
   // Run an incremental index scan (fast — mtime pre-filter skips unchanged files).
   async function runIncrementalIndex() {
     if (isIndexing || !existsSync(DEFAULT_VAULT_PATH)) return;
@@ -273,6 +343,10 @@ async function main() {
         }
       });
       appendActivity({ type: "index_complete", data: { newSessions, durationMs: Date.now() - t0 } });
+      spawnEnrichIfNeeded();
+      // Embed any summary chunks (seq=-1) not yet in chunks_vec.
+      // Enrich child writes summary chunks then exits; the next cron tick picks them up here.
+      if (embedder) await embedSummaryChunks(db, embedder);
     } catch (err) {
       console.error("[server] Index error:", err);
     } finally {

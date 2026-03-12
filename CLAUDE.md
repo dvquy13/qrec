@@ -9,7 +9,7 @@ qrec is a purpose-built session recall engine. It replaces QMD's per-invocation 
 | Runtime | Bun |
 | Language | TypeScript |
 | Search DB | SQLite (FTS5 + sqlite-vec) |
-| Embeddings | node-llama-cpp 3.15.1 (`embeddinggemma-300M-Q8_0`, cached at `~/.qrec/models/`) |
+| Embeddings | node-llama-cpp 3.17.1 (`embeddinggemma-300M-Q8_0`, cached at `~/.qrec/models/`) |
 | MCP server | `@modelcontextprotocol/sdk` |
 
 Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/` — do not modify.
@@ -18,18 +18,21 @@ Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/
 
 ```
 src/
-  cli.ts          # Entry: `qrec onboard`, `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`
+  cli.ts          # Entry: `qrec onboard`, `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`, `qrec enrich [--limit N]`
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
   chunk.ts        # Heading-aware markdown chunker (~900 tokens/chunk, 15% overlap)
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts thinking blocks (Turn.thinking: string[]), extracts chunk text
   indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store; mtime pre-filter skips unchanged files
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
-  server.ts       # HTTP server (port 3030): /search /query_db /health /status /sessions /sessions/:id /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms)
+  server.ts       # HTTP server (port 3030): /search /query_db /health /status /sessions /sessions/:id /settings /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms); spawns `qrec enrich` child after each index run when enrichEnabled
   progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
   activity.ts     # Append-only event log (~/.qrec/activity.jsonl); events: daemon_started|index_started|session_indexed|index_complete
   mcp.ts          # MCP server (stdio + HTTP on 3031): proxies search/get/status/query_db to daemon at localhost:3030; no model/DB loaded
   mcp-entry.ts    # Standalone entry point for qrec-mcp.cjs bundle — calls runMcpServer() (mcp.ts only exports it)
   daemon.ts       # PID-file daemon management (~/.qrec/qrec.pid)
+  enrich.ts       # Standalone enricher child process: backfill summary chunks → load Qwen3-1.7B → batch-summarize pending sessions → dispose → exit. PID guard at ~/.qrec/enrich.pid prevents double-spawn.
+  summarize.ts    # Pure inference: summarizeSession(ctx, chunkText) → {summary, tags, entities}. No lifecycle — caller owns the LlamaContext.
+  config.ts       # ~/.qrec/config.json reader/writer: { enrichEnabled: boolean }. Read by server.ts before spawning enrich child.
   embed/
     provider.ts   # Interface: embed(text): Promise<Float32Array>
     local.ts      # node-llama-cpp singleton + disposeEmbedder()
@@ -64,7 +67,9 @@ scripts/
 CREATE TABLE chunks (id TEXT PRIMARY KEY,  -- "{session_id}_{seq}"
   session_id TEXT, seq INTEGER, pos INTEGER, text TEXT, created_at INTEGER);
 CREATE TABLE sessions (id TEXT PRIMARY KEY,  -- 8-char hex
-  path TEXT, project TEXT, date TEXT, title TEXT, hash TEXT, indexed_at INTEGER);
+  path TEXT, project TEXT, date TEXT, title TEXT, hash TEXT, indexed_at INTEGER,
+  summary TEXT, tags TEXT, entities TEXT,  -- JSON arrays; NULL until enriched by `qrec enrich`
+  enriched_at INTEGER, enrichment_version INTEGER);
 CREATE TABLE query_cache (query_hash TEXT PRIMARY KEY, embedding BLOB, created_at INTEGER);
 CREATE VIRTUAL TABLE chunks_fts  USING fts5(session_id, text, content='chunks', content_rowid='rowid');
 CREATE VIRTUAL TABLE chunks_vec  USING vec0(chunk_id TEXT PRIMARY KEY, embedding FLOAT[768] distance_metric=cosine);
@@ -105,6 +110,8 @@ qrec stop                                   # stop daemon
 qrec mcp                                    # MCP server (stdio)
 qrec mcp --http                             # MCP server (HTTP, port 3031)
 qrec status                                 # print status + log tail
+qrec enrich                                 # enrich unenriched sessions with summary/tags/entities (also spawned automatically by daemon)
+qrec enrich --limit N                       # process at most N sessions
 
 # Dev (without bun link)
 bun run src/cli.ts <command>
@@ -117,7 +124,6 @@ CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed9
 
 ## Critical Gotchas
 
-**node-llama-cpp pinned to 3.15.1** — 3.17.x segfaults on exit under Bun 1.3.10. Do not upgrade without testing.
 
 **Always dispose before exit** — call `disposeEmbedder()` before `process.exit()` in any command that loads the model. Without: Bun hangs forever. With exit but no dispose: Bun crashes with NAPI fatal error.
 
@@ -132,6 +138,8 @@ CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed9
 **Model download: use `resolveModelFile`, not `createModelDownloader`** — `createModelDownloader` fetches the HF manifest API which returns 401 on gated models (Gemma is gated). `resolveModelFile` handles this correctly. HF URI must be full form: `hf:<user>/<repo>/<file>` (e.g. `hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf`). Short form without the inner repo path → 401.
 
 **Server starts before model loads** — `Bun.serve()` binds immediately; embedder loads async in background. `/health` returns 200 right away (daemon startup fast). `/search` returns 503 until embedder is ready. Server auto-indexes on first run (sessions=0) after model loads.
+
+**Summarizer must be a separate child process** — never load the Qwen3-1.7B summarizer in the same process as the embedding daemon. Co-resident would hold 300MB (embedder) + 1.28GB (summarizer) = 1.6GB indefinitely. `qrec enrich` is transient: loads model → batch-processes all pending sessions → disposes → exits. OS fully reclaims GPU memory on exit. Stale PID in `~/.qrec/enrich.pid` (process dead) never blocks next run.
 
 ## Conventions
 

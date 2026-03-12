@@ -29,7 +29,7 @@ function getLogTail(lines: number = 20): string[] {
 
 function openBrowser() {
   const cmd = process.platform === "darwin" ? "open" : "xdg-open";
-  try { Bun.spawnSync([cmd, "http://localhost:3030"]); } catch {}
+  try { Bun.spawnSync([cmd, "http://localhost:25729"]); } catch {}
 }
 
 async function main() {
@@ -109,7 +109,7 @@ async function main() {
 
         // Step 3: ready
         if (indexDone) {
-          lines.push(`  ✓  [3/3] Ready  →  http://localhost:3030`);
+          lines.push(`  ✓  [3/3] Ready  →  http://localhost:25729`);
         } else {
           lines.push(`  ·  [3/3] Ready`);
         }
@@ -126,7 +126,7 @@ async function main() {
       // Poll /status until ready
       while (true) {
         try {
-          const r = await fetch("http://localhost:3030/status");
+          const r = await fetch("http://localhost:25729/status");
           if (r.ok) {
             const s = await r.json() as StatusResp;
             render(s);
@@ -246,7 +246,7 @@ async function main() {
         let httpHealth = "not checked";
         if (daemonRunning) {
           try {
-            const res = await fetch("http://localhost:3030/health");
+            const res = await fetch("http://localhost:25729/health");
             if (res.ok) {
               const data = await res.json() as { status?: string };
               httpHealth = data.status ?? "unknown";
@@ -282,6 +282,14 @@ async function main() {
       process.exit(0);
     }
 
+    case "enrich": {
+      const limitIdx = args.indexOf("--limit");
+      const limit = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : undefined;
+      const { runEnrich } = await import("./enrich.ts");
+      await runEnrich({ limit });
+      process.exit(0);
+    }
+
     default: {
       console.error(`Unknown command: ${command}`);
       console.error("Usage:");
@@ -293,6 +301,7 @@ async function main() {
       console.error("  qrec stop");
       console.error("  qrec mcp [--http]");
       console.error("  qrec status");
+      console.error("  qrec enrich [--limit N]           # summarize unenriched sessions");
       process.exit(1);
     }
   }
