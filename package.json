@@ -1,6 +1,6 @@
 {
   "name": "@dvquys/qrec",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Purpose-built session recall engine — persistent daemon with BM25 + vector hybrid search",
   "bin": {
     "qrec": "plugin/scripts/qrec-cli.js"
