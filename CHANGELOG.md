@@ -3,7 +3,7 @@
 
 ### Bug Fixes
 
-* **ci:** update port 3030 → 25729 after server port change ([2fab56d](https://github.com/dvquy13/qrec/commit/2fab56d9fc1ee92e2b1d44572cc65ebb13b24301))
+* **ci:** update port 25927 → 25729 after server port change ([2fab56d](https://github.com/dvquy13/qrec/commit/2fab56d9fc1ee92e2b1d44572cc65ebb13b24301))
 * **ui:** browser back button + logo navigates to dashboard ([c5c5b64](https://github.com/dvquy13/qrec/commit/c5c5b64edc590850ab427e5cf8ce22e9c4522801))
 * **ui:** default font ([3dec14b](https://github.com/dvquy13/qrec/commit/3dec14bd97b69e333e868dbd02567d3a8cebf2a9))
 

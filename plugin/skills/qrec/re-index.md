@@ -30,7 +30,7 @@ Use when: sessions aren't showing up in search, DB was reset, or you want to re-
 5. After indexing, verify:
    ```bash
    qrec status
-   curl -s -X POST http://localhost:3030/search \
+   curl -s -X POST http://localhost:25927/search \
      -H 'Content-Type: application/json' \
      -d '{"query":"test","k":3}' | jq '.results | length'
    ```

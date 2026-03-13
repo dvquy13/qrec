@@ -1,6 +1,6 @@
 import hashlib
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
@@ -23,7 +23,7 @@ class IndexingConfig:
 @dataclass
 class EvalConfig:
     k: int = 10
-    server_url: str = "http://localhost:3030"
+    server_url: str = "http://localhost:25927"
 
 
 @dataclass
@@ -97,9 +97,12 @@ class RunConfig:
     @classmethod
     def from_yaml(cls, path: Path) -> "RunConfig":
         import yaml
+
         data = yaml.safe_load(path.read_text())
+
         def pick(d: dict, cls_) -> dict:
             return {k: v for k, v in d.items() if k in cls_.__dataclass_fields__}
+
         return cls(
             run_name=data.get("run_name", path.stem),
             experiment=data.get("experiment", "default"),

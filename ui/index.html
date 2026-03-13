@@ -71,10 +71,9 @@
         <span class="info-key">Daemon memory usage</span>
         <span class="info-val" id="info-memory">—</span>
       </div>
-      <div class="info-row" style="grid-column:1/-1;justify-content:space-between;" id="settings-section">
-        <span class="info-key" style="display:flex;align-items:center;gap:8px;">
+      <div class="info-row" style="justify-content:space-between;" id="settings-section">
+        <span class="info-key" style="display:flex;align-items:center;">
           AI summaries
-          <span style="font-size:11px;color:var(--text-muted);font-weight:400;">~1.3 GB model</span>
         </span>
         <span style="display:flex;align-items:center;gap:12px;">
           <span class="info-val" id="info-enriching">—</span>
@@ -112,12 +111,20 @@
     <h2>Sessions</h2>
     <span class="badge" id="sessions-count">—</span>
     <div class="sessions-filters">
-      <input type="text" class="sessions-filter" id="filter-project" list="project-list"
-             placeholder="Project…" oninput="applyFilters()" onchange="applyFilters()">
-      <datalist id="project-list"></datalist>
-      <input type="text" class="sessions-filter" id="filter-tag" list="tag-list"
-             placeholder="Tag…" oninput="applyFilters()" onchange="applyFilters()">
-      <datalist id="tag-list"></datalist>
+      <div class="filter-wrap">
+        <input type="text" class="sessions-filter" id="filter-project"
+               placeholder="Project…" autocomplete="off"
+               oninput="handleFilterInput(this,'project')" onchange="applyFilters()"
+               onfocus="showFilterDropdown('project')" onblur="hideFilterDropdown('project')">
+        <div class="filter-dropdown" id="dropdown-project" onmousedown="return false;"></div>
+      </div>
+      <div class="filter-wrap">
+        <input type="text" class="sessions-filter" id="filter-tag"
+               placeholder="Tag…" autocomplete="off"
+               oninput="handleFilterInput(this,'tag')" onchange="applyFilters()"
+               onfocus="showFilterDropdown('tag')" onblur="hideFilterDropdown('tag')">
+        <div class="filter-dropdown" id="dropdown-tag" onmousedown="return false;"></div>
+      </div>
       <span id="date-chip" class="date-chip" style="display:none;"></span>
       <button class="btn" id="clear-filters-btn" onclick="clearFilters()" style="display:none;">Clear</button>
     </div>

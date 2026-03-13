@@ -5,7 +5,7 @@ First, collect diagnostics in one shot:
 qrec status 2>&1 || node $CLAUDE_PLUGIN_ROOT/scripts/bun-runner.js $CLAUDE_PLUGIN_ROOT/scripts/qrec.cjs status 2>&1
 tail -30 ~/.qrec/install.log 2>/dev/null || echo "(no install log)"
 tail -30 ~/.qrec/qrec.log 2>/dev/null || echo "(no server log)"
-curl -s http://localhost:3030/health 2>/dev/null || echo "(health unreachable)"
+curl -s http://localhost:25927/health 2>/dev/null || echo "(health unreachable)"
 ```
 
 Then match the symptoms below and apply the fix.
@@ -36,7 +36,7 @@ node $CLAUDE_PLUGIN_ROOT/scripts/bun-runner.js $CLAUDE_PLUGIN_ROOT/scripts/qrec.
 
 ---
 
-## Symptom: `localhost:3030` returns 404 / "Not found"
+## Symptom: `localhost:25927` returns 404 / "Not found"
 
 **Cause:** Pre-v0.1.2 bug — UI files weren't committed to git.
 **Fix:** Update the plugin to v0.1.2+.
@@ -87,7 +87,7 @@ This re-indexes everything. Takes a few minutes depending on session count.
 
 ```bash
 qrec serve --daemon
-curl -s http://localhost:3030/health
+curl -s http://localhost:25927/health
 ```
 If it crashes immediately, check `~/.qrec/qrec.log` for the error.
 

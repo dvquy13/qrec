@@ -398,6 +398,7 @@ function clearSearch() {
 
 let _allSessions = [];
 let _filterDate = null;
+let _filterOptions = { project: [], tag: [] };
 
 async function loadSessions() {
   const content = document.getElementById('sessions-content');
@@ -408,16 +409,46 @@ async function loadSessions() {
 
     _allSessions = sessions;
 
-    // Populate project + tag datalists
-    const projects = [...new Set(sessions.map(s => s.project).filter(Boolean))].sort();
-    const tags = [...new Set(sessions.flatMap(s => s.tags ?? []))].sort();
-    document.getElementById('project-list').innerHTML = projects.map(p => `<option value="${escHtml(p)}">`).join('');
-    document.getElementById('tag-list').innerHTML = tags.map(t => `<option value="${escHtml(t)}">`).join('');
+    // Store options for custom dropdowns
+    _filterOptions.project = [...new Set(sessions.map(s => s.project).filter(Boolean))].sort();
+    _filterOptions.tag = [...new Set(sessions.flatMap(s => s.tags ?? []))].sort();
 
     applyFilters(); // preserve any active filters after (re)load
   } catch (err) {
     content.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
   }
+}
+
+function renderFilterDropdown(type, options) {
+  const el = document.getElementById(`dropdown-${type}`);
+  if (options.length === 0) { el.classList.remove('open'); return; }
+  el.innerHTML = options.map(o =>
+    `<div class="filter-dropdown-item" onclick="selectFilterOption('${type}','${escHtml(o)}')">${escHtml(o)}</div>`
+  ).join('');
+  el.classList.add('open');
+}
+
+function showFilterDropdown(type) {
+  const val = document.getElementById(`filter-${type}`).value.trim().toLowerCase();
+  const opts = val
+    ? _filterOptions[type].filter(o => o.toLowerCase().includes(val))
+    : _filterOptions[type];
+  renderFilterDropdown(type, opts);
+}
+
+function hideFilterDropdown(type) {
+  document.getElementById(`dropdown-${type}`).classList.remove('open');
+}
+
+function handleFilterInput(input, type) {
+  applyFilters();
+  showFilterDropdown(type);
+}
+
+function selectFilterOption(type, value) {
+  document.getElementById(`filter-${type}`).value = value;
+  hideFilterDropdown(type);
+  applyFilters();
 }
 
 function applyFilters() {
@@ -474,6 +505,8 @@ function clearDateFilter() {
 function clearFilters() {
   document.getElementById('filter-project').value = '';
   document.getElementById('filter-tag').value = '';
+  hideFilterDropdown('project');
+  hideFilterDropdown('tag');
   _filterDate = null;
   document.getElementById('date-chip').style.display = 'none';
   document.getElementById('clear-filters-btn').style.display = 'none';

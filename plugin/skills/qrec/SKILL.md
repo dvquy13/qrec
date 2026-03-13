@@ -30,11 +30,11 @@ qrec is a persistent session recall engine for Claude Code. It indexes every Cla
 
 ```
 SessionStart hook → smart-install.js  (first-run: background bun install + model download)
-                  → qrec serve --daemon  (HTTP server, port 3030)
+                  → qrec serve --daemon  (HTTP server, port 25927)
 
 SessionEnd hook   → qrec index-session  (indexes the just-closed session)
 
-HTTP server       → http://localhost:3030   (search UI + REST API)
+HTTP server       → http://localhost:25927   (search UI + REST API)
 MCP server        → stdio  or  http://localhost:3031
 SQLite DB         → ~/.qrec/qrec.db
 Embedding model   → ~/.qrec/models/embeddinggemma-300M-Q8_0.gguf  (~300MB, local)
@@ -60,7 +60,7 @@ If `qrec` is not in PATH yet, use the full path:
 node $CLAUDE_PLUGIN_ROOT/scripts/qrec-cli.js <command>
 ```
 
-## HTTP API (port 3030)
+## HTTP API (port 25927)
 
 | Method | Path | Notes |
 |--------|------|-------|

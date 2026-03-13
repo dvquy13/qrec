@@ -15,7 +15,7 @@ bash scripts/release.sh <version>
 
 This: syncs versions → rebuilds `qrec.cjs` + copies UI → CHANGELOG → commit → tag → push → GitHub release → npm publish.
 
-**`plugin/ui/` must be committed to git.** It was previously in `.gitignore` (caused localhost:3030 to return 404 on all installs). It's now intentionally tracked. Do not add it back to `.gitignore`.
+**`plugin/ui/` must be committed to git.** It was previously in `.gitignore` (caused localhost:25927 to return 404 on all installs). It's now intentionally tracked. Do not add it back to `.gitignore`.
 
 **`plugin/ui/` must be in the `git add` in `release.sh`** — the build step regenerates it from `ui/`, and it must be staged in the release commit.
 
@@ -71,7 +71,7 @@ Or set in `~/.npmrc`: `//registry.npmjs.org/:_authToken=<token>`
 
 `qrec.cjs` is built from `src/cli.ts` which imports `db.ts` → `sqlite-vec` at module load. `sqlite-vec` then requires its platform sibling (`sqlite-vec-darwin-arm64`), which bun cannot resolve in the plugin cache (no `node_modules`). The process crashes on startup.
 
-`qrec-mcp.cjs` is built from `src/mcp-entry.ts` — pure JS, proxies all tool calls to the daemon over HTTP at `localhost:3030`. No native deps.
+`qrec-mcp.cjs` is built from `src/mcp-entry.ts` — pure JS, proxies all tool calls to the daemon over HTTP at `localhost:25927`. No native deps.
 
 **Rule**: any plugin bun script must either bundle ALL its dependencies or use only bun built-ins + Node.js core. Do not rely on bun's global module cache for packages with platform-specific optional deps.
 

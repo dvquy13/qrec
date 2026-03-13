@@ -357,12 +357,29 @@ main {
 }
 .sessions-toolbar h2 { font-size: 16px; font-weight: 600; }
 .sessions-filters { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
+.filter-wrap { position: relative; }
+
 .sessions-filter {
   min-width: 140px; background: var(--bg); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 12px; color: var(--text);
   font-size: 13px; outline: none; transition: border-color 0.15s;
 }
 .sessions-filter:focus { border-color: var(--accent); }
+
+.filter-dropdown {
+  display: none;
+  position: absolute; top: calc(100% + 4px); left: 0;
+  min-width: 100%; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  z-index: 100; overflow: hidden; max-height: 220px; overflow-y: auto;
+}
+.filter-dropdown.open { display: block; }
+.filter-dropdown-item {
+  padding: 8px 12px; font-size: 13px; cursor: pointer;
+  color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.filter-dropdown-item:hover { background: var(--accent-light); color: var(--accent); }
 .date-chip {
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-border);

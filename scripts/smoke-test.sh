@@ -15,11 +15,11 @@ echo "[smoke-test] Starting daemon..."
 bun run src/cli.ts serve --daemon
 
 echo "[smoke-test] Health check..."
-curl -sf http://localhost:3030/health
+curl -sf http://localhost:25927/health
 echo ""
 
 echo "[smoke-test] Search..."
-curl -sf -X POST http://localhost:3030/search \
+curl -sf -X POST http://localhost:25927/search \
   -H 'Content-Type: application/json' \
   -d '{"query":"test","k":5}'
 echo ""

@@ -34,7 +34,7 @@ qrec onboard
 
 ## Usage
 
-The daemon runs at **http://localhost:3030**. Open it in your browser to search sessions and monitor indexing activity.
+The daemon runs at **http://localhost:25927**. Open it in your browser to search sessions and monitor indexing activity.
 
 ```bash
 qrec status     # check if daemon is running
@@ -44,7 +44,7 @@ qrec stop       # stop the daemon
 ### API
 
 ```bash
-curl -s -X POST http://localhost:3030/search \
+curl -s -X POST http://localhost:25927/search \
   -H "Content-Type: application/json" \
   -d '{"query": "sqlite vec extension", "k": 5}' | jq .
 ```
@@ -81,7 +81,7 @@ Tools: `search(query, k?)`, `get(session_id)`, `status()`, `query_db(sql)`
 | `qrec onboard` | First-time setup: starts daemon + opens browser immediately; model download + indexing run in background |
 | `qrec teardown` | Stop daemon and remove all qrec data (`~/.qrec/`) |
 | `qrec index [path]` | Re-index sessions (default: `~/.claude/projects/`) |
-| `qrec serve [--daemon]` | Start HTTP server on port 3030 |
+| `qrec serve [--daemon]` | Start HTTP server on port 25927 |
 | `qrec stop` | Stop daemon |
 | `qrec mcp [--http]` | Start MCP server (stdio or HTTP) |
 | `qrec status` | Status summary + log tail |
