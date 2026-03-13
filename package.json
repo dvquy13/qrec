@@ -11,13 +11,19 @@
     "plugin/scripts/qrec-cli.js",
     "plugin/scripts/qrec-mcp.js",
     "plugin/scripts/bun-finder.js",
+    "plugin/.claude-plugin",
+    "plugin/hooks",
+    "plugin/skills",
+    "plugin/package.json",
+    "ui",
     "README.md"
   ],
   "scripts": {
     "dev": "bun run src/cli.ts",
     "build": "node scripts/build.js",
     "release": "bash scripts/release.sh",
-    "smoke-test": "bash scripts/smoke-test.sh"
+    "smoke-test": "bash scripts/smoke-test.sh",
+    "check-package": "bash scripts/check-package.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
