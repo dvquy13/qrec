@@ -64,7 +64,7 @@ body {
 button, input, select, textarea { font-family: inherit; }
 
 /* ── Inter — prose/paragraph reading content only ──────────────────────── */
-.turn-text, p, li, .session-card-summary {
+.turn-text, p, li, .session-card-summary, .agent-thinking-body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
