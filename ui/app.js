@@ -44,7 +44,6 @@ setInterval(() => {
   const active = document.querySelector('.tab-panel.active')?.id?.replace('tab-', '');
   if (active === 'dashboard') loadDashboard();
   if (active === 'activity') loadActivity();
-  if (active === 'sessions') loadSessions();
   if (active === 'debug') { fetchStats(); fetchLog(); }
 }, 5000);
 
@@ -397,25 +396,95 @@ function clearSearch() {
 // ── Sessions list ────────────────────────────────────────────────────────────
 
 let _allSessions = [];
+let _sessionsTotal = 0;
+let _sessionsOffset = 0;
+let _sessionsLoading = false;
+let _scrollObserver = null;
 let _filterDate = null;
 let _filterOptions = { project: [], tag: [] };
 
+function setupScrollObserver() {
+  if (_scrollObserver) _scrollObserver.disconnect();
+  const sentinel = document.getElementById('sessions-sentinel');
+  if (!sentinel) return;
+  _scrollObserver = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && _sessionsOffset < _sessionsTotal && !_sessionsLoading) {
+      loadMoreSessions();
+    }
+  }, { rootMargin: '300px' });
+  _scrollObserver.observe(sentinel);
+}
+
 async function loadSessions() {
+  if (_sessionsLoading) return;
+  _sessionsLoading = true;
+  _allSessions = [];
+  _sessionsOffset = 0;
   const content = document.getElementById('sessions-content');
+  content.innerHTML = '<div class="loading-state"><span class="spinner"></span></div>';
   try {
-    const res = await fetch('/sessions');
+    const res = await fetch('/sessions?offset=0');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { sessions, total } = await res.json();
 
+    _sessionsTotal = total;
+    _sessionsOffset = sessions.length;
     _allSessions = sessions;
 
-    // Store options for custom dropdowns
     _filterOptions.project = [...new Set(sessions.map(s => s.project).filter(Boolean))].sort();
     _filterOptions.tag = [...new Set(sessions.flatMap(s => s.tags ?? []))].sort();
 
-    applyFilters(); // preserve any active filters after (re)load
+    applyFilters();
   } catch (err) {
     content.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
+  } finally {
+    _sessionsLoading = false;
+  }
+}
+
+async function loadMoreSessions() {
+  if (_sessionsLoading || _sessionsOffset >= _sessionsTotal) return;
+  _sessionsLoading = true;
+  try {
+    const res = await fetch(`/sessions?offset=${_sessionsOffset}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { sessions, total } = await res.json();
+
+    _sessionsTotal = total;
+    _sessionsOffset += sessions.length;
+    _allSessions = _allSessions.concat(sessions);
+
+    // Update filter options with newly loaded data
+    _filterOptions.project = [...new Set(_allSessions.map(s => s.project).filter(Boolean))].sort();
+    _filterOptions.tag = [...new Set(_allSessions.flatMap(s => s.tags ?? []))].sort();
+
+    // Append matching cards directly — no full re-render to avoid scroll jump
+    const project = document.getElementById('filter-project').value.trim().toLowerCase();
+    const tag = document.getElementById('filter-tag').value.trim().toLowerCase();
+    const matching = sessions.filter(s => {
+      if (project && !(s.project ?? '').toLowerCase().includes(project)) return false;
+      if (tag && !(s.tags ?? []).some(t => t.toLowerCase().includes(tag))) return false;
+      if (_filterDate && s.date !== _filterDate) return false;
+      return true;
+    });
+
+    const grid = document.getElementById('sessions-grid');
+    if (grid && matching.length > 0) {
+      grid.insertAdjacentHTML('beforeend', matching.map(sessionCardHtml).join(''));
+    }
+
+    // Update count
+    const countEl = document.getElementById('sessions-count');
+    if (countEl && _lastSearchResults === null) {
+      const visibleCount = (grid ? grid.children.length : 0);
+      countEl.textContent = String(visibleCount);
+    }
+
+    setupScrollObserver();
+  } catch (_) {
+    // silently ignore append errors — user can scroll again to retry
+  } finally {
+    _sessionsLoading = false;
   }
 }
 
@@ -513,34 +582,38 @@ function clearFilters() {
   renderSessionsList(_allSessions);
 }
 
+function sessionCardHtml(s) {
+  const tagPills = (s.tags ?? []).map(t =>
+    `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
+  ).join('');
+  const summaryHtml = s.summary
+    ? `<div class="session-card-summary">${escHtml(s.summary)}</div>`
+    : '';
+  return `
+  <div class="session-card" onclick="openSession('${escHtml(s.id)}')">
+    <div class="session-card-body">
+      <div class="session-card-title">${escHtml(s.title || '(untitled)')}</div>
+      <div class="session-card-meta">
+        <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(s.project || '')}')">${escHtml(s.project || '—')}</span>
+        <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(s.date || '')}')">${escHtml(s.date || '—')}</span>
+        <span class="session-id">${escHtml(s.id)}</span>
+        ${tagPills}
+      </div>
+      ${summaryHtml}
+    </div>
+    <div class="session-card-arrow">›</div>
+  </div>`;
+}
+
 function renderSessionsList(sessions) {
   const content = document.getElementById('sessions-content');
   if (!sessions || sessions.length === 0) {
     content.innerHTML = '<div class="empty-state">No sessions found.</div>';
+    setupScrollObserver();
     return;
   }
-  content.innerHTML = `<div class="sessions-grid">${sessions.map(s => {
-    const tagPills = (s.tags ?? []).map(t =>
-      `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
-    ).join('');
-    const summaryHtml = s.summary
-      ? `<div class="session-card-summary">${escHtml(s.summary)}</div>`
-      : '';
-    return `
-    <div class="session-card" onclick="openSession('${escHtml(s.id)}')">
-      <div class="session-card-body">
-        <div class="session-card-title">${escHtml(s.title || '(untitled)')}</div>
-        <div class="session-card-meta">
-          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(s.project || '')}')">${escHtml(s.project || '—')}</span>
-          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(s.date || '')}')">${escHtml(s.date || '—')}</span>
-          <span class="session-id">${escHtml(s.id)}</span>
-          ${tagPills}
-        </div>
-        ${summaryHtml}
-      </div>
-      <div class="session-card-arrow">›</div>
-    </div>`;
-  }).join('')}</div>`;
+  content.innerHTML = `<div class="sessions-grid" id="sessions-grid">${sessions.map(sessionCardHtml).join('')}</div><div id="sessions-sentinel"></div>`;
+  setupScrollObserver();
 }
 
 function openSession(id) {

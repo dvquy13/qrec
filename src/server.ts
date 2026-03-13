@@ -121,9 +121,11 @@ async function main() {
       }
 
       if (req.method === "GET" && url.pathname === "/sessions") {
+        const limit = 100;
+        const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
         const rows = db
-          .prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT 100")
-          .all() as Array<{
+          .prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
+          .all(limit, offset) as Array<{
             id: string; title: string | null; project: string; date: string; indexed_at: number;
             summary: string | null; tags: string | null; entities: string | null;
           }>;
@@ -133,7 +135,7 @@ async function main() {
           tags: r.tags ? JSON.parse(r.tags) as string[] : null,
           entities: r.entities ? JSON.parse(r.entities) as string[] : null,
         }));
-        return Response.json({ sessions, total });
+        return Response.json({ sessions, total, offset, limit });
       }
 
       if (req.method === "GET" && url.pathname.startsWith("/sessions/") && url.pathname.endsWith("/markdown")) {
