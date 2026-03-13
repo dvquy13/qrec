@@ -13,6 +13,17 @@ argument-hint: "<what to recall>"
 
 Use the qrec MCP tools to search past Claude Code sessions and answer questions about prior work.
 
+## Project orientation (use at session start)
+
+To get context on the current project's recent sessions, call `query_db` with:
+```sql
+SELECT id, title, date, summary, tags FROM sessions
+WHERE project = '<basename of cwd>'
+ORDER BY date DESC LIMIT 5
+```
+`project` = the last path component of the working directory (e.g. cwd `/Users/dvq/frostmourne/qrec` → project `qrec`).
+`summary` and `tags` are null for unenriched sessions; fall back to `title` + `date` if so.
+
 ## Decision rule
 
 - **Structured queries** (dates, project names, counts, listings) → use `query_db` first

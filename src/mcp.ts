@@ -112,10 +112,15 @@ Schema:
 
 Only SELECT statements. No semicolons.
 
+\`project\` = basename of the working directory (e.g. cwd \`/Users/dvq/frostmourne/qrec\` → project \`qrec\`).
+\`summary\` and \`tags\` may be null for unenriched sessions; fall back to \`title\` + \`date\` if so.
+
 Examples:
   SELECT id, title, project, date FROM sessions WHERE date = '2026-03-11' ORDER BY indexed_at DESC
   SELECT project, COUNT(*) as sessions FROM sessions GROUP BY project ORDER BY sessions DESC
-  SELECT id, title, date FROM sessions WHERE project = 'qrec' ORDER BY date DESC LIMIT 10`,
+  SELECT id, title, date FROM sessions WHERE project = 'qrec' ORDER BY date DESC LIMIT 10
+  -- Project orientation (project = basename of working directory):
+  SELECT id, title, date, summary, tags FROM sessions WHERE project = 'qrec' ORDER BY date DESC LIMIT 5`,
     inputSchema: {
       type: "object",
       properties: {
