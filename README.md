@@ -1,8 +1,6 @@
 # qrec
 
-Purpose-built session recall engine for Claude Code. Keeps an embedding model resident in memory for fast hybrid search (BM25 + vector) over your Claude session transcripts.
-
-- **Warm query**: ~55ms vs ~2600ms cold model load per invocation
+Purpose-built session recall engine for Claude Code.
 
 ## Install
 
@@ -74,19 +72,20 @@ qrec mcp          # stdio (Claude Code MCP config)
 qrec mcp --http   # HTTP on port 3031
 ```
 
-Tools: `search(query, k?)`, `get(session_id)`, `status()`
+Tools: `search(query, k?)`, `get(session_id)`, `status()`, `query_db(sql)`
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `qrec onboard` | First-time setup: model download + index + start daemon + open browser |
+| `qrec onboard` | First-time setup: starts daemon + opens browser immediately; model download + indexing run in background |
 | `qrec teardown` | Stop daemon and remove all qrec data (`~/.qrec/`) |
 | `qrec index [path]` | Re-index sessions (default: `~/.claude/projects/`) |
 | `qrec serve [--daemon]` | Start HTTP server on port 3030 |
 | `qrec stop` | Stop daemon |
 | `qrec mcp [--http]` | Start MCP server (stdio or HTTP) |
 | `qrec status` | Status summary + log tail |
+| `qrec enrich [--limit N]` | Backfill session summaries, tags, and entities |
 
 ## Stack
 
@@ -95,5 +94,5 @@ Tools: `search(query, k?)`, `get(session_id)`, `status()`
 | Runtime | Bun |
 | Language | TypeScript |
 | Search DB | SQLite (FTS5 + sqlite-vec) |
-| Embeddings | node-llama-cpp 3.15.1 (`embeddinggemma-300M-Q8_0`) |
+| Embeddings | node-llama-cpp 3.17.1 (`embeddinggemma-300M-Q8_0`) |
 | MCP | `@modelcontextprotocol/sdk` |
