@@ -1,3 +1,9 @@
+## [0.3.5](https://github.com/dvquy13/qrec/compare/v0.3.4...v0.3.5) (2026-03-13)
+
+
+### Bug Fixes
+
+* resolve static UI assets from correct path in compiled CJS ([40845e7](https://github.com/dvquy13/qrec/commit/40845e7f6664cd3440e91476b7f1d33ea4b3c031))
 ## [0.3.4](https://github.com/dvquy13/qrec/compare/v0.3.3...v0.3.4) (2026-03-13)
 
 
