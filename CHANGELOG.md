@@ -1,3 +1,9 @@
+## [0.3.4](https://github.com/dvquy13/qrec/compare/v0.3.3...v0.3.4) (2026-03-13)
+
+
+### Bug Fixes
+
+* include ui and plugin assets in npm package files ([edc9a3e](https://github.com/dvquy13/qrec/commit/edc9a3ebee117197288f77bc60364fcb7cbc5054))
 ## [0.3.3](https://github.com/dvquy13/qrec/compare/v0.3.2...v0.3.3) (2026-03-13)
 ## [0.3.2](https://github.com/dvquy13/qrec/compare/v0.3.1...v0.3.2) (2026-03-13)
 ## [0.3.1](https://github.com/dvquy13/qrec/compare/v0.3.0...v0.3.1) (2026-03-12)
