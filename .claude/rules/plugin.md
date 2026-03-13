@@ -13,11 +13,9 @@ paths:
 bash scripts/release.sh <version>
 ```
 
-This: syncs versions → rebuilds `qrec.cjs` + copies UI → CHANGELOG → commit → tag → push → GitHub release → npm publish.
+This: syncs versions → rebuilds `qrec.cjs` → CHANGELOG → commit → tag → push → GitHub release → npm publish.
 
-**`plugin/ui/` must be committed to git.** It was previously in `.gitignore` (caused localhost:25927 to return 404 on all installs). It's now intentionally tracked. Do not add it back to `.gitignore`.
-
-**`plugin/ui/` must be in the `git add` in `release.sh`** — the build step regenerates it from `ui/`, and it must be staged in the release commit.
+**Run `npm run check-package` before releasing.** It packs a dry-run tarball and asserts every file under `ui/` and `plugin/` is present. Uses `find` (not a hardcoded list), so new files are caught automatically without updating the test.
 
 ## Version sync
 
@@ -38,6 +36,14 @@ Always use the **full three-part URI**: `hf:<user>/<repo>/<filename>`
 ```
 
 The short form hits the HF manifest API which requires auth. The full form resolves directly.
+
+## npm package layout
+
+`ui/` lives at the **package root** (not `plugin/ui/`). The compiled `qrec.cjs` resolves static assets via `join(__dirname, "..", "..", "ui")` — two levels up from `plugin/scripts/`. One `..` would land in `plugin/ui/` (wrong).
+
+The `package.json` `files` array must include both `"ui"` and the individual `plugin/` subdirs. `"plugin"` alone is not listed as a top-level entry because only specific subdirs are included (scripts, hooks, skills, .claude-plugin).
+
+**Plugin marketplace copies only `plugin/`** — `"source": "./plugin"` in `.claude-plugin/marketplace.json` means Claude Code copies only that subdir to `~/.claude/plugins/cache/`. The CLI (`qrec`) comes from `npm install -g`; hooks/skills/MCP come from the plugin cache. They are separate installs.
 
 ## qrec-cli.js: npm bin entry
 

@@ -54,7 +54,9 @@ eval/
 ui/
   index.html      # SPA: dashboard/search/sessions/activity/debug tabs + session detail (#session/:id); hash routing; marked.js for markdown; served fresh on every request (browser refresh picks up changes — no server restart needed)
 scripts/
-  reset.sh        # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
+  reset.sh          # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
+  smoke-test.sh     # Build → start CJS daemon (QREC_EMBED_PROVIDER=stub) → health/search/UI asset checks → stop
+  check-package.sh  # Pack tarball → assert every file under ui/ and plugin/ is present (run before release)
 ```
 
 **Source**: `~/.claude/projects/*/*.jsonl` (default; legacy `~/vault/sessions/*.md` still supported)

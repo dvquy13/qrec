@@ -51,3 +51,11 @@ Key suffix `-v2` was added to bust a corrupt cache entry. Do not revert to `-v1`
 ## node_modules cache key
 
 Keyed on `bun.lock`. Place the cache step **before** `bun install`.
+
+## Smoke test must use compiled CJS
+
+`scripts/smoke-test.sh` must start the daemon via `bun run plugin/scripts/qrec.cjs`, **not** `bun run src/cli.ts`.
+
+Bun source mode defines `import.meta.dir`, which takes the dev branch in `UI_DIR` resolution — the CJS `__dirname` path is never exercised. A bug where `join(__dirname, "..", "ui")` resolved to the wrong `plugin/ui/` directory went undetected for this reason.
+
+Use `QREC_EMBED_PROVIDER=stub` so no model loads and the daemon is instantly ready for the full test flow.

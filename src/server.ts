@@ -29,7 +29,10 @@ const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000"
 declare const __UI_HTML__: string | undefined;
 
 const UI_HTML_INLINE: string | null = typeof __UI_HTML__ !== "undefined" ? __UI_HTML__ : null;
-const UI_DIR = join((import.meta as { dir?: string }).dir ?? __dirname, "..", "ui");
+const _metaDir = (import.meta as { dir?: string }).dir;
+const UI_DIR = _metaDir
+  ? join(_metaDir, "..", "ui")            // dev: src/ → ui/
+  : join(__dirname, "..", "..", "ui");    // CJS: plugin/scripts/ → ui/
 const UI_HTML_PATH = join(UI_DIR, "index.html");
 
 async function serveUiHtml(): Promise<Response> {
