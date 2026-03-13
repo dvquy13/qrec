@@ -50,7 +50,10 @@ function hashContent(content: string): string {
 // File collection
 // ---------------------------------------------------------------------------
 
-/** Recursively collect all *.jsonl files under a directory. */
+/** Recursively collect all *.jsonl files under a directory.
+ * Goes 2 levels deep: <projects-dir>/<project>/<session>.jsonl
+ * Intentionally does NOT descend into <session-uuid>/subagents/ (depth 3+).
+ * Subagent transcripts (~329 files on a typical install) are fragments, not full sessions. */
 function collectJsonlFiles(dir: string): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(dir)) {
@@ -109,7 +112,10 @@ function seededSample<T>(arr: T[], n: number, seed: number): T[] {
 // Candidate building
 // ---------------------------------------------------------------------------
 
-/** Build a SessionMeta from a JSONL file. Returns null if session has < minTurns user turns. */
+/** Build a SessionMeta from a JSONL file. Returns null if session has < minTurns user turns.
+ * Many JSONL files are slash-command-only (e.g. `/clear`, `/usage`): their user messages contain
+ * only XML-wrapped metadata that stripTags() removes entirely, leaving 0 real user turns.
+ * These are legitimately skipped — the actual conversation lives in the preceding session file. */
 async function buildJsonlCandidate(
   filePath: string,
   minTurns: number = 2
