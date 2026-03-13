@@ -124,16 +124,18 @@ async function main() {
         const limit = 100;
         const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
         const rows = db
-          .prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
+          .prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
           .all(limit, offset) as Array<{
             id: string; title: string | null; project: string; date: string; indexed_at: number;
-            summary: string | null; tags: string | null; entities: string | null;
+            summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null;
           }>;
         const total = (db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number }).count;
         const sessions = rows.map(r => ({
           ...r,
           tags: r.tags ? JSON.parse(r.tags) as string[] : null,
           entities: r.entities ? JSON.parse(r.entities) as string[] : null,
+          learnings: r.learnings ? JSON.parse(r.learnings) as string[] : null,
+          questions: r.questions ? JSON.parse(r.questions) as string[] : null,
         }));
         return Response.json({ sessions, total, offset, limit });
       }
@@ -181,8 +183,8 @@ async function main() {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
         const row = db
-          .prepare("SELECT id, title, project, date, path, summary, tags, entities FROM sessions WHERE id = ?")
-          .get(id) as { id: string; title: string | null; project: string; date: string; path: string; summary: string | null; tags: string | null; entities: string | null } | null;
+          .prepare("SELECT id, title, project, date, path, summary, tags, entities, learnings, questions FROM sessions WHERE id = ?")
+          .get(id) as { id: string; title: string | null; project: string; date: string; path: string; summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null } | null;
         if (!row) {
           return Response.json({ error: "Session not found" }, { status: 404 });
         }
@@ -196,6 +198,8 @@ async function main() {
             summary: row.summary ?? null,
             tags: row.tags ? JSON.parse(row.tags) as string[] : null,
             entities: row.entities ? JSON.parse(row.entities) as string[] : null,
+            learnings: row.learnings ? JSON.parse(row.learnings) as string[] : null,
+            questions: row.questions ? JSON.parse(row.questions) as string[] : null,
             turns: parsed.turns,
           });
         } catch (err) {

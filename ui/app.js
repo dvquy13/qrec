@@ -403,6 +403,54 @@ let _scrollObserver = null;
 let _filterDate = null;
 let _filterOptions = { project: [], tag: [] };
 
+// ── Card fields config ───────────────────────────────────────────────────────
+const CARD_FIELD_DEFAULTS = { summary: true, tags: true, entities: false, learnings: false, questions: false };
+let _cardFields = (() => {
+  try { return { ...CARD_FIELD_DEFAULTS, ...JSON.parse(localStorage.getItem('qrec_card_fields') || '{}') }; }
+  catch { return { ...CARD_FIELD_DEFAULTS }; }
+})();
+
+function saveCardFields() {
+  localStorage.setItem('qrec_card_fields', JSON.stringify(_cardFields));
+}
+
+function initFieldsPicker() {
+  for (const key of Object.keys(CARD_FIELD_DEFAULTS)) {
+    const el = document.getElementById('field-' + key);
+    if (el) el.checked = _cardFields[key];
+  }
+}
+
+function toggleFieldsPicker() {
+  const picker = document.getElementById('fields-picker');
+  const isOpen = picker.style.display !== 'none';
+  if (isOpen) {
+    picker.style.display = 'none';
+  } else {
+    initFieldsPicker();
+    picker.style.display = '';
+  }
+}
+
+function onFieldChange() {
+  for (const key of Object.keys(CARD_FIELD_DEFAULTS)) {
+    const el = document.getElementById('field-' + key);
+    if (el) _cardFields[key] = el.checked;
+  }
+  saveCardFields();
+  // Re-render visible sessions with updated fields
+  const filtered = getFilteredSessions();
+  renderSessionsList(filtered);
+}
+
+document.addEventListener('click', e => {
+  const picker = document.getElementById('fields-picker');
+  const btn = document.getElementById('fields-btn');
+  if (picker && picker.style.display !== 'none' && !picker.contains(e.target) && e.target !== btn) {
+    picker.style.display = 'none';
+  }
+});
+
 function setupScrollObserver() {
   if (_scrollObserver) _scrollObserver.disconnect();
   const sentinel = document.getElementById('sessions-sentinel');
@@ -520,18 +568,24 @@ function selectFilterOption(type, value) {
   applyFilters();
 }
 
+function getFilteredSessions() {
+  const project = document.getElementById('filter-project').value.trim().toLowerCase();
+  const tag = document.getElementById('filter-tag').value.trim().toLowerCase();
+  return _allSessions.filter(s => {
+    if (project && !(s.project ?? '').toLowerCase().includes(project)) return false;
+    if (tag && !(s.tags ?? []).some(t => t.toLowerCase().includes(tag))) return false;
+    if (_filterDate && s.date !== _filterDate) return false;
+    return true;
+  });
+}
+
 function applyFilters() {
   const project = document.getElementById('filter-project').value.trim().toLowerCase();
   const tag = document.getElementById('filter-tag').value.trim().toLowerCase();
   const hasFilter = project || tag || _filterDate;
   document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
 
-  const filteredSessions = _allSessions.filter(s => {
-    if (project && !(s.project ?? '').toLowerCase().includes(project)) return false;
-    if (tag && !(s.tags ?? []).some(t => t.toLowerCase().includes(tag))) return false;
-    if (_filterDate && s.date !== _filterDate) return false;
-    return true;
-  });
+  const filteredSessions = getFilteredSessions();
 
   if (_lastSearchResults !== null) {
     const filteredIds = new Set(filteredSessions.map(s => s.id));
@@ -582,12 +636,56 @@ function clearFilters() {
   renderSessionsList(_allSessions);
 }
 
+function enrichBlockHtml(s, compact = false) {
+  const hasAny = !compact || Object.keys(_cardFields).some(k => k !== 'tags' && _cardFields[k] && s[k]);
+  if (!hasAny) return '';
+
+  // In compact (card) mode, only show fields the user has toggled on.
+  // Tags are handled in the meta row for cards, so they're excluded from the block.
+  const showField = k => !compact || (k !== 'tags' && _cardFields[k]);
+
+  const summarySection = showField('summary') && s.summary
+    ? `<div class="summary-block-section">
+         <span class="summary-block-label">Summary</span>
+         <p style="margin-top:4px;">${escHtml(s.summary)}</p>
+       </div>` : '';
+
+  // Tags only appear in the block for the detail view
+  const tagPills = !compact
+    ? (s.tags ?? []).map(t =>
+        `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}');showTab('sessions')">${escHtml(t)}</span>`
+      ).join('')
+    : '';
+  const entityPills = showField('entities')
+    ? (s.entities ?? []).map(e =>
+        `<span class="tag" style="font-family:var(--mono);font-size:11px;">${escHtml(e)}</span>`
+      ).join('')
+    : '';
+  const tagsHtml = (tagPills || entityPills)
+    ? `<div class="summary-block-tags">${tagPills}${entityPills}</div>` : '';
+
+  const learningsHtml = showField('learnings') && (s.learnings ?? []).length > 0
+    ? `<div class="summary-block-section">
+         <span class="summary-block-label">Learnings</span>
+         <ul class="summary-block-list">${(s.learnings ?? []).map(l => `<li>${escHtml(l)}</li>`).join('')}</ul>
+       </div>` : '';
+
+  const questionsHtml = showField('questions') && (s.questions ?? []).length > 0
+    ? `<div class="summary-block-section">
+         <span class="summary-block-label">Questions answered</span>
+         <ul class="summary-block-list">${(s.questions ?? []).map(q => `<li>${escHtml(q)}</li>`).join('')}</ul>
+       </div>` : '';
+
+  const inner = summarySection + tagsHtml + learningsHtml + questionsHtml;
+  if (!inner.trim()) return '';
+  return `<div class="summary-block${compact ? ' summary-block--compact' : ''}">${inner}</div>`;
+}
+
 function sessionCardHtml(s) {
-  const tagPills = (s.tags ?? []).map(t =>
-    `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
-  ).join('');
-  const summaryHtml = s.summary
-    ? `<div class="session-card-summary">${escHtml(s.summary)}</div>`
+  const metaTagPills = _cardFields.tags
+    ? (s.tags ?? []).map(t =>
+        `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
+      ).join('')
     : '';
   return `
   <div class="session-card" onclick="openSession('${escHtml(s.id)}')">
@@ -597,9 +695,9 @@ function sessionCardHtml(s) {
         <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(s.project || '')}')">${escHtml(s.project || '—')}</span>
         <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(s.date || '')}')">${escHtml(s.date || '—')}</span>
         <span class="session-id">${escHtml(s.id)}</span>
-        ${tagPills}
+        ${metaTagPills}
       </div>
-      ${summaryHtml}
+      ${enrichBlockHtml(s, true)}
     </div>
     <div class="session-card-arrow">›</div>
   </div>`;
@@ -662,24 +760,11 @@ async function loadSessionDetail(id) {
       <span class="tag">${session.turns ? session.turns.length + ' turns' : ''}</span>
     `;
 
-    // Summary block (shown above turns when enriched)
-    document.querySelector('.summary-block')?.remove();
+    // Summary block (shown above turns when enriched) — remove all, not just first
+    document.querySelectorAll('.summary-block').forEach(el => el.remove());
     const turnsEl = document.getElementById('detail-turns');
-    if (session.summary) {
-      const tagPills = (session.tags ?? []).map(t =>
-        `<span class="enrich-tag" onclick="filterByTag('${escHtml(t)}');showTab('sessions')">${escHtml(t)}</span>`
-      ).join('');
-      const entityPills = (session.entities ?? []).map(e =>
-        `<span class="tag" style="font-family:var(--mono);font-size:11px;">${escHtml(e)}</span>`
-      ).join('');
-      const tagsHtml = (tagPills || entityPills)
-        ? `<div class="summary-block-tags">${tagPills}${entityPills}</div>` : '';
-      turnsEl.insertAdjacentHTML('beforebegin', `
-        <div class="summary-block">
-          <p>${escHtml(session.summary)}</p>
-          ${tagsHtml}
-        </div>`);
-    }
+    const blockHtml = enrichBlockHtml(session, false);
+    if (blockHtml) turnsEl.insertAdjacentHTML('beforebegin', blockHtml);
 
     if (!session.turns || session.turns.length === 0) {
       turnsEl.innerHTML = '<div class="empty-state">No turns found in this session.</div>';

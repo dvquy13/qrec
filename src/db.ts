@@ -133,6 +133,8 @@ function migrate(db: Database): void {
     "ALTER TABLE sessions ADD COLUMN entities TEXT",
     "ALTER TABLE sessions ADD COLUMN enriched_at INTEGER",
     "ALTER TABLE sessions ADD COLUMN enrichment_version INTEGER",
+    "ALTER TABLE sessions ADD COLUMN learnings TEXT",
+    "ALTER TABLE sessions ADD COLUMN questions TEXT",
   ]) {
     try { db.exec(col); } catch { /* column already exists */ }
   }

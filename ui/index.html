@@ -128,6 +128,17 @@
       <span id="date-chip" class="date-chip" style="display:none;"></span>
       <button class="btn" id="clear-filters-btn" onclick="clearFilters()" style="display:none;">Clear</button>
     </div>
+    <div class="filter-wrap">
+      <button class="btn fields-btn" id="fields-btn" onclick="toggleFieldsPicker()">Fields ▾</button>
+      <div class="fields-picker" id="fields-picker" style="display:none;" onmousedown="return false;">
+        <div class="fields-picker-title">Preview fields</div>
+        <label class="fields-option"><input type="checkbox" id="field-summary" onchange="onFieldChange()"> Summary</label>
+        <label class="fields-option"><input type="checkbox" id="field-tags" onchange="onFieldChange()"> Tags</label>
+        <label class="fields-option"><input type="checkbox" id="field-entities" onchange="onFieldChange()"> Entities</label>
+        <label class="fields-option"><input type="checkbox" id="field-learnings" onchange="onFieldChange()"> Learnings</label>
+        <label class="fields-option"><input type="checkbox" id="field-questions" onchange="onFieldChange()"> Questions</label>
+      </div>
+    </div>
   </div>
   <div id="sessions-content">
     <div class="loading-state"><span class="spinner"></span></div>

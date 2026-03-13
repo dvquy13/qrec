@@ -11,7 +11,7 @@ import type { SummarizerCtx } from "./summarize.ts";
 import { summarizeSession } from "./summarize.ts";
 
 // Bump to re-enrich all sessions (sessions with enrichment_version < this get re-queued).
-export const ENRICHMENT_VERSION = 1;
+export const ENRICHMENT_VERSION = 2;
 
 const MODEL_URI = "hf:bartowski/Qwen_Qwen3-1.7B-GGUF/Qwen_Qwen3-1.7B-Q4_K_M.gguf";
 const MODEL_CACHE_DIR = join(homedir(), ".qrec", "models");
@@ -89,11 +89,19 @@ function getChunkText(db: Database, sessionId: string): string {
   return rows.map(r => r.text).join("\n\n");
 }
 
-function buildSummaryChunkText(summary: string | null, tags: string[], entities: string[]): string {
+function buildSummaryChunkText(
+  summary: string | null,
+  tags: string[],
+  entities: string[],
+  learnings: string[] = [],
+  questions: string[] = []
+): string {
   return [
     summary,
     tags.length > 0 ? "Tags: " + tags.join(", ") : "",
     entities.length > 0 ? "Entities: " + entities.join(", ") : "",
+    learnings.length > 0 ? "Learnings: " + learnings.join(" ") : "",
+    questions.length > 0 ? "Questions: " + questions.join(" ") : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -107,10 +115,10 @@ function buildSummaryChunkText(summary: string | null, tags: string[], entities:
  */
 function backfillSummaryChunks(db: Database): void {
   const enriched = db.prepare(
-    `SELECT id, summary, tags, entities FROM sessions
+    `SELECT id, summary, tags, entities, learnings, questions FROM sessions
      WHERE enriched_at IS NOT NULL
        AND id NOT IN (SELECT session_id FROM chunks WHERE id = session_id || '_summary')`
-  ).all() as Array<{ id: string; summary: string | null; tags: string | null; entities: string | null }>;
+  ).all() as Array<{ id: string; summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null }>;
 
   if (enriched.length === 0) return;
   console.log(`[enrich] Backfilling summary chunks for ${enriched.length} already-enriched session(s)`);
@@ -123,7 +131,9 @@ function backfillSummaryChunks(db: Database): void {
     if (!row.summary) continue;
     const tags: string[] = row.tags ? JSON.parse(row.tags) as string[] : [];
     const entities: string[] = row.entities ? JSON.parse(row.entities) as string[] : [];
-    const text = buildSummaryChunkText(row.summary, tags, entities);
+    const learnings: string[] = row.learnings ? JSON.parse(row.learnings) as string[] : [];
+    const questions: string[] = row.questions ? JSON.parse(row.questions) as string[] : [];
+    const text = buildSummaryChunkText(row.summary, tags, entities, learnings, questions);
     insertSummaryChunk.run(`${row.id}_summary`, row.id, -1, -1, text, Date.now());
   }
   console.log(`[enrich] Backfill done.`);
@@ -157,7 +167,7 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
     const summCtx = await loadSummarizer();
     try {
       const updateSession = db.prepare(
-        "UPDATE sessions SET summary=?, tags=?, entities=?, enriched_at=?, enrichment_version=? WHERE id=?"
+        "UPDATE sessions SET summary=?, tags=?, entities=?, learnings=?, questions=?, enriched_at=?, enrichment_version=? WHERE id=?"
       );
       // Summary chunks go into the chunks table (FTS5 trigger auto-indexes them for BM25 search).
       // Chunk id format: "{session_id}_summary" — distinct from real chunks "{session_id}_{seq}".
@@ -184,6 +194,8 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
           result.summary,
           JSON.stringify(result.tags),
           JSON.stringify(result.entities),
+          JSON.stringify(result.learnings),
+          JSON.stringify(result.questions),
           now,
           ENRICHMENT_VERSION,
           id
@@ -191,8 +203,8 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
 
         // Insert summary chunk so BM25 (FTS5) search covers summary/tags/entities text.
         // seq=-1 marks it as synthetic; pos=-1 means before all real content.
-        if (result.summary || result.tags.length > 0 || result.entities.length > 0) {
-          const summaryChunkText = buildSummaryChunkText(result.summary, result.tags, result.entities);
+        if (result.summary || result.tags.length > 0 || result.entities.length > 0 || result.learnings.length > 0 || result.questions.length > 0) {
+          const summaryChunkText = buildSummaryChunkText(result.summary, result.tags, result.entities, result.learnings, result.questions);
           deleteSummaryChunk.run(`${id}_summary`);
           insertSummaryChunk.run(`${id}_summary`, id, -1, -1, summaryChunkText, now);
         }
@@ -200,6 +212,8 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
         console.log(`[${i + 1}/${pending.length}] ${id} — ${latencyMs}ms`);
         if (result.summary) console.log(`  Summary: ${result.summary.slice(0, 100)}`);
         if (result.tags.length > 0) console.log(`  Tags: ${result.tags.join(", ")}`);
+        if (result.learnings.length > 0) console.log(`  Learnings: ${result.learnings.length}`);
+        if (result.questions.length > 0) console.log(`  Questions: ${result.questions.length}`);
       }
     } finally {
       await disposeSummarizer(summCtx);
