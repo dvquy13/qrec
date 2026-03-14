@@ -1,3 +1,6 @@
+// ── Counter animation state ──────────────────────────────────────────────────
+const _statPrevVals = {};
+
 // ── Activity state ───────────────────────────────────────────────────────────
 let _allRunGroups = [];
 const RUNS_INITIAL = 5;
@@ -129,6 +132,29 @@ function renderText(text) {
   return '<p>' + escHtml(text).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>') + '</p>';
 }
 
+// ── Counter animation ────────────────────────────────────────────────────────
+
+function animateCounter(el, toVal, duration = 400) {
+  if (!el || typeof toVal !== 'number') return;
+  const key = el.id;
+  const fromVal = _statPrevVals[key] ?? toVal;
+  _statPrevVals[key] = toVal;
+  if (fromVal === toVal) { el.textContent = toVal.toLocaleString(); return; }
+  el.classList.remove('stat-value--animating');
+  // Force reflow to restart animation
+  void el.offsetWidth;
+  el.classList.add('stat-value--animating');
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - (1 - t) ** 3; // ease-out cubic
+    el.textContent = Math.round(fromVal + (toVal - fromVal) * eased).toLocaleString();
+    if (t < 1) requestAnimationFrame(tick);
+    else { el.textContent = toVal.toLocaleString(); el.classList.remove('stat-value--animating'); }
+  }
+  requestAnimationFrame(tick);
+}
+
 // ── Dashboard ───────────────────────────────────────────────────────────────
 
 async function loadDashboard() {
@@ -144,14 +170,7 @@ async function loadDashboard() {
     document.getElementById('db-loading').style.display = 'none';
     document.getElementById('db-error').style.display = 'none';
 
-    const isReady = data.phase === 'ready' && data.sessions > 0;
-    if (isReady) {
-      document.getElementById('onboarding').style.display = 'none';
-      showDashboardPanel(data, actEntries);
-    } else {
-      document.getElementById('dashboard').style.display = 'none';
-      showOnboarding(data);
-    }
+    showDashboardPanel(data, actEntries);
   } catch (err) {
     document.getElementById('db-loading').style.display = 'none';
     const el = document.getElementById('db-error');
@@ -160,8 +179,14 @@ async function loadDashboard() {
   }
 }
 
-function showOnboarding(data) {
+function updateOnboardingBanner(data) {
+  const onboardingEl = document.getElementById('onboarding');
+  if (!onboardingEl) return;
+
   const phase = data.phase ?? 'ready';
+  const isFullyReady = phase === 'ready' && data.searches > 0;
+  if (isFullyReady) { onboardingEl.style.display = 'none'; return; }
+
   const dl = data.modelDownload ?? { percent: 0, downloadedMB: 0, totalMB: null };
   const idx = data.indexing ?? { indexed: 0, total: 0, current: '' };
 
@@ -256,13 +281,17 @@ function showOnboarding(data) {
     stepsEl.appendChild(div);
   });
 
-  document.getElementById('onboarding').style.display = 'block';
+  onboardingEl.style.display = 'block';
 }
 
 function showDashboardPanel(data, actEntries) {
-  document.getElementById('stat-sessions').textContent = data.sessions.toLocaleString();
-  document.getElementById('stat-chunks').textContent = data.chunks.toLocaleString();
-  document.getElementById('stat-searches').textContent = data.searches.toLocaleString();
+  document.getElementById('dashboard').style.display = 'block';
+
+  updateOnboardingBanner(data);
+
+  animateCounter(document.getElementById('stat-sessions'), data.sessions);
+  animateCounter(document.getElementById('stat-chunks'), data.chunks);
+  animateCounter(document.getElementById('stat-searches'), data.searches);
   document.getElementById('info-provider').textContent = data.embedProvider;
   document.getElementById('info-last-indexed').textContent =
     data.lastIndexedAt ? formatRelative(data.lastIndexedAt) : '—';
@@ -280,7 +309,7 @@ function showDashboardPanel(data, actEntries) {
       aiEl.innerHTML = `${enrichDone}<span class="enrich-dot" style="margin-left:6px;vertical-align:middle;"></span>`;
       if (aiSubEl) aiSubEl.textContent = `${pct}% enriched`;
     } else {
-      aiEl.textContent = enrichDone;
+      animateCounter(aiEl, enrichDone);
       if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
     }
   }
@@ -291,8 +320,6 @@ function showDashboardPanel(data, actEntries) {
 
   if (data.sessions !== _lastRenderedSessionCount) loadRecentSessions(data.sessions);
   if (data.sessions !== _lastRenderedSessionCount || !_heatmapData) fetchAndRenderHeatmap();
-
-  document.getElementById('dashboard').style.display = 'block';
 }
 
 async function loadRecentSessions(sessionCount) {

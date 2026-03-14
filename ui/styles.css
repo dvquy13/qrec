@@ -130,11 +130,17 @@ main {
 .error-state { text-align: center; color: var(--red); padding: 48px 0; }
 
 /* ── Dashboard ─────────────────────────────────────────────────────────── */
-.onboarding-wrap { display: none; }
 .dashboard-wrap { display: none; }
+.onboarding-wrap {
+  display: none;
+  margin-bottom: 32px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
 
-.onboarding-wrap h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 6px; }
-.onboarding-wrap .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 36px; }
+/* Counter animation: flash subtle highlight when value changes */
+@keyframes stat-pop { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+.stat-value--animating { animation: stat-pop 0.4s ease-out; }
 
 .steps { display: flex; flex-direction: column; gap: 12px; }
 .step {
