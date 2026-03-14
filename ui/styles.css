@@ -604,6 +604,25 @@ main {
 .heatmap-metric:hover { color: var(--accent); border-color: var(--accent); }
 .heatmap-metric--active { color: var(--accent); border-color: var(--accent); }
 
+/* ── Custom tooltip ─────────────────────────────────────────────────────── */
+#qrec-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: var(--text);
+  color: #fff;
+  font-family: 'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 4px 8px;
+  border-radius: 5px;
+  pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.08s ease;
+}
+#qrec-tooltip.visible { opacity: 1; }
+
 /* ── Mobile ─────────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   header { padding: 10px 14px; gap: 8px; }

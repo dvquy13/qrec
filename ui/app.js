@@ -65,6 +65,26 @@ navigate(initHash, false);
 history.replaceState(null, '', '#' + initHash);
 window.addEventListener('popstate', () => navigate(location.hash.slice(1) || 'dashboard', false));
 
+// ── Custom tooltip ───────────────────────────────────────────────────────────
+const _tip = document.createElement('div');
+_tip.id = 'qrec-tooltip';
+document.body.appendChild(_tip);
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest('[data-tooltip]');
+  if (!el) return;
+  _tip.textContent = el.dataset.tooltip;
+  _tip.classList.add('visible');
+});
+document.addEventListener('mouseout', e => {
+  if (e.target.closest('[data-tooltip]')) _tip.classList.remove('visible');
+});
+document.addEventListener('mousemove', e => {
+  if (!_tip.classList.contains('visible')) return;
+  const x = e.clientX + 12, y = e.clientY - 32;
+  _tip.style.left = Math.min(x, window.innerWidth - _tip.offsetWidth - 8) + 'px';
+  _tip.style.top = Math.max(y, 4) + 'px';
+});
+
 // ── Shared polling ──────────────────────────────────────────────────────────
 
 setInterval(() => {
@@ -966,7 +986,7 @@ function renderHeatmap(containerId, days, opts = {}) {
   html += '<div class="heatmap">';
 
   // Month header row + current-week range label
-  html += `<div style="display:flex;align-items:flex-start;gap:${GAP}px;margin-bottom:${GAP}px;">`;
+  html += `<div style="display:flex;align-items:center;gap:${GAP}px;margin-bottom:${GAP}px;">`;
   html += `<div style="width:${LABEL_W}px;flex-shrink:0;"></div>`;
   for (let i = 0; i < weeks.length; i++) {
     html += `<div style="width:${CELL}px;flex-shrink:0;">`;
@@ -988,10 +1008,15 @@ function renderHeatmap(containerId, days, opts = {}) {
         const isSelected = selectedDate && cell.date === selectedDate;
         const bg = isSelected ? 'var(--accent)' : HEATMAP_COLORS[intensity];
         const isClick = clickable && cell.count > 0;
-        const title = `${cell.date}: ${heatmapUnitLabel(cell.count, _heatmapMetric)}`;
-        html += `<div class="heatmap-cell${isClick ? ' heatmap-cell--clickable' : ''}" style="${cs}background:${bg};" title="${escHtml(title)}" data-date="${cell.date}" data-count="${cell.count}"></div>`;
+        const cd = new Date(cell.date + 'T00:00:00');
+        const friendlyDate = `${HEATMAP_WEEKDAYS[wd]}, ${HEATMAP_MONTHS[cd.getMonth()]} ${cd.getDate()}`;
+        const title = `${friendlyDate}: ${heatmapUnitLabel(cell.count, _heatmapMetric)}`;
+        html += `<div class="heatmap-cell${isClick ? ' heatmap-cell--clickable' : ''}" style="${cs}background:${bg};" data-tooltip="${escHtml(title)}" data-date="${cell.date}" data-count="${cell.count}"></div>`;
       } else {
-        html += `<div style="${cs}background:${HEATMAP_COLORS[0]};"></div>`;
+        const ed = new Date(weeks[wi].monday + 'T00:00:00');
+        ed.setDate(ed.getDate() + wd);
+        const friendlyDate = `${HEATMAP_WEEKDAYS[wd]}, ${HEATMAP_MONTHS[ed.getMonth()]} ${ed.getDate()}`;
+        html += `<div style="${cs}background:${HEATMAP_COLORS[0]};" data-tooltip="${escHtml(friendlyDate)}"></div>`;
       }
     }
 
@@ -1031,7 +1056,7 @@ function renderHeatmap(containerId, days, opts = {}) {
   for (const week of weeklyTotals) {
     const barH  = Math.round((week.total / roundedMax) * CHART_H);
     const title = `Week of ${week.label}: ${heatmapUnitLabel(week.total, _heatmapMetric)}`;
-    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${Math.max(barH, week.total > 0 ? 2 : 0)}px;" title="${escHtml(title)}"></div>`;
+    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${Math.max(barH, week.total > 0 ? 2 : 0)}px;" data-tooltip="${escHtml(title)}"></div>`;
   }
   html += '</div></div>';
 
