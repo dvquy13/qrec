@@ -126,7 +126,7 @@ async function main() {
 
       if (req.method === "GET" && url.pathname === "/projects") {
         const rows = db
-          .prepare("SELECT DISTINCT project FROM sessions WHERE project IS NOT NULL AND project != '' ORDER BY project")
+          .prepare("SELECT project, MAX(date) as last_active FROM sessions WHERE project IS NOT NULL AND project != '' GROUP BY project ORDER BY last_active DESC")
           .all() as Array<{ project: string }>;
         return Response.json({ projects: rows.map(r => r.project) });
       }

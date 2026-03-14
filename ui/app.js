@@ -749,7 +749,9 @@ async function loadSessions() {
     _sessionsOffset = sessions.length;
     _allSessions = sessions;
 
-    _filterOptions.project = [...new Set(sessions.map(s => s.project).filter(Boolean))].sort();
+    // sessions are date-DESC; first occurrence of each project = most recently active
+    const _seen = new Set();
+    _filterOptions.project = sessions.filter(s => s.project && !_seen.has(s.project) && _seen.add(s.project)).map(s => s.project);
     _filterOptions.tag = [...new Set(sessions.flatMap(s => s.tags ?? []))].sort();
 
     applyFilters();
@@ -774,7 +776,8 @@ async function loadMoreSessions() {
     _allSessions = _allSessions.concat(sessions);
 
     // Update filter options with newly loaded data
-    _filterOptions.project = [...new Set(_allSessions.map(s => s.project).filter(Boolean))].sort();
+    const _seen2 = new Set();
+    _filterOptions.project = _allSessions.filter(s => s.project && !_seen2.has(s.project) && _seen2.add(s.project)).map(s => s.project);
     _filterOptions.tag = [...new Set(_allSessions.flatMap(s => s.tags ?? []))].sort();
 
     // Append matching cards directly — no full re-render to avoid scroll jump
@@ -810,9 +813,10 @@ async function loadMoreSessions() {
 function renderFilterDropdown(type, options) {
   const el = document.getElementById(`dropdown-${type}`);
   if (options.length === 0) { el.classList.remove('open'); return; }
-  el.innerHTML = options.map(o =>
-    `<div class="filter-dropdown-item" onclick="selectFilterOption('${type}','${escHtml(o)}')">${escHtml(o)}</div>`
-  ).join('');
+  el.innerHTML = options.map(o => {
+    const dot = type === 'project' ? `${projectDot(o, 8)}&nbsp;` : '';
+    return `<div class="filter-dropdown-item" style="${type === 'project' ? 'display:flex;align-items:center;gap:4px;' : ''}" onclick="selectFilterOption('${type}','${escHtml(o)}')">${dot}${escHtml(o)}</div>`;
+  }).join('');
   el.classList.add('open');
 }
 
@@ -882,7 +886,27 @@ const HEATMAP_METRICS = [
   { id: 'sessions', label: 'Sessions', unit: 'session', units: 'sessions' },
   { id: 'hours',    label: 'Hours',    unit: 'hour',    units: 'hours'    },
 ];
-const HEATMAP_COLORS   = ['#f0f0f0', '#d0d0d0', '#a0a0a0', '#686868', '#2a2a2a'];
+const HEATMAP_COLORS = ['#f0f0f0', '#d0d0d0', '#a0a0a0', '#686868', '#2a2a2a'];
+const PROJECT_COLORS = ['#e63946','#2a9d8f','#e9a825','#9b5de5','#f4713c','#4361ee','#43aa8b','#f72585','#3d7ebf','#c77dff'];
+function projectColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return PROJECT_COLORS[h % PROJECT_COLORS.length];
+}
+function projectColorScale(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const mix = (c, t) => Math.round(c * t + 255 * (1 - t));
+  return [
+    '#f0f0f0',
+    `rgb(${mix(r,0.2)},${mix(g,0.2)},${mix(b,0.2)})`,
+    `rgb(${mix(r,0.45)},${mix(g,0.45)},${mix(b,0.45)})`,
+    `rgb(${mix(r,0.7)},${mix(g,0.7)},${mix(b,0.7)})`,
+    hex,
+  ];
+}
+function projectDot(name, size = 8) {
+  return `<span style="display:inline-block;width:${size}px;height:${size}px;border-radius:50%;background:${projectColor(name)};flex-shrink:0;vertical-align:middle;"></span>`;
+}
 const HEATMAP_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HEATMAP_MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -946,7 +970,13 @@ function selectHeatmapMetric(metricId) {
 function selectHeatmapProject(project) {
   _heatmapProject = project || null;
   const btn = document.getElementById('heatmap-project-btn');
-  if (btn) btn.textContent = (project || 'All projects') + ' ▾';
+  if (btn) {
+    if (project) {
+      btn.innerHTML = `${projectDot(project, 8)} <span style="margin-left:5px;">${escHtml(project)}</span> ▾`;
+    } else {
+      btn.textContent = 'All projects ▾';
+    }
+  }
   document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
   fetchAndRenderHeatmap();
 }
@@ -955,9 +985,10 @@ function toggleHeatmapProjectDropdown() {
   const el = document.getElementById('heatmap-dropdown-project');
   if (el.classList.contains('open')) { el.classList.remove('open'); return; }
   const items = [{ label: 'All projects', value: '' }, ..._heatmapProjects.map(p => ({ label: p, value: p }))];
-  el.innerHTML = items.map(({ label, value }) =>
-    `<div class="filter-dropdown-item${value === (_heatmapProject ?? '') ? ' filter-dropdown-item--active' : ''}" onclick="selectHeatmapProject('${escHtml(value)}')">${escHtml(label)}</div>`
-  ).join('');
+  el.innerHTML = items.map(({ label, value }) => {
+    const dot = value ? `${projectDot(value, 8)}&nbsp;` : '';
+    return `<div class="filter-dropdown-item${value === (_heatmapProject ?? '') ? ' filter-dropdown-item--active' : ''}" style="display:flex;align-items:center;gap:4px;" onclick="selectHeatmapProject('${escHtml(value)}')">${dot}${escHtml(label)}</div>`;
+  }).join('');
   el.classList.add('open');
 }
 
@@ -974,6 +1005,8 @@ function renderHeatmap(containerId, days, opts = {}) {
   const CHART_H = 70, MAX_INLINE = 80, INLINE_GAP = 16;
   const cs = `width:${CELL}px;height:${CELL}px;border-radius:2px;flex-shrink:0;`;
   const maxCount = Math.max(...days.map(d => d.count), 1);
+  const colors = _heatmapProject ? projectColorScale(projectColor(_heatmapProject)) : HEATMAP_COLORS;
+  const barColor = _heatmapProject ? projectColor(_heatmapProject) : '#686868';
 
   // Build week columns
   const weeks = [];
@@ -1031,7 +1064,7 @@ function renderHeatmap(containerId, days, opts = {}) {
       if (cell) {
         const intensity = heatmapIntensity(cell.count, maxCount);
         const isSelected = selectedDate && cell.date === selectedDate;
-        const bg = isSelected ? 'var(--accent)' : HEATMAP_COLORS[intensity];
+        const bg = isSelected ? 'var(--accent)' : colors[intensity];
         const isClick = clickable && cell.count > 0;
         const cd = new Date(cell.date + 'T00:00:00');
         const friendlyDate = `${HEATMAP_WEEKDAYS[wd]}, ${HEATMAP_MONTHS[cd.getMonth()]} ${cd.getDate()}`;
@@ -1041,14 +1074,14 @@ function renderHeatmap(containerId, days, opts = {}) {
         const ed = new Date(weeks[wi].monday + 'T00:00:00');
         ed.setDate(ed.getDate() + wd);
         const friendlyDate = `${HEATMAP_WEEKDAYS[wd]}, ${HEATMAP_MONTHS[ed.getMonth()]} ${ed.getDate()}`;
-        html += `<div style="${cs}background:${HEATMAP_COLORS[0]};" data-tooltip="${escHtml(friendlyDate)}"></div>`;
+        html += `<div style="${cs}background:${colors[0]};" data-tooltip="${escHtml(friendlyDate)}"></div>`;
       }
     }
 
     // Right-side inline bar (current week)
     const cwCount = cwDays[wd]?.count || 0;
     const barW    = Math.round((cwCount / cwMax) * MAX_INLINE);
-    const barBg   = cwCount > 0 ? HEATMAP_COLORS[heatmapIntensity(cwCount, cwMax)] : 'transparent';
+    const barBg   = cwCount > 0 ? colors[heatmapIntensity(cwCount, cwMax)] : 'transparent';
     const label   = cwCount > 0 ? String(cwCount) : '';
     const fitsInside = barW > label.length * 7 + 8;
     html += `<div style="display:flex;align-items:center;margin-left:${INLINE_GAP}px;min-width:${MAX_INLINE + 24}px;">`;
@@ -1082,7 +1115,7 @@ function renderHeatmap(containerId, days, opts = {}) {
     const labelInside = week.total > 0 && actualH >= 14
       ? `<span style="position:absolute;top:2px;left:0;right:0;text-align:center;font-size:10px;color:rgba(255,255,255,0.85);line-height:1;pointer-events:none;">${Math.round(week.total)}</span>`
       : '';
-    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${actualH}px;position:relative;" data-tooltip="${escHtml(title)}">${labelInside}</div>`;
+    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${actualH}px;position:relative;background:${barColor};" data-tooltip="${escHtml(title)}">${labelInside}</div>`;
   }
   html += '</div></div>';
 
