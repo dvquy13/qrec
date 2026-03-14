@@ -444,12 +444,14 @@ async function main() {
   }
 
   // Run an incremental index scan (fast — mtime pre-filter skips unchanged files).
-  async function runIncrementalIndex() {
+  // isInitialRun=true: sets phase="indexing" so the onboarding UI can show progress.
+  // isInitialRun=false (cron): keeps phase="ready" so the dashboard doesn't revert to onboarding.
+  async function runIncrementalIndex(isInitialRun = false) {
     if (isIndexing || !existsSync(DEFAULT_VAULT_PATH)) return;
     isIndexing = true;
     const t0 = Date.now();
     appendActivity({ type: "index_started" });
-    serverProgress.phase = "indexing";
+    if (isInitialRun) serverProgress.phase = "indexing";
     serverProgress.indexing = { indexed: 0, total: 0, current: "" };
 
     let newSessions = 0;
@@ -474,7 +476,7 @@ async function main() {
       console.error("[server] Index error:", err);
     } finally {
       isIndexing = false;
-      serverProgress.phase = "ready";
+      if (isInitialRun) serverProgress.phase = "ready";
     }
   }
 
@@ -487,8 +489,8 @@ async function main() {
         embedderError = null;
         console.log("[server] Model ready");
 
-        // Immediate catchup scan on startup
-        await runIncrementalIndex();
+        // Immediate catchup scan on startup (shows indexing progress in onboarding UI)
+        await runIncrementalIndex(true);
 
         serverProgress.phase = "ready";
 
