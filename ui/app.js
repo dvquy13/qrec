@@ -376,7 +376,7 @@ function groupSummary(group) {
       const pending = startEvent?.data?.pending ?? '?';
       return { label: 'Enriching…', detail: `${done}/${pending} sessions` };
     }
-    const n = completeEvent?.data?.enriched ?? 0;
+    const n = completeEvent?.data?.enriched ?? group.events.filter(e => e.type === 'session_enriched').length;
     const ms = completeEvent?.data?.durationMs;
     return { label: 'Enrich run', detail: `${n} session${n === 1 ? '' : 's'} enriched${ms ? '  ' + fmtDuration(ms) : ''}` };
   }
