@@ -9,6 +9,7 @@ import type { Database } from "bun:sqlite";
 import { openDb } from "./db.ts";
 import type { SummarizerCtx } from "./summarize.ts";
 import { summarizeSession } from "./summarize.ts";
+import { appendActivity } from "./activity.ts";
 
 // Bump to re-enrich all sessions (sessions with enrichment_version < this get re-queued).
 export const ENRICHMENT_VERSION = 2;
@@ -163,6 +164,8 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
     }
 
     console.log(`[enrich] ${pending.length} session(s) to enrich`);
+    const t0 = Date.now();
+    appendActivity({ type: "enrich_started", data: { pending: pending.length } });
 
     const summCtx = await loadSummarizer();
     try {
@@ -209,6 +212,7 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
           insertSummaryChunk.run(`${id}_summary`, id, -1, -1, summaryChunkText, now);
         }
 
+        appendActivity({ type: "session_enriched", data: { sessionId: id, latencyMs } });
         console.log(`[${i + 1}/${pending.length}] ${id} — ${latencyMs}ms`);
         if (result.summary) console.log(`  Summary: ${result.summary.slice(0, 100)}`);
         if (result.tags.length > 0) console.log(`  Tags: ${result.tags.join(", ")}`);
@@ -219,6 +223,7 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
       await disposeSummarizer(summCtx);
     }
 
+    appendActivity({ type: "enrich_complete", data: { enriched: pending.length, durationMs: Date.now() - t0 } });
     console.log("[enrich] Done.");
   } finally {
     db.close();

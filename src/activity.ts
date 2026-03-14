@@ -12,7 +12,10 @@ export type ActivityType =
   | "daemon_started"
   | "index_started"
   | "session_indexed"
-  | "index_complete";
+  | "index_complete"
+  | "enrich_started"
+  | "session_enriched"
+  | "enrich_complete";
 
 export interface ActivityEvent {
   ts: number;

@@ -14,7 +14,6 @@
   <nav>
     <button id="nav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
     <button id="nav-sessions" onclick="showTab('sessions')">Sessions</button>
-    <button id="nav-activity" onclick="showTab('activity')">Activity</button>
     <button id="nav-debug" onclick="showTab('debug')">Debug</button>
   </nav>
 </header>
@@ -84,12 +83,15 @@
 
     <div class="actions">
       <button class="action-btn primary" onclick="showTab('sessions')">Search sessions →</button>
-      <button class="action-btn secondary" onclick="showTab('activity')">Activity log</button>
     </div>
 
-    <div class="activity-feed" id="db-activity-feed">
-      <h3>Recent activity</h3>
-      <div class="activity-list" id="db-activity-list"></div>
+    <div class="activity-section" id="db-activity-feed">
+      <div class="activity-section-header">
+        <span class="activity-section-title">Recent Activity</span>
+        <span class="activity-live-dot" id="activity-live-dot"></span>
+      </div>
+      <div class="run-list" id="run-list"></div>
+      <button class="show-more-btn" id="activity-show-more" style="display:none;" onclick="showMoreRuns()">Show older runs</button>
     </div>
 
     <div class="last-updated" id="db-last-updated"></div>
@@ -158,19 +160,6 @@
     </div>
     <div class="detail-meta" id="detail-meta"></div>
     <div class="turns" id="detail-turns"></div>
-  </div>
-</main>
-</div>
-
-<!-- ── Activity tab ──────────────────────────────────────── -->
-<div id="tab-activity" class="tab-panel">
-<main>
-  <div class="activity-toolbar">
-    <h2>Activity Log</h2>
-    <span class="badge" id="activity-count">—</span>
-  </div>
-  <div id="activity-content">
-    <div class="empty-state"><span class="spinner"></span></div>
   </div>
 </main>
 </div>

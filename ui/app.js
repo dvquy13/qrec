@@ -1,7 +1,13 @@
+// ── Activity state ───────────────────────────────────────────────────────────
+let _allRunGroups = [];
+const RUNS_INITIAL = 5;
+let _visibleRunCount = RUNS_INITIAL;
+
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
 function navigate(hash, push = true) {
   if (!hash) hash = 'dashboard';
+  if (hash === 'activity') hash = 'dashboard'; // activity is now part of dashboard
   if (hash.startsWith('session/')) {
     const id = hash.slice('session/'.length);
     openSessionDetail(id);
@@ -23,8 +29,7 @@ function showTab(name, push = true) {
 }
 
 function onTabActivated(name) {
-  if (name === 'dashboard') loadDashboard();
-  if (name === 'activity') loadActivity();
+  if (name === 'dashboard') { _visibleRunCount = RUNS_INITIAL; loadDashboard(); }
   if (name === 'sessions') {
     document.getElementById('query')?.focus();
     loadSessions();
@@ -43,7 +48,6 @@ window.addEventListener('popstate', () => navigate(location.hash.slice(1) || 'da
 setInterval(() => {
   const active = document.querySelector('.tab-panel.active')?.id?.replace('tab-', '');
   if (active === 'dashboard') loadDashboard();
-  if (active === 'activity') loadActivity();
   if (active === 'debug') { fetchStats(); fetchLog(); }
 }, 5000);
 
@@ -81,7 +85,7 @@ async function loadDashboard() {
   try {
     const [statusRes, actRes] = await Promise.all([
       fetch('/status'),
-      fetch('/activity/entries?limit=20'),
+      fetch('/activity/entries?limit=500'),
     ]);
     if (!statusRes.ok) throw new Error(`HTTP ${statusRes.status}`);
     const data = await statusRes.json();
@@ -242,21 +246,9 @@ function showDashboardPanel(data, actEntries) {
     toggleBtn.style.borderColor = 'var(--border)';
   }
 
-  // Activity feed
-  const listEl = document.getElementById('db-activity-list');
-  if (actEntries && actEntries.length > 0) {
-    listEl.innerHTML = actEntries.slice(0, 8).map(e => {
-      const label = activityLabel(e);
-      return `<div class="activity-item">
-        <div class="activity-dot ${escHtml(e.type)}"></div>
-        <span>${escHtml(label)}</span>
-        <span class="activity-ts">${formatRelative(e.ts)}</span>
-      </div>`;
-    }).join('');
-    document.getElementById('db-activity-feed').style.display = '';
-  } else {
-    document.getElementById('db-activity-feed').style.display = 'none';
-  }
+  // Activity runs
+  _allRunGroups = groupActivityEvents(actEntries || []);
+  renderActivityRuns(_allRunGroups);
 
   document.getElementById('dashboard').style.display = 'block';
 }
@@ -277,19 +269,216 @@ async function toggleEnrichment() {
   }
 }
 
-function activityLabel(e) {
-  switch (e.type) {
-    case 'daemon_started': return 'Daemon started';
-    case 'index_started': return 'Index scan started';
-    case 'session_indexed': return `Indexed session ${e.data?.sessionId ?? ''}`;
-    case 'index_complete': {
-      const n = e.data?.newSessions ?? 0;
-      const ms = e.data?.durationMs ? ` (${Math.round(e.data.durationMs)}ms)` : '';
-      return `Index complete — ${n} new session${n === 1 ? '' : 's'}${ms}`;
+// ── Activity grouping ────────────────────────────────────────────────────────
+
+function fmtDuration(ms) {
+  if (ms < 1000) return Math.round(ms) + 'ms';
+  return (ms / 1000).toFixed(1) + 's';
+}
+
+function runIcon(type) {
+  if (type === 'index') return '⊙';
+  if (type === 'enrich') return '✦';
+  return '◉';
+}
+
+function groupActivityEvents(events) {
+  // events are newest-first; reverse to process chronologically
+  const chron = [...events].reverse();
+  const groups = [];
+  let current = null;
+
+  for (const e of chron) {
+    if (e.type === 'daemon_started') {
+      if (current) { groups.push(current); current = null; }
+      groups.push({ type: 'daemon', events: [e], running: false, ts: e.ts });
+    } else if (e.type === 'index_started') {
+      if (current) { groups.push(current); }
+      current = { type: 'index', events: [e], running: true, ts: e.ts };
+    } else if (e.type === 'enrich_started') {
+      if (current) { groups.push(current); }
+      current = { type: 'enrich', events: [e], running: true, ts: e.ts };
+    } else if (e.type === 'index_complete' || e.type === 'enrich_complete') {
+      if (current) {
+        current.events.push(e);
+        current.running = false;
+        groups.push(current);
+        current = null;
+      }
+    } else if (e.type === 'session_indexed' || e.type === 'session_enriched') {
+      if (current) current.events.push(e);
     }
-    default: return String(e.type);
+  }
+
+  if (current) groups.push(current); // ongoing run
+  return groups.reverse(); // newest first
+}
+
+function groupSummary(group) {
+  const completeEvent = group.events.find(e => e.type === 'index_complete' || e.type === 'enrich_complete');
+  const startEvent = group.events.find(e => e.type === 'index_started' || e.type === 'enrich_started');
+
+  if (group.type === 'daemon') return { label: 'Daemon started', detail: null };
+
+  if (group.type === 'index') {
+    if (group.running) {
+      const n = group.events.filter(e => e.type === 'session_indexed').length;
+      return { label: 'Indexing…', detail: n > 0 ? `${n} indexed` : null };
+    }
+    const n = completeEvent?.data?.newSessions ?? 0;
+    const ms = completeEvent?.data?.durationMs;
+    return { label: 'Index scan', detail: `${n} new session${n === 1 ? '' : 's'}${ms ? '  ' + fmtDuration(ms) : ''}` };
+  }
+
+  if (group.type === 'enrich') {
+    if (group.running) {
+      const done = group.events.filter(e => e.type === 'session_enriched').length;
+      const pending = startEvent?.data?.pending ?? '?';
+      return { label: 'Enriching…', detail: `${done}/${pending} sessions` };
+    }
+    const n = completeEvent?.data?.enriched ?? 0;
+    const ms = completeEvent?.data?.durationMs;
+    return { label: 'Enrich run', detail: `${n} session${n === 1 ? '' : 's'} enriched${ms ? '  ' + fmtDuration(ms) : ''}` };
+  }
+
+  return { label: group.type, detail: null };
+}
+
+function renderRunGroup(group) {
+  const { label, detail } = groupSummary(group);
+  const subEvents = group.events.filter(e =>
+    e.type === 'session_indexed' || e.type === 'session_enriched'
+  );
+
+  const iconHtml = group.running
+    ? `<span class="run-spinner-wrap"><span class="spinner run-spinner"></span></span>`
+    : `<span class="run-icon-badge ${group.type}">${runIcon(group.type)}</span>`;
+
+  const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
+  const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;
+
+  if (subEvents.length === 0) {
+    return `<div class="run-group no-expand"><div class="run-header">
+      <span class="run-chevron-spacer"></span>${iconHtml}
+      <span class="run-label">${escHtml(label)}</span>${detailHtml}${tsHtml}
+    </div></div>`;
+  }
+
+  const sessionIds = subEvents.map(e => e.data?.sessionId ?? '').filter(Boolean);
+
+  const eventsHtml = subEvents.map(e => {
+    const sid = escHtml(e.data?.sessionId ?? '');
+    const ms = e.data?.latencyMs != null ? escHtml(fmtDuration(e.data.latencyMs)) : '';
+    const timeStr = new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return `<div class="run-event" data-session-id="${sid}">
+      <span class="run-event-ts">${timeStr}</span>
+      <span class="run-event-id">${sid}</span>
+      ${ms ? `<span class="run-event-meta">${ms}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<details class="run-group" data-run-ts="${group.ts}" data-session-ids="${escHtml(sessionIds.join(','))}">
+    <summary class="run-header">
+      ${iconHtml}<span class="run-label">${escHtml(label)}</span>${detailHtml}${tsHtml}
+    </summary>
+    <div class="run-events">${eventsHtml}</div>
+  </details>`;
+}
+
+function renderActivityRuns(groups) {
+  const runList = document.getElementById('run-list');
+  const showMoreBtn = document.getElementById('activity-show-more');
+  const liveDot = document.getElementById('activity-live-dot');
+  if (!runList) return;
+
+  // Preserve open state across re-renders
+  const openTs = new Set();
+  runList.querySelectorAll('details.run-group').forEach(d => {
+    if (d.open) openTs.add(d.dataset.runTs);
+  });
+
+  const visible = groups.slice(0, _visibleRunCount);
+  const hidden = groups.length - visible.length;
+  const anyRunning = groups.slice(0, 3).some(g => g.running);
+
+  if (groups.length === 0) {
+    runList.innerHTML = '<div style="padding:20px 0;color:var(--text-muted);font-size:13px;">No activity yet.</div>';
+  } else {
+    runList.innerHTML = visible.map(g => renderRunGroup(g)).join('');
+  }
+
+  // Restore open state — always re-enrich since DOM was rebuilt
+  runList.querySelectorAll('details.run-group').forEach(d => {
+    if (openTs.has(d.dataset.runTs)) {
+      d.setAttribute('open', '');
+      enrichRunGroup(d);
+    }
+  });
+
+  if (liveDot) liveDot.classList.toggle('visible', anyRunning);
+
+  if (showMoreBtn) {
+    if (hidden > 0) {
+      showMoreBtn.textContent = `Show ${hidden} older run${hidden === 1 ? '' : 's'}`;
+      showMoreBtn.style.display = '';
+    } else {
+      showMoreBtn.style.display = 'none';
+    }
   }
 }
+
+function showMoreRuns() {
+  _visibleRunCount = _allRunGroups.length;
+  renderActivityRuns(_allRunGroups);
+}
+
+async function enrichRunGroup(detailsEl) {
+  detailsEl.dataset.enriched = '1';
+  const ids = (detailsEl.dataset.sessionIds || '').split(',').filter(Boolean);
+  if (ids.length === 0) return;
+
+  try {
+    const idList = ids.map(id => `'${id}'`).join(',');
+    const res = await fetch('/query_db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: `SELECT id, title, project, summary FROM sessions WHERE id IN (${idList})` }),
+    });
+    if (!res.ok) return;
+    const { rows } = await res.json();
+    const byId = Object.fromEntries(rows.map(r => [r.id, r]));
+
+    detailsEl.querySelectorAll('.run-event[data-session-id]').forEach(row => {
+      const session = byId[row.dataset.sessionId];
+      if (!session) return;
+      const tsEl = row.querySelector('.run-event-ts');
+      const metaEl = row.querySelector('.run-event-meta');
+      const title = escHtml(session.title || 'Untitled session');
+      const project = escHtml(session.project || '');
+      const summary = session.summary
+        ? escHtml(session.summary.slice(0, 120)) + (session.summary.length > 120 ? '…' : '')
+        : '';
+      row.innerHTML = `
+        ${tsEl ? tsEl.outerHTML : ''}
+        <div class="run-event-info">
+          <div class="run-event-header">
+            <span class="run-event-title">${title}</span>
+            ${project ? `<span class="run-event-project">${project}</span>` : ''}
+          </div>
+          ${summary ? `<div class="run-event-summary">${summary}</div>` : ''}
+        </div>
+        ${metaEl ? metaEl.outerHTML : ''}
+      `;
+    });
+  } catch { /* silently fail — IDs remain as fallback */ }
+}
+
+// Lazy-enrich session rows when a run group is expanded
+document.addEventListener('toggle', e => {
+  const details = e.target;
+  if (!details.matches('details.run-group') || !details.open || details.dataset.enriched) return;
+  enrichRunGroup(details);
+}, true);
 
 // ── Search ──────────────────────────────────────────────────────────────────
 
@@ -863,41 +1052,6 @@ function goBack() {
   showTab('sessions');
 }
 
-// ── Activity ─────────────────────────────────────────────────────────────────
-
-async function loadActivity() {
-  try {
-    const res = await fetch('/activity/entries?limit=200');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const { entries } = await res.json();
-
-    document.getElementById('activity-count').textContent = String(entries.length);
-    const content = document.getElementById('activity-content');
-
-    if (entries.length === 0) {
-      content.innerHTML = '<div class="empty-state">No activity yet. Start the daemon and run a search.</div>';
-      return;
-    }
-
-    const rows = entries.map(e => `
-      <tr>
-        <td>${formatDate(e.ts)}</td>
-        <td><span class="type-badge ${escHtml(e.type)}">${escHtml(e.type)}</span></td>
-        <td style="color:var(--text-muted);font-size:12px;">${escHtml(e.data ? JSON.stringify(e.data) : '')}</td>
-      </tr>
-    `).join('');
-
-    content.innerHTML = `
-      <table class="activity-table">
-        <thead><tr><th>Time</th><th>Event</th><th>Data</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-  } catch (err) {
-    document.getElementById('activity-content').innerHTML =
-      `<div class="error-state">Failed to load activity: ${escHtml(String(err))}</div>`;
-  }
-}
 
 // ── Debug ────────────────────────────────────────────────────────────────────
 

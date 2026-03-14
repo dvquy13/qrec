@@ -26,7 +26,7 @@ src/
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
   server.ts       # HTTP server (port 25927): /search /query_db /health /status /sessions /sessions/:id /settings /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms); spawns `qrec enrich` child after each index run when enrichEnabled
   progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
-  activity.ts     # Append-only event log (~/.qrec/activity.jsonl); events: daemon_started|index_started|session_indexed|index_complete
+  activity.ts     # Append-only event log (~/.qrec/activity.jsonl); events: daemon_started|index_started|session_indexed|index_complete|enrich_started|session_enriched|enrich_complete
   mcp.ts          # MCP server (stdio + HTTP on 3031): proxies search/get/status/query_db to daemon at localhost:25927; no model/DB loaded
   mcp-entry.ts    # Standalone entry point for qrec-mcp.cjs bundle — calls runMcpServer() (mcp.ts only exports it)
   daemon.ts       # PID-file daemon management (~/.qrec/qrec.pid)
@@ -52,7 +52,7 @@ eval/
   cache/
     cache.json    # Silver cache: keyed on query_gen_fingerprint + session_body_hash
 ui/
-  index.html      # SPA: dashboard/search/sessions/activity/debug tabs + session detail (#session/:id); hash routing; marked.js for markdown; served fresh on every request (browser refresh picks up changes — no server restart needed)
+  index.html      # SPA: dashboard/search/sessions/debug tabs + session detail (#session/:id); hash routing; Activity merged into Dashboard (grouped run feed); marked.js for markdown; served fresh on every request (browser refresh picks up changes — no server restart needed)
 scripts/
   reset.sh          # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
   smoke-test.sh     # Build → start CJS daemon (QREC_EMBED_PROVIDER=stub) → health/search/UI asset checks → stop
