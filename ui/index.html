@@ -91,6 +91,10 @@
 <!-- ── Sessions tab ──────────────────────────────────────── -->
 <div id="tab-sessions" class="tab-panel">
 <main>
+  <div class="page-header">
+    <h2 class="section-heading">Sessions</h2>
+    <span class="badge" id="sessions-count">—</span>
+  </div>
   <div class="search-bar">
     <input type="text" id="query" placeholder="Search sessions…">
     <input type="number" id="k" class="k-input" value="10" min="1" max="50" title="Results (k)">
@@ -99,8 +103,6 @@
   </div>
   <div id="latency-bar" class="latency-bar" style="display:none;"></div>
   <div class="sessions-toolbar">
-    <h2>Sessions</h2>
-    <span class="badge" id="sessions-count">—</span>
     <div class="sessions-filters">
       <div class="filter-wrap">
         <input type="text" class="sessions-filter" id="filter-project"
@@ -144,7 +146,6 @@
   <div id="detail-error" class="error-state" style="display:none;"></div>
   <div id="detail-content" style="display:none;">
     <div class="detail-header">
-      <button class="back-btn" id="detail-back-btn" onclick="goBack()">← Back</button>
       <div class="detail-title" id="detail-title"></div>
     </div>
     <div class="detail-meta" id="detail-meta"></div>
@@ -156,6 +157,9 @@
 <!-- ── Debug tab ─────────────────────────────────────────── -->
 <div id="tab-debug" class="tab-panel">
 <main>
+  <div class="page-header">
+    <h2 class="section-heading">Debug</h2>
+  </div>
   <div class="debug-sections">
 
     <div class="section">

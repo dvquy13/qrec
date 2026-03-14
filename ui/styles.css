@@ -237,7 +237,7 @@ main {
 .run-label { font-size: 13px; font-weight: 500; color: var(--text); }
 .run-detail { font-size: 12px; color: var(--text-muted); flex: 1; }
 .run-ts { font-size: 11px; color: var(--text-muted); font-family: 'Google Sans Flex', -apple-system, sans-serif; white-space: nowrap; margin-left: auto; }
-.run-events { border-top: 1px solid var(--border); background: var(--bg); padding: 4px 0; }
+.run-events { background: var(--bg); padding: 4px 0; }
 .run-event { display: flex; align-items: center; gap: 12px; padding: 5px 0 5px 40px; font-size: 12px; }
 .run-event:hover { background: transparent; }
 .run-event-ts { font-family: var(--mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
@@ -266,11 +266,11 @@ main {
   font-size: 14px; outline: none; text-align: center;
 }
 .search-bar button#search-btn {
-  background: var(--accent); color: white; border: none; border-radius: 8px;
+  background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px;
   padding: 10px 20px; font-size: 14px; font-weight: 500;
-  cursor: pointer; transition: background 0.15s; white-space: nowrap;
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; white-space: nowrap;
 }
-.search-bar button#search-btn:hover { background: var(--accent-hover); }
+.search-bar button#search-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
 .search-bar button#search-btn:disabled { opacity: 0.5; cursor: default; }
 
 .latency-bar { display: flex; gap: 16px; margin-bottom: 16px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
@@ -309,7 +309,7 @@ main {
 .section { border-radius: 10px; overflow: hidden; }
 .section-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 11px 16px; background: transparent; border-bottom: 1px solid var(--border);
+  padding: 11px 0; background: transparent; border-bottom: 1px solid var(--border);
 }
 .section-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .section-actions { display: flex; gap: 8px; align-items: center; }
@@ -335,8 +335,7 @@ main {
 .log-ok { color: var(--green); }
 
 .stats-strip { display: flex; background: transparent; }
-.stat-item { flex: 1; padding: 14px 16px; border-right: 1px solid var(--border); }
-.stat-item:last-child { border-right: none; }
+.stat-item { flex: 1; padding: 14px 16px; }
 .stat-item .label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
 .stat-item .value { font-size: 22px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
 
@@ -352,11 +351,17 @@ main {
 .tool-desc { font-size: 13px; }
 .tool-desc small { display: block; font-size: 12px; color: var(--text-muted); margin-top: 1px; }
 
+.page-header {
+  display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;
+}
+.page-header .badge {
+  font-size: 32px; font-weight: 400; letter-spacing: -0.04em; padding: 0;
+}
+
 /* ── Sessions tab ──────────────────────────────────────────────────────── */
 .sessions-toolbar {
   display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
 }
-.sessions-toolbar h2 { font-size: 16px; font-weight: 600; }
 .sessions-filters { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
 .filter-wrap { position: relative; }
 .fields-btn { white-space: nowrap; }
@@ -401,23 +406,25 @@ main {
 }
 .date-chip-x { cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.7; }
 .date-chip-x:hover { opacity: 1; }
-.clickable-tag { cursor: pointer; }
-.clickable-tag:hover { background: var(--accent-light); color: var(--accent); }
+.clickable-tag { cursor: pointer; transition: color 0.15s; }
+.clickable-tag:hover { color: var(--accent); }
 .sessions-grid { display: flex; flex-direction: column; gap: 8px; }
 #sessions-sentinel { height: 1px; }
 .session-card {
   background: transparent; border-radius: 10px;
-  padding: 14px 18px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  padding: 14px 0; cursor: pointer; transition: border-color 0.15s, background 0.15s;
   display: flex; align-items: center; gap: 12px;
 }
 .session-card:hover { border-color: var(--accent); background: var(--bg); }
+.session-card:hover .session-card-title { color: var(--accent); }
 .session-card-body { flex: 1; min-width: 0; }
 .session-card-title {
-  font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; margin-bottom: 5px;
+  font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; margin-bottom: 5px; transition: color 0.15s;
 }
 .session-card-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .session-id { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+.session-ts { font-size: 11px; color: var(--text-muted); }
 .session-card-arrow { color: var(--text-muted); font-size: 16px; flex-shrink: 0; }
 
 /* ── Session detail ─────────────────────────────────────────────────────── */
@@ -428,7 +435,7 @@ main {
   cursor: pointer; transition: background 0.15s; flex-shrink: 0;
 }
 .back-btn:hover { background: transparent; color: var(--text); }
-.detail-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-title { font-size: 24px; font-weight: 700; letter-spacing: -0.03em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-meta { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
 .turns { display: flex; flex-direction: column; gap: 12px; }
 .turn {
@@ -536,25 +543,26 @@ main {
 
 /* ── Enrichment UI ──────────────────────────────────────────────────────── */
 .enrich-tag {
-  background: var(--accent-light); color: var(--accent);
+  background: transparent; color: var(--text); border: 1px solid var(--border);
   padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
 }
-.enrich-tag:hover { background: var(--accent); color: white; }
+.enrich-tag:hover { color: var(--accent); border-color: var(--accent); }
 .enrich-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; vertical-align: middle; margin-right: 4px; }
 .summary-block {
-  background: var(--accent-light);
-  border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;
+  background: transparent;
+  padding: 14px 0; margin-bottom: 20px;
 }
-.summary-block p { font-size: 12.5px; line-height: 1.6; color: var(--text); margin-bottom: 0; }
+.summary-block p { font-size: 12.5px; line-height: 1.6; color: var(--text-muted); margin-bottom: 0; }
 .summary-block-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .summary-block-section { margin-top: 12px; }
 .summary-block-section:first-child { margin-top: 0; }
-.summary-block-label { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); opacity: 0.7; }
+.summary-block-label { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); opacity: 0.7; }
 .summary-block-list { margin: 4px 0 0 0; padding-left: 18px; }
-.summary-block-list li { font-size: 12.5px; line-height: 1.6; color: var(--text); margin-bottom: 2px; }
+.summary-block-list li { font-size: 12.5px; line-height: 1.6; color: var(--text-muted); margin-bottom: 2px; }
 /* Compact variant used inside session cards */
 .summary-block--compact {
-  padding: 9px 12px; margin-top: 8px; margin-bottom: 0; border-radius: 6px;
+  padding: 6px 0; margin-top: 6px; margin-bottom: 0;
 }
 .summary-block--compact p { font-size: 12.5px; }
 .summary-block--compact .summary-block-label { font-size: 12.5px; }
@@ -574,7 +582,7 @@ main {
   .search-bar { flex-wrap: wrap; }
   .search-bar .k-input { width: 60px; }
   .turn-text pre { overflow-x: auto; }
-  .detail-title { font-size: 15px; }
+  .detail-title { font-size: 18px; }
   .stat-value { font-size: 22px; }
   .stats-strip { flex-wrap: wrap; }
   .stat-item { min-width: 50%; border-bottom: 1px solid var(--border); }

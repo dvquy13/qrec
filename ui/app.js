@@ -607,7 +607,8 @@ function renderSearchResults(results) {
         <div class="session-card-title">${escHtml(r.title || r.session_id)}</div>
         <div class="session-card-meta">
           <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(r.project || '')}')">${escHtml(r.project || '—')}</span>
-          <span class="tag">${escHtml(r.date || '—')}</span>
+          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(r.date || '')}')">${escHtml(r.date || '—')}</span>
+          ${r.indexed_at ? `<span class="session-ts">${formatRelative(r.indexed_at)}</span>` : ''}
           <span class="session-id">${escHtml(r.session_id)}</span>
           ${tagPills}
         </div>
@@ -928,6 +929,7 @@ function sessionCardHtml(s) {
       <div class="session-card-meta">
         <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(s.project || '')}')">${escHtml(s.project || '—')}</span>
         <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(s.date || '')}')">${escHtml(s.date || '—')}</span>
+        ${s.indexed_at ? `<span class="session-ts">${formatRelative(s.indexed_at)}</span>` : ''}
         <span class="session-id">${escHtml(s.id)}</span>
         ${metaTagPills}
       </div>
@@ -964,9 +966,6 @@ function openSessionDetail(id) {
   document.getElementById('detail-loading').style.display = '';
   document.getElementById('detail-error').style.display = 'none';
   document.getElementById('detail-content').style.display = 'none';
-
-  const backBtn = document.getElementById('detail-back-btn');
-  backBtn.textContent = '← Sessions';
 
   loadSessionDetail(id);
 }

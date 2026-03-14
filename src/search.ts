@@ -56,6 +56,7 @@ export interface SearchResult {
   highlightedPreview?: string; // windowed snippets with <mark> tags around BM25-matched terms
   project: string;
   date: string;
+  indexed_at: number;
   title: string | null;
   summary: string | null;
   latency: {
@@ -88,6 +89,7 @@ interface SessionRow {
   id: string;
   project: string;
   date: string;
+  indexed_at: number;
   title: string | null;
   summary: string | null;
 }
@@ -279,7 +281,7 @@ export async function search(
   const sessPlaceholders = sessionIds.map(() => "?").join(",");
 
   const sessionMeta = db
-    .prepare(`SELECT id, project, date, title, summary FROM sessions WHERE id IN (${sessPlaceholders})`)
+    .prepare(`SELECT id, project, date, indexed_at, title, summary FROM sessions WHERE id IN (${sessPlaceholders})`)
     .all(...sessionIds) as SessionRow[];
   const sessionMetaMap = new Map(sessionMeta.map(s => [s.id, s]));
 
@@ -331,6 +333,7 @@ export async function search(
       highlightedPreview,
       project: meta.project,
       date: meta.date,
+      indexed_at: meta.indexed_at,
       title: meta.title,
       summary: meta.summary ?? null,
       latency: {

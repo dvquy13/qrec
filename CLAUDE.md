@@ -52,7 +52,9 @@ eval/
   cache/
     cache.json    # Silver cache: keyed on query_gen_fingerprint + session_body_hash
 ui/
-  index.html      # SPA: dashboard/search/sessions/debug tabs + session detail (#session/:id); hash routing; Activity merged into Dashboard (grouped run feed); marked.js for markdown; served fresh on every request (browser refresh picks up changes — no server restart needed)
+  index.html      # SPA shell: tab panels (dashboard/sessions/debug + session detail); hash routing; script/style tags only — no logic
+  app.js          # All SPA logic: tab routing, data fetching, rendering, filters, infinite scroll, search; served fresh
+  styles.css      # All styles; served fresh — edit and reload browser, no daemon restart needed
 scripts/
   reset.sh          # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
   smoke-test.sh     # Build → start CJS daemon (QREC_EMBED_PROVIDER=stub) → health/search/UI asset checks → stop
