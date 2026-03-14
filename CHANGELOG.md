@@ -1,3 +1,34 @@
+# [0.4.0](https://github.com/dvquy13/qrec/compare/v0.3.5...v0.4.0) (2026-03-14)
+
+
+### Bug Fixes
+
+* bug time calculation ([61f8b09](https://github.com/dvquy13/qrec/commit/61f8b094f72af58a8ad41cf3e5b3fd07675e31d3))
+* **daemon:** kill orphan processes on port 25927 before spawn + QREC_PROJECTS_DIR ([4225bba](https://github.com/dvquy13/qrec/commit/4225bba17b06775b8c3e6d1c47ad59b4d47216b6))
+* **server:** cron index scans no longer revert UI to onboarding ([4618cf2](https://github.com/dvquy13/qrec/commit/4618cf22ba0e92082a0d26b36c2277826537cef9))
+* **ui:** clean up enriching run spinning ([d69c32b](https://github.com/dvquy13/qrec/commit/d69c32b665d0f7152d6339c78892a155a82e35e6))
+* **ui:** server-side date filter for sessions pagination ([1a6a6c9](https://github.com/dvquy13/qrec/commit/1a6a6c9194d6b41bbe3f7199074c19cf43d261d4))
+* **ui:** sessions refresh hangs ([cd6848f](https://github.com/dvquy13/qrec/commit/cd6848f0e1fbab059fcc78cf86c5013e0bf02bba))
+
+
+### Features
+
+* **activity:** expand event coverage + merge Activity tab into Dashboard ([a0b750e](https://github.com/dvquy13/qrec/commit/a0b750e2042cd965b155408473d883900127e271))
+* ask enrich to output learnings and questions as well ([7f562d7](https://github.com/dvquy13/qrec/commit/7f562d74534eca13adfc40aa5375ec41f24931a9))
+* **enrich:** add debounce to prevent unnecessary enrich work when session hasn't been finished/idle ([121cccd](https://github.com/dvquy13/qrec/commit/121cccd8072b24d69ff2820cd62c79c9abaafebc))
+* **enrich:** gate idle filter on last_message_at instead of indexed_at ([4592096](https://github.com/dvquy13/qrec/commit/45920969466728f3aa0190409fe41c0bf5b5c5ef))
+* **indexer:** archive JSONL sessions to ~/.qrec/archive/ and drop legacy MD support ([5e1266b](https://github.com/dvquy13/qrec/commit/5e1266b3b108b1d321a75ac020ee737680c2b2d8))
+* QREC_DIR + QREC_PORT env vars for isolated test environments ([be3dc40](https://github.com/dvquy13/qrec/commit/be3dc4087b1dc5b39d26ca9d5f8d232f3f837189))
+* **ui:** activity lens ([4745dcd](https://github.com/dvquy13/qrec/commit/4745dcdb58538c75751f7750d9d6602a434fa464))
+* **ui:** activity lens project filter ([53154ca](https://github.com/dvquy13/qrec/commit/53154cad8fc40c23f8b3fbaae3096c5b37cf78d8))
+* **ui:** dashboard face-lift ([5144d9a](https://github.com/dvquy13/qrec/commit/5144d9ae410fdb420cca0bb07ee241df63c4e67d))
+* **ui:** group 0-new sessions activities ([062bd24](https://github.com/dvquy13/qrec/commit/062bd24d2b9ef6cd06bff5626b4c3a9e0cbeae3b))
+* **ui:** infinite scroll for sessions list ([fb6f703](https://github.com/dvquy13/qrec/commit/fb6f703a6c8793597704d62fd4ee49e5bc606f79))
+* **ui:** onboarding as inline dashboard banner + scorecard counter animations ([5261b69](https://github.com/dvquy13/qrec/commit/5261b6925cf70d850c0c5a3d422d43179b8ea05f))
+* **ui:** project breakdown tooltips for ActivityLens grid and bars ([ddec5c6](https://github.com/dvquy13/qrec/commit/ddec5c6cd965dc4f023979229ab82f7380a937da))
+* **ui:** project colors + last-active sort for activity lens ([9c09b47](https://github.com/dvquy13/qrec/commit/9c09b47ce071cd94f72ade478c8e02b51522542d))
+* **ui:** tooltip for ActivityLens grid cells ([9583404](https://github.com/dvquy13/qrec/commit/95834043b73251664ce05ac35ca95c221fde91bd))
+* **ui:** update Sessions UI on new face-lift ([80518f8](https://github.com/dvquy13/qrec/commit/80518f84b10dffe08dd25ac8d00a795fd9857628))
 ## [0.3.5](https://github.com/dvquy13/qrec/compare/v0.3.4...v0.3.5) (2026-03-13)
 
 
