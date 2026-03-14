@@ -265,11 +265,7 @@ function showDashboardPanel(data, actEntries) {
   updateOnboardingBanner(data);
 
   document.getElementById('stat-sessions').textContent = data.sessions.toLocaleString();
-  document.getElementById('stat-chunks').textContent = data.chunks.toLocaleString();
   document.getElementById('stat-searches').textContent = data.searches.toLocaleString();
-  document.getElementById('info-provider').textContent = data.embedProvider;
-  document.getElementById('info-last-indexed').textContent =
-    data.lastIndexedAt ? formatRelative(data.lastIndexedAt) : '—';
   const enrichTotal = data.sessions ?? 0;
   const enrichDone = data.enrichedCount ?? 0;
   const enrichPending = data.pendingCount ?? 0;
