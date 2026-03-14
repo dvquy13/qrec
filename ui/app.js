@@ -216,57 +216,67 @@ function showDashboardPanel(data, actEntries) {
   document.getElementById('info-provider').textContent = data.embedProvider;
   document.getElementById('info-last-indexed').textContent =
     data.lastIndexedAt ? formatRelative(data.lastIndexedAt) : '—';
-  document.getElementById('info-memory').textContent =
-    data.memoryMB != null ? data.memoryMB + ' MB' : '—';
   const enrichTotal = data.sessions ?? 0;
   const enrichDone = data.enrichedCount ?? 0;
   const enrichPending = data.pendingCount ?? 0;
-  let enrichHtml;
-  if (!data.enrichEnabled) {
-    enrichHtml = '<span style="color:var(--text-muted)">disabled</span>';
-  } else if (data.enriching) {
-    const pct = enrichTotal > 0 ? Math.round((enrichDone / enrichTotal) * 100) : 0;
-    enrichHtml = `<span class="enrich-dot"></span>${enrichDone} / ${enrichTotal} (${pct}%)`;
-  } else if (enrichPending === 0) {
-    enrichHtml = `<span style="color:var(--green)">✓ ${enrichDone} / ${enrichTotal}</span>`;
-  } else {
-    enrichHtml = `${enrichDone} / ${enrichTotal} <span style="color:var(--text-muted);font-size:11px;">(${enrichPending} pending)</span>`;
+  const aiEl = document.getElementById('info-ai-summaries');
+  const aiSubEl = document.getElementById('info-ai-summaries-sub');
+  if (aiEl) {
+    if (!data.enrichEnabled) {
+      aiEl.innerHTML = '<span style="color:var(--text-muted)">—</span>';
+      if (aiSubEl) aiSubEl.textContent = 'disabled';
+    } else if (data.enriching) {
+      const pct = enrichTotal > 0 ? Math.round((enrichDone / enrichTotal) * 100) : 0;
+      aiEl.innerHTML = `${enrichDone}<span class="enrich-dot" style="margin-left:6px;vertical-align:middle;"></span>`;
+      if (aiSubEl) aiSubEl.textContent = `${pct}% enriched`;
+    } else {
+      aiEl.textContent = enrichDone;
+      if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
+    }
   }
-  document.getElementById('info-enriching').innerHTML = enrichHtml;
   document.getElementById('db-last-updated').textContent = 'Last updated ' + new Date().toLocaleTimeString();
-
-  const toggleBtn = document.getElementById('enrich-toggle-btn');
-  if (data.enrichEnabled) {
-    toggleBtn.textContent = 'Enabled';
-    toggleBtn.style.color = 'var(--green)';
-    toggleBtn.style.borderColor = 'var(--green-border)';
-  } else {
-    toggleBtn.textContent = 'Disabled';
-    toggleBtn.style.color = 'var(--text-muted)';
-    toggleBtn.style.borderColor = 'var(--border)';
-  }
 
   // Activity runs
   _allRunGroups = groupActivityEvents(actEntries || []);
   renderActivityRuns(_allRunGroups);
 
+  loadRecentSessions();
+
   document.getElementById('dashboard').style.display = 'block';
 }
 
-async function toggleEnrichment() {
-  const btn = document.getElementById('enrich-toggle-btn');
-  const current = btn.textContent === 'Enabled';
-  btn.disabled = true;
+async function loadRecentSessions() {
+  const container = document.getElementById('dashboard-recent-list');
+  if (!container) return;
   try {
-    const res = await fetch('/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enrichEnabled: !current }),
-    });
-    if (res.ok) loadDashboard();
-  } finally {
-    btn.disabled = false;
-  }
+    const res = await fetch('/sessions?offset=0');
+    if (!res.ok) return;
+    const data = await res.json();
+    const sessions = data.sessions;
+    const total = data.total ?? sessions.length;
+    const recent = sessions.slice(0, 5);
+    if (recent.length === 0) {
+      container.innerHTML = '<div style="padding:20px 0;color:var(--text-muted);font-size:13px;">No sessions indexed yet.</div>';
+      return;
+    }
+    container.innerHTML = recent.map(s => {
+      const summary = s.summary ? escHtml(s.summary.slice(0, 180)) : '';
+      const relTime = s.indexed_at ? formatRelative(s.indexed_at) : (s.date || '—');
+      return `<div class="dashboard-session-card" onclick="openSession('${escHtml(s.id)}')">
+        <div class="dashboard-session-body">
+          <div class="dashboard-session-title">${escHtml(s.title || '(untitled)')}</div>
+          <div class="dashboard-session-meta">
+            <span>${escHtml(s.project || '—')}</span>
+            <span>·</span>
+            <span style="font-family:var(--mono);font-size:11px;">${escHtml(s.id)}</span>
+          </div>
+          ${summary ? `<div class="dashboard-session-summary">${summary}</div>` : ''}
+        </div>
+        <span class="dashboard-session-ts">${relTime}</span>
+      </div>`;
+    }).join('');
+    container.insertAdjacentHTML('beforeend', `<button class="dashboard-recent-footer" onclick="showTab('sessions')">All ${total.toLocaleString()} sessions →</button>`);
+  } catch (_) { /* silently skip — not critical */ }
 }
 
 // ── Activity grouping ────────────────────────────────────────────────────────

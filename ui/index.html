@@ -32,11 +32,7 @@
 
   <div class="dashboard-wrap" id="dashboard">
     <div class="dashboard-header">
-      <h2>Dashboard</h2>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span class="status-pill"><span class="status-dot"></span>Running</span>
-        <button class="action-btn secondary" onclick="loadDashboard()" style="padding:6px 12px;font-size:12px;">↻ Refresh</button>
-      </div>
+      <h2 class="section-heading">Dashboard</h2>
     </div>
 
     <div class="stats-grid">
@@ -55,39 +51,32 @@
         <div class="stat-value" id="stat-searches">—</div>
         <div class="stat-sub">queries run</div>
       </div>
-    </div>
 
-    <div class="info-grid">
-      <div class="info-row">
-        <span class="info-key">Embed provider</span>
-        <span class="info-val"><span class="provider-badge" id="info-provider">—</span></span>
+      <div class="stat-card">
+        <div class="stat-label">AI Summaries</div>
+        <div class="stat-value" id="info-ai-summaries">—</div>
+        <div class="stat-sub" id="info-ai-summaries-sub"></div>
       </div>
-      <div class="info-row">
-        <span class="info-key">Last indexed</span>
-        <span class="info-val" id="info-last-indexed">—</span>
+      <div class="stat-card">
+        <div class="stat-label">Embed Provider</div>
+        <div class="stat-value" id="info-provider">—</div>
       </div>
-      <div class="info-row">
-        <span class="info-key">Daemon memory usage</span>
-        <span class="info-val" id="info-memory">—</span>
-      </div>
-      <div class="info-row" style="justify-content:space-between;" id="settings-section">
-        <span class="info-key" style="display:flex;align-items:center;">
-          AI summaries
-        </span>
-        <span style="display:flex;align-items:center;gap:12px;">
-          <span class="info-val" id="info-enriching">—</span>
-          <button id="enrich-toggle-btn" class="btn" onclick="toggleEnrichment()" style="font-size:12px;padding:4px 14px;">—</button>
-        </span>
+      <div class="stat-card">
+        <div class="stat-label">Last Indexed</div>
+        <div class="stat-value" id="info-last-indexed">—</div>
       </div>
     </div>
 
-    <div class="actions">
-      <button class="action-btn primary" onclick="showTab('sessions')">Search sessions →</button>
+    <div class="dashboard-recent">
+      <div class="dashboard-recent-header">
+        <span class="section-heading" style="cursor:pointer;" onclick="showTab('sessions')">Recent Sessions</span>
+      </div>
+      <div id="dashboard-recent-list"></div>
     </div>
 
     <div class="activity-section" id="db-activity-feed">
       <div class="activity-section-header">
-        <span class="activity-section-title">Recent Activity</span>
+        <span class="section-heading">Recent Activity</span>
         <span class="activity-live-dot" id="activity-live-dot"></span>
       </div>
       <div class="run-list" id="run-list"></div>
