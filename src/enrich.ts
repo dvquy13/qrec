@@ -166,65 +166,71 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
     console.log(`[enrich] ${pending.length} session(s) to enrich`);
     const t0 = Date.now();
     appendActivity({ type: "enrich_started", data: { pending: pending.length } });
+    let enrichedCount = 0;
 
-    const summCtx = await loadSummarizer();
     try {
-      const updateSession = db.prepare(
-        "UPDATE sessions SET summary=?, tags=?, entities=?, learnings=?, questions=?, enriched_at=?, enrichment_version=? WHERE id=?"
-      );
-      // Summary chunks go into the chunks table (FTS5 trigger auto-indexes them for BM25 search).
-      // Chunk id format: "{session_id}_summary" — distinct from real chunks "{session_id}_{seq}".
-      const deleteSummaryChunk = db.prepare("DELETE FROM chunks WHERE id = ?");
-      const insertSummaryChunk = db.prepare(
-        "INSERT OR REPLACE INTO chunks (id, session_id, seq, pos, text, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-      );
-
-      for (let i = 0; i < pending.length; i++) {
-        const { id } = pending[i];
-        const chunkText = getChunkText(db, id);
-        if (!chunkText.trim()) {
-          console.log(`[${i + 1}/${pending.length}] ${id} — skip (no chunks)`);
-          continue;
-        }
-
-        const t0 = Date.now();
-        const result = await summarizeSession(summCtx, chunkText);
-        const latencyMs = Date.now() - t0;
-
-        // Checkpoint to DB immediately after each session
-        const now = Date.now();
-        updateSession.run(
-          result.summary,
-          JSON.stringify(result.tags),
-          JSON.stringify(result.entities),
-          JSON.stringify(result.learnings),
-          JSON.stringify(result.questions),
-          now,
-          ENRICHMENT_VERSION,
-          id
+      const summCtx = await loadSummarizer();
+      try {
+        const updateSession = db.prepare(
+          "UPDATE sessions SET summary=?, tags=?, entities=?, learnings=?, questions=?, enriched_at=?, enrichment_version=? WHERE id=?"
+        );
+        // Summary chunks go into the chunks table (FTS5 trigger auto-indexes them for BM25 search).
+        // Chunk id format: "{session_id}_summary" — distinct from real chunks "{session_id}_{seq}".
+        const deleteSummaryChunk = db.prepare("DELETE FROM chunks WHERE id = ?");
+        const insertSummaryChunk = db.prepare(
+          "INSERT OR REPLACE INTO chunks (id, session_id, seq, pos, text, created_at) VALUES (?, ?, ?, ?, ?, ?)"
         );
 
-        // Insert summary chunk so BM25 (FTS5) search covers summary/tags/entities text.
-        // seq=-1 marks it as synthetic; pos=-1 means before all real content.
-        if (result.summary || result.tags.length > 0 || result.entities.length > 0 || result.learnings.length > 0 || result.questions.length > 0) {
-          const summaryChunkText = buildSummaryChunkText(result.summary, result.tags, result.entities, result.learnings, result.questions);
-          deleteSummaryChunk.run(`${id}_summary`);
-          insertSummaryChunk.run(`${id}_summary`, id, -1, -1, summaryChunkText, now);
-        }
+        for (let i = 0; i < pending.length; i++) {
+          const { id } = pending[i];
+          const chunkText = getChunkText(db, id);
+          if (!chunkText.trim()) {
+            console.log(`[${i + 1}/${pending.length}] ${id} — skip (no chunks)`);
+            continue;
+          }
 
-        appendActivity({ type: "session_enriched", data: { sessionId: id, latencyMs } });
-        console.log(`[${i + 1}/${pending.length}] ${id} — ${latencyMs}ms`);
-        if (result.summary) console.log(`  Summary: ${result.summary.slice(0, 100)}`);
-        if (result.tags.length > 0) console.log(`  Tags: ${result.tags.join(", ")}`);
-        if (result.learnings.length > 0) console.log(`  Learnings: ${result.learnings.length}`);
-        if (result.questions.length > 0) console.log(`  Questions: ${result.questions.length}`);
+          const t1 = Date.now();
+          const result = await summarizeSession(summCtx, chunkText);
+          const latencyMs = Date.now() - t1;
+
+          // Checkpoint to DB immediately after each session
+          const now = Date.now();
+          updateSession.run(
+            result.summary,
+            JSON.stringify(result.tags),
+            JSON.stringify(result.entities),
+            JSON.stringify(result.learnings),
+            JSON.stringify(result.questions),
+            now,
+            ENRICHMENT_VERSION,
+            id
+          );
+
+          // Insert summary chunk so BM25 (FTS5) search covers summary/tags/entities text.
+          // seq=-1 marks it as synthetic; pos=-1 means before all real content.
+          if (result.summary || result.tags.length > 0 || result.entities.length > 0 || result.learnings.length > 0 || result.questions.length > 0) {
+            const summaryChunkText = buildSummaryChunkText(result.summary, result.tags, result.entities, result.learnings, result.questions);
+            deleteSummaryChunk.run(`${id}_summary`);
+            insertSummaryChunk.run(`${id}_summary`, id, -1, -1, summaryChunkText, now);
+          }
+
+          appendActivity({ type: "session_enriched", data: { sessionId: id, latencyMs } });
+          enrichedCount++;
+          console.log(`[${i + 1}/${pending.length}] ${id} — ${latencyMs}ms`);
+          if (result.summary) console.log(`  Summary: ${result.summary.slice(0, 100)}`);
+          if (result.tags.length > 0) console.log(`  Tags: ${result.tags.join(", ")}`);
+          if (result.learnings.length > 0) console.log(`  Learnings: ${result.learnings.length}`);
+          if (result.questions.length > 0) console.log(`  Questions: ${result.questions.length}`);
+        }
+      } finally {
+        await disposeSummarizer(summCtx);
       }
     } finally {
-      await disposeSummarizer(summCtx);
+      // Always write enrich_complete — even on crash/error — so the activity log is never
+      // left with an unclosed enrich_started that makes the UI show a stale spinner forever.
+      appendActivity({ type: "enrich_complete", data: { enriched: enrichedCount, durationMs: Date.now() - t0 } });
+      console.log("[enrich] Done.");
     }
-
-    appendActivity({ type: "enrich_complete", data: { enriched: pending.length, durationMs: Date.now() - t0 } });
-    console.log("[enrich] Done.");
   } finally {
     db.close();
     deleteEnrichPid();

@@ -344,6 +344,15 @@ function groupActivityEvents(events) {
   }
 
   if (current) groups.push(current); // ongoing run
+
+  // Mark stale: if a run is still "running" after 10 minutes, the process crashed without
+  // writing a completion event. Treat it as done so the spinner/live-dot don't flash forever.
+  const STALE_MS = 10 * 60 * 1000;
+  const now = Date.now();
+  for (const g of groups) {
+    if (g.running && (now - g.ts) > STALE_MS) g.running = false;
+  }
+
   return collapseZeroIndexRuns(groups.reverse()); // newest first
 }
 
