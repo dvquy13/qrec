@@ -145,8 +145,12 @@ export async function parseSession(jsonlPath: string): Promise<ParsedSession> {
   let date = "";
   let title: string | null = null;
   const turns: Turn[] = [];
+  const timestamps: number[] = [];
 
   for (const line of lines) {
+    // Collect all timestamps for duration calculation (before any skips)
+    if (line.timestamp) timestamps.push(Date.parse(line.timestamp));
+
     // Skip internal/noise types
     if (
       line.type === "file-history-snapshot" ||
@@ -188,10 +192,7 @@ export async function parseSession(jsonlPath: string): Promise<ParsedSession> {
   // Gap-capped duration: sum min(gap, 15min) over consecutive timestamps.
   // Drops idle time (lunch breaks, overnight pauses) without needing explicit tracking.
   const IDLE_GAP_MS = 15 * 60 * 1000;
-  const timestamps = lines
-    .map(l => l.timestamp ? Date.parse(l.timestamp) : NaN)
-    .filter(t => !isNaN(t))
-    .sort((a, b) => a - b);
+  timestamps.sort((a, b) => a - b);
   let duration_ms = 0;
   for (let i = 1; i < timestamps.length; i++) {
     duration_ms += Math.min(timestamps[i] - timestamps[i - 1], IDLE_GAP_MS);

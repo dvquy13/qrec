@@ -685,6 +685,21 @@ function clearSearch() {
 
 // ── Sessions list ────────────────────────────────────────────────────────────
 
+function updateFilterOptions(newSessions) {
+  const seenProjects = new Set(_filterOptions.project);
+  for (const s of newSessions) {
+    if (s.project && !seenProjects.has(s.project)) {
+      _filterOptions.project.push(s.project);
+      seenProjects.add(s.project);
+    }
+  }
+  const allTags = new Set(_filterOptions.tag);
+  for (const s of newSessions) {
+    for (const t of s.tags ?? []) allTags.add(t);
+  }
+  _filterOptions.tag = [...allTags].sort();
+}
+
 // ── Card fields config ───────────────────────────────────────────────────────
 function saveCardFields() {
   localStorage.setItem('qrec_card_fields', JSON.stringify(_cardFields));
@@ -756,10 +771,10 @@ async function loadSessions() {
     _sessionsOffset = sessions.length;
     _allSessions = sessions;
 
-    // sessions are date-DESC; first occurrence of each project = most recently active
-    const _seen = new Set();
-    _filterOptions.project = sessions.filter(s => s.project && !_seen.has(s.project) && _seen.add(s.project)).map(s => s.project);
-    _filterOptions.tag = [...new Set(sessions.flatMap(s => s.tags ?? []))].sort();
+    // Build filter options from first page (sessions are date-DESC; first occurrence = most recently active)
+    _filterOptions.project = [];
+    _filterOptions.tag = [];
+    updateFilterOptions(sessions);
 
     applyFilters();
     if (!_heatmapData) fetchAndRenderHeatmap();
@@ -783,10 +798,8 @@ async function loadMoreSessions() {
     _sessionsOffset += sessions.length;
     _allSessions = _allSessions.concat(sessions);
 
-    // Update filter options with newly loaded data
-    const _seen2 = new Set();
-    _filterOptions.project = _allSessions.filter(s => s.project && !_seen2.has(s.project) && _seen2.add(s.project)).map(s => s.project);
-    _filterOptions.tag = [...new Set(_allSessions.flatMap(s => s.tags ?? []))].sort();
+    // Incrementally update filter options from the new batch only — O(batch) not O(total)
+    updateFilterOptions(sessions);
 
     // Append matching cards directly — no full re-render to avoid scroll jump
     const project = document.getElementById('filter-project').value.trim().toLowerCase();

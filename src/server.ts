@@ -37,6 +37,10 @@ const UI_DIR = _metaDir
   : join(__dirname, "..", "..", "ui");    // CJS: plugin/scripts/ → ui/
 const UI_HTML_PATH = join(UI_DIR, "index.html");
 
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 async function serveUiHtml(): Promise<Response> {
   if (UI_HTML_INLINE !== null) {
     return new Response(UI_HTML_INLINE, { headers: { "Content-Type": "text/html; charset=utf-8" } });
@@ -138,7 +142,7 @@ async function main() {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - weeks * 7 + 1);
         cutoff.setHours(0, 0, 0, 0);
-        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        const cutoffStr = localDateStr(cutoff);
 
         const projectClause = project ? " AND project = ?" : "";
         const args = project ? [cutoffStr, project] : [cutoffStr];
@@ -158,9 +162,9 @@ async function main() {
         const byDate = new Map(rows.map(r => [r.date, r.count]));
         const days: Array<{ date: string; count: number }> = [];
         const cur = new Date(cutoff);
-        const today = new Date(); today.setUTCHours(23, 59, 59, 999);
-        while (cur <= today) {
-          const d = cur.toISOString().slice(0, 10);
+        const today = new Date();
+        while (localDateStr(cur) <= localDateStr(today)) {
+          const d = localDateStr(cur);
           days.push({ date: d, count: byDate.get(d) ?? 0 });
           cur.setDate(cur.getDate() + 1);
         }
@@ -196,19 +200,18 @@ async function main() {
         const limit = 100;
         const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
         const dateFilter = url.searchParams.get("date") ?? null;
-        const rows = dateFilter
+        const rows = (dateFilter
           ? db.prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities, learnings, questions FROM sessions WHERE date = ? ORDER BY indexed_at DESC LIMIT ? OFFSET ?")
               .all(dateFilter, limit, offset)
           : db.prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
-              .all(limit, offset);
-        const rows2 = rows as Array<{
+              .all(limit, offset)) as Array<{
             id: string; title: string | null; project: string; date: string; indexed_at: number;
             summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null;
           }>;
         const total = dateFilter
           ? (db.prepare("SELECT COUNT(*) as count FROM sessions WHERE date = ?").get(dateFilter) as { count: number }).count
           : (db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number }).count;
-        const sessions = rows2.map(r => ({
+        const sessions = rows.map(r => ({
           ...r,
           tags: r.tags ? JSON.parse(r.tags) as string[] : null,
           entities: r.entities ? JSON.parse(r.entities) as string[] : null,
