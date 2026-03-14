@@ -4,6 +4,21 @@ const RUNS_INITIAL = 5;
 let _visibleRunCount = RUNS_INITIAL;
 let _lastRenderedSessionCount = -1;
 
+// ── Search + Sessions state (must be before navigate() at line ~43) ──────────
+let _lastSearchResults = null;
+let _allSessions = [];
+let _sessionsTotal = 0;
+let _sessionsOffset = 0;
+let _sessionsLoading = false;
+let _scrollObserver = null;
+let _filterDate = null;
+let _filterOptions = { project: [], tag: [] };
+const CARD_FIELD_DEFAULTS = { summary: true, tags: true, entities: false, learnings: false, questions: false };
+let _cardFields = (() => {
+  try { return { ...CARD_FIELD_DEFAULTS, ...JSON.parse(localStorage.getItem('qrec_card_fields') || '{}') }; }
+  catch { return { ...CARD_FIELD_DEFAULTS }; }
+})();
+
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
 function navigate(hash, push = true) {
@@ -527,8 +542,6 @@ document.addEventListener('toggle', e => {
 
 // ── Search ──────────────────────────────────────────────────────────────────
 
-let _lastSearchResults = null;
-
 document.getElementById('query').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
@@ -630,21 +643,7 @@ function clearSearch() {
 
 // ── Sessions list ────────────────────────────────────────────────────────────
 
-let _allSessions = [];
-let _sessionsTotal = 0;
-let _sessionsOffset = 0;
-let _sessionsLoading = false;
-let _scrollObserver = null;
-let _filterDate = null;
-let _filterOptions = { project: [], tag: [] };
-
 // ── Card fields config ───────────────────────────────────────────────────────
-const CARD_FIELD_DEFAULTS = { summary: true, tags: true, entities: false, learnings: false, questions: false };
-let _cardFields = (() => {
-  try { return { ...CARD_FIELD_DEFAULTS, ...JSON.parse(localStorage.getItem('qrec_card_fields') || '{}') }; }
-  catch { return { ...CARD_FIELD_DEFAULTS }; }
-})();
-
 function saveCardFields() {
   localStorage.setItem('qrec_card_fields', JSON.stringify(_cardFields));
 }
