@@ -195,14 +195,20 @@ async function main() {
       if (req.method === "GET" && url.pathname === "/sessions") {
         const limit = 100;
         const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
-        const rows = db
-          .prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
-          .all(limit, offset) as Array<{
+        const dateFilter = url.searchParams.get("date") ?? null;
+        const rows = dateFilter
+          ? db.prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities, learnings, questions FROM sessions WHERE date = ? ORDER BY indexed_at DESC LIMIT ? OFFSET ?")
+              .all(dateFilter, limit, offset)
+          : db.prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
+              .all(limit, offset);
+        const rows2 = rows as Array<{
             id: string; title: string | null; project: string; date: string; indexed_at: number;
             summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null;
           }>;
-        const total = (db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number }).count;
-        const sessions = rows.map(r => ({
+        const total = dateFilter
+          ? (db.prepare("SELECT COUNT(*) as count FROM sessions WHERE date = ?").get(dateFilter) as { count: number }).count
+          : (db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number }).count;
+        const sessions = rows2.map(r => ({
           ...r,
           tags: r.tags ? JSON.parse(r.tags) as string[] : null,
           entities: r.entities ? JSON.parse(r.entities) as string[] : null,

@@ -747,7 +747,8 @@ async function loadSessions() {
   const content = document.getElementById('sessions-content');
   content.innerHTML = '<div class="loading-state"><span class="spinner"></span></div>';
   try {
-    const res = await fetch('/sessions?offset=0');
+    const dateParam = _filterDate ? `&date=${encodeURIComponent(_filterDate)}` : '';
+    const res = await fetch(`/sessions?offset=0${dateParam}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { sessions, total } = await res.json();
 
@@ -773,7 +774,8 @@ async function loadMoreSessions() {
   if (_sessionsLoading || _sessionsOffset >= _sessionsTotal) return;
   _sessionsLoading = true;
   try {
-    const res = await fetch(`/sessions?offset=${_sessionsOffset}`);
+    const dateParam = _filterDate ? `&date=${encodeURIComponent(_filterDate)}` : '';
+    const res = await fetch(`/sessions?offset=${_sessionsOffset}${dateParam}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { sessions, total } = await res.json();
 
@@ -1216,14 +1218,17 @@ function filterByDate(date) {
   const chip = document.getElementById('date-chip');
   chip.style.display = '';
   chip.innerHTML = `📅 ${escHtml(date)} <span class="date-chip-x" onclick="clearDateFilter()">×</span>`;
-  applyFilters();
-  if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
+  if (document.getElementById('tab-sessions').classList.contains('active')) {
+    loadSessions();
+  } else {
+    showTab('sessions');
+  }
 }
 
 function clearDateFilter() {
   _filterDate = null;
   document.getElementById('date-chip').style.display = 'none';
-  applyFilters();
+  loadSessions();
 }
 
 function clearFilters() {
@@ -1234,7 +1239,7 @@ function clearFilters() {
   _filterDate = null;
   document.getElementById('date-chip').style.display = 'none';
   document.getElementById('clear-filters-btn').style.display = 'none';
-  renderSessionsList(_allSessions);
+  loadSessions();
 }
 
 function enrichBlockHtml(s, compact = false) {
