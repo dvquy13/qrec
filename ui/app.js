@@ -24,6 +24,8 @@ let _heatmapData = null;
 let _heatmapMetric = (() => {
   try { return localStorage.getItem('qrec_heatmap_metric') || 'sessions'; } catch { return 'sessions'; }
 })();
+let _heatmapProject = null;
+let _heatmapProjects = [];
 
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
@@ -751,11 +753,7 @@ async function loadSessions() {
     _filterOptions.tag = [...new Set(sessions.flatMap(s => s.tags ?? []))].sort();
 
     applyFilters();
-    if (_heatmapData) {
-      renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: _filterDate });
-    } else {
-      fetchAndRenderHeatmap();
-    }
+    if (!_heatmapData) fetchAndRenderHeatmap();
   } catch (err) {
     content.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
   } finally {
@@ -833,6 +831,13 @@ function hideFilterDropdown(type) {
 function handleFilterInput(input, type) {
   applyFilters();
   showFilterDropdown(type);
+}
+
+function filterByProject(project) {
+  document.getElementById('filter-project').value = project;
+  hideFilterDropdown('project');
+  applyFilters();
+  if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
 }
 
 function selectFilterOption(type, value) {
@@ -922,10 +927,42 @@ function heatmapCurrentWeek(days) {
   return result;
 }
 
+function renderHeatmapMetricBtns() {
+  const el = document.getElementById('heatmap-metric-btns');
+  if (!el || HEATMAP_METRICS.length <= 1) return;
+  el.innerHTML = '<div class="heatmap-metrics">' +
+    HEATMAP_METRICS.map(m => {
+      const active = m.id === _heatmapMetric ? ' heatmap-metric--active' : '';
+      return `<button class="heatmap-metric${active}" onclick="selectHeatmapMetric('${m.id}')">${m.label}</button>`;
+    }).join('') + '</div>';
+}
+
 function selectHeatmapMetric(metricId) {
   _heatmapMetric = metricId;
   try { localStorage.setItem('qrec_heatmap_metric', metricId); } catch {}
   fetchAndRenderHeatmap();
+}
+
+function selectHeatmapProject(project) {
+  _heatmapProject = project || null;
+  const btn = document.getElementById('heatmap-project-btn');
+  if (btn) btn.textContent = (project || 'All projects') + ' ▾';
+  document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
+  fetchAndRenderHeatmap();
+}
+
+function toggleHeatmapProjectDropdown() {
+  const el = document.getElementById('heatmap-dropdown-project');
+  if (el.classList.contains('open')) { el.classList.remove('open'); return; }
+  const items = [{ label: 'All projects', value: '' }, ..._heatmapProjects.map(p => ({ label: p, value: p }))];
+  el.innerHTML = items.map(({ label, value }) =>
+    `<div class="filter-dropdown-item${value === (_heatmapProject ?? '') ? ' filter-dropdown-item--active' : ''}" onclick="selectHeatmapProject('${escHtml(value)}')">${escHtml(label)}</div>`
+  ).join('');
+  el.classList.add('open');
+}
+
+function hideHeatmapProjectDropdown() {
+  document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
 }
 
 function renderHeatmap(containerId, days, opts = {}) {
@@ -971,19 +1008,7 @@ function renderHeatmap(containerId, days, opts = {}) {
   const fmtDay  = d => `${HEATMAP_MONTHS[d.getMonth()]} ${d.getDate()}`;
   const cwLabel = `${fmtDay(cwStart)} – ${fmtDay(cwEnd)}`;
 
-  let html = '';
-
-  // Metric selector chips — only render when there's more than one metric
-  if (HEATMAP_METRICS.length > 1) {
-    html += '<div class="heatmap-metrics">';
-    for (const m of HEATMAP_METRICS) {
-      const active = m.id === _heatmapMetric ? ' heatmap-metric--active' : '';
-      html += `<button class="heatmap-metric${active}" onclick="selectHeatmapMetric('${m.id}')">${m.label}</button>`;
-    }
-    html += '</div>';
-  }
-
-  html += '<div class="heatmap">';
+  let html = '<div class="heatmap">';
 
   // Month header row + current-week range label
   html += `<div style="display:flex;align-items:center;gap:${GAP}px;margin-bottom:${GAP}px;">`;
@@ -1074,13 +1099,22 @@ function renderHeatmap(containerId, days, opts = {}) {
 
 async function fetchAndRenderHeatmap() {
   try {
-    const res = await fetch(`/stats/heatmap?weeks=15&metric=${_heatmapMetric}`);
+    // Populate project list on first load
+    if (_heatmapProject === null && _heatmapProjects.length === 0) {
+      const pr = await fetch('/projects');
+      if (pr.ok) _heatmapProjects = (await pr.json()).projects ?? [];
+    }
+
+    const params = new URLSearchParams({ weeks: '15', metric: _heatmapMetric });
+    if (_heatmapProject) params.set('project', _heatmapProject);
+    const res = await fetch(`/stats/heatmap?${params}`);
     if (!res.ok) return;
     _heatmapData = await res.json();
 
     // Dashboard
     const dashSection = document.getElementById('dashboard-heatmap-section');
     if (dashSection) {
+      renderHeatmapMetricBtns();
       renderHeatmap('dashboard-heatmap', _heatmapData.days, { clickable: true });
       const footer = document.getElementById('dashboard-heatmap-footer');
       if (footer) {
@@ -1089,16 +1123,9 @@ async function fetchAndRenderHeatmap() {
       }
       dashSection.style.display = '';
     }
-    // Sessions (with current filter highlight)
-    renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: _filterDate });
   } catch {}
 }
 
-function filterByProject(project) {
-  document.getElementById('filter-project').value = project;
-  applyFilters();
-  if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
-}
 
 function filterByTag(tag) {
   document.getElementById('filter-tag').value = tag;
@@ -1112,7 +1139,6 @@ function filterByDate(date) {
   chip.style.display = '';
   chip.innerHTML = `📅 ${escHtml(date)} <span class="date-chip-x" onclick="clearDateFilter()">×</span>`;
   applyFilters();
-  if (_heatmapData) renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: date });
   if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
 }
 
@@ -1120,7 +1146,6 @@ function clearDateFilter() {
   _filterDate = null;
   document.getElementById('date-chip').style.display = 'none';
   applyFilters();
-  if (_heatmapData) renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: null });
 }
 
 function clearFilters() {
@@ -1132,7 +1157,6 @@ function clearFilters() {
   document.getElementById('date-chip').style.display = 'none';
   document.getElementById('clear-filters-btn').style.display = 'none';
   renderSessionsList(_allSessions);
-  if (_heatmapData) renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: null });
 }
 
 function enrichBlockHtml(s, compact = false) {

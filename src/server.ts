@@ -124,24 +124,35 @@ async function main() {
         });
       }
 
+      if (req.method === "GET" && url.pathname === "/projects") {
+        const rows = db
+          .prepare("SELECT DISTINCT project FROM sessions WHERE project IS NOT NULL AND project != '' ORDER BY project")
+          .all() as Array<{ project: string }>;
+        return Response.json({ projects: rows.map(r => r.project) });
+      }
+
       if (req.method === "GET" && url.pathname === "/stats/heatmap") {
         const weeks = Math.min(52, Math.max(4, parseInt(url.searchParams.get("weeks") ?? "15", 10) || 15));
         const metric = url.searchParams.get("metric") ?? "sessions";
+        const project = url.searchParams.get("project") ?? null;
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - weeks * 7 + 1);
         cutoff.setHours(0, 0, 0, 0);
         const cutoffStr = cutoff.toISOString().slice(0, 10);
 
+        const projectClause = project ? " AND project = ?" : "";
+        const args = project ? [cutoffStr, project] : [cutoffStr];
+
         let rows: Array<{ date: string; count: number }>;
         if (metric === "hours") {
           rows = db
-            .prepare("SELECT date, ROUND(SUM(COALESCE(duration_seconds, 0)) / 3600.0, 1) as count FROM sessions WHERE date >= ? GROUP BY date ORDER BY date ASC")
-            .all(cutoffStr) as Array<{ date: string; count: number }>;
+            .prepare(`SELECT date, ROUND(SUM(COALESCE(duration_seconds, 0)) / 3600.0, 1) as count FROM sessions WHERE date >= ?${projectClause} GROUP BY date ORDER BY date ASC`)
+            .all(...args) as Array<{ date: string; count: number }>;
         } else {
           // default: sessions
           rows = db
-            .prepare("SELECT date, COUNT(*) as count FROM sessions WHERE date >= ? GROUP BY date ORDER BY date ASC")
-            .all(cutoffStr) as Array<{ date: string; count: number }>;
+            .prepare(`SELECT date, COUNT(*) as count FROM sessions WHERE date >= ?${projectClause} GROUP BY date ORDER BY date ASC`)
+            .all(...args) as Array<{ date: string; count: number }>;
         }
 
         const byDate = new Map(rows.map(r => [r.date, r.count]));

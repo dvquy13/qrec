@@ -68,6 +68,15 @@
         </div>
       </div>
       <div class="dashboard-heatmap-col" id="dashboard-heatmap-section" style="display:none;">
+        <div class="heatmap-controls">
+          <div id="heatmap-metric-btns"></div>
+          <div class="filter-wrap">
+            <button class="btn heatmap-project-btn" id="heatmap-project-btn"
+                    onclick="toggleHeatmapProjectDropdown()"
+                    onblur="hideHeatmapProjectDropdown()">All projects ▾</button>
+            <div class="filter-dropdown" id="heatmap-dropdown-project" onmousedown="return false;"></div>
+          </div>
+        </div>
         <div id="dashboard-heatmap"></div>
         <div class="heatmap-footer" id="dashboard-heatmap-footer"></div>
       </div>
@@ -139,7 +148,6 @@
       </div>
     </div>
   </div>
-  <div id="sessions-heatmap" style="margin-bottom:20px;"></div>
   <div id="sessions-content">
     <div class="loading-state"><span class="spinner"></span></div>
   </div>
