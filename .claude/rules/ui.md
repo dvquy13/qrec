@@ -18,3 +18,9 @@ paths:
 - **`_visibleRunCount` resets only in `onTabActivated`, not in `renderActivityRuns`** — Resetting it on every render (every 5s poll) collapses the list back to 5 items whenever the user has clicked "show more". Only reset when the user navigates to the dashboard tab.
 
 - **Activity state vars must be declared before `navigate(initHash, false)` at line ~37** — `navigate()` fires synchronously at module load, which calls `onTabActivated('dashboard')`, which references `RUNS_INITIAL` and `_visibleRunCount`. If those `const`/`let` declarations appear later in the file, they are in the TDZ and throw `ReferenceError`. Keep them at the very top of `app.js`.
+
+- **`loadRecentSessions()` is guarded by `_lastRenderedSessionCount`** — fetches `/sessions?offset=0` only when `data.sessions !== _lastRenderedSessionCount`. Without the guard, it fires a DB query + HTTP roundtrip on every 5s dashboard poll. Update `_lastRenderedSessionCount` on both the success path and the empty-state early return.
+
+- **Dashboard uses a single 6-card stats grid** — all 6 metrics (sessions/chunks/searches + embed provider/last indexed/AI summaries) live in one `grid-template-columns: repeat(3, 1fr)` grid. Row-2 cards use the `.stat-card--info` modifier (smaller `font-size` on `.stat-value`). Do not reintroduce a separate `.info-grid` — it broke alignment with the `h2` and required extra CSS to handle.
+
+- **Dashboard "● Running" pill and "↻ Refresh" button were intentionally removed** — both are redundant: the page loading proves the daemon is up, and the dashboard auto-polls every 5s. Don't add them back.

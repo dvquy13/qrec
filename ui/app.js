@@ -2,6 +2,7 @@
 let _allRunGroups = [];
 const RUNS_INITIAL = 5;
 let _visibleRunCount = RUNS_INITIAL;
+let _lastRenderedSessionCount = -1;
 
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
@@ -240,12 +241,12 @@ function showDashboardPanel(data, actEntries) {
   _allRunGroups = groupActivityEvents(actEntries || []);
   renderActivityRuns(_allRunGroups);
 
-  loadRecentSessions();
+  if (data.sessions !== _lastRenderedSessionCount) loadRecentSessions(data.sessions);
 
   document.getElementById('dashboard').style.display = 'block';
 }
 
-async function loadRecentSessions() {
+async function loadRecentSessions(sessionCount) {
   const container = document.getElementById('dashboard-recent-list');
   if (!container) return;
   try {
@@ -257,6 +258,7 @@ async function loadRecentSessions() {
     const recent = sessions.slice(0, 5);
     if (recent.length === 0) {
       container.innerHTML = '<div style="padding:20px 0;color:var(--text-muted);font-size:13px;">No sessions indexed yet.</div>';
+      _lastRenderedSessionCount = sessionCount ?? 0;
       return;
     }
     container.innerHTML = recent.map(s => {
@@ -276,6 +278,7 @@ async function loadRecentSessions() {
       </div>`;
     }).join('');
     container.insertAdjacentHTML('beforeend', `<button class="dashboard-recent-footer" onclick="showTab('sessions')">All ${total.toLocaleString()} sessions →</button>`);
+    _lastRenderedSessionCount = sessionCount ?? total;
   } catch (_) { /* silently skip — not critical */ }
 }
 
