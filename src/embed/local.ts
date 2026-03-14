@@ -5,6 +5,7 @@ import type { LlamaEmbeddingContext, Llama } from "node-llama-cpp";
 import { join } from "path";
 import { homedir } from "os";
 import { existsSync, mkdirSync } from "fs";
+import { MODEL_CACHE_DIR } from "../dirs.ts";
 import type { EmbedProvider } from "./provider.ts";
 import { serverProgress } from "../progress.ts";
 
@@ -12,7 +13,6 @@ import { serverProgress } from "../progress.ts";
 const MODEL_URI = "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
 // Legacy filename written by old short-form URI (kept for backward compat)
 const LEGACY_MODEL_PATH = join(homedir(), ".cache", "qmd", "models", "hf_ggml-org_embeddinggemma-300M-Q8_0.gguf");
-const MODEL_CACHE_DIR = join(homedir(), ".qrec", "models");
 
 // Singleton state
 let llamaInstance: Llama | null = null;

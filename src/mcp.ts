@@ -1,13 +1,14 @@
 // src/mcp.ts
 // MCP server: stdio transport (primary) and HTTP transport (--http flag)
-// Proxies all tool calls to the running qrec daemon at http://localhost:25927.
+// Proxies all tool calls to the running qrec daemon (default http://localhost:25927; override with QREC_PORT).
 // No model or DB loaded here — reuses the daemon's already-loaded embedder.
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-const DAEMON_BASE = "http://localhost:25927";
+const QREC_PORT = parseInt(process.env.QREC_PORT ?? "25927", 10);
+const DAEMON_BASE = `http://localhost:${QREC_PORT}`;
 const MCP_HTTP_PORT = 3031;
 const DAEMON_DOWN_MSG = "qrec daemon is not running. Start it with: qrec serve --daemon";
 

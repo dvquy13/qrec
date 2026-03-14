@@ -7,14 +7,11 @@ import { openDb } from "./db.ts";
 import { indexVault } from "./indexer.ts";
 import { disposeEmbedder } from "./embed/local.ts";
 import { startDaemon, stopDaemon, getDaemonPid } from "./daemon.ts";
-import { join } from "path";
-import { homedir } from "os";
 import { existsSync, readFileSync, rmSync } from "fs";
+import { homedir } from "os";
+import { QREC_DIR, LOG_FILE } from "./dirs.ts";
 
 const [, , command, ...args] = process.argv;
-
-const LOG_FILE = join(homedir(), ".qrec", "qrec.log");
-const QREC_DIR = join(homedir(), ".qrec");
 
 function getLogTail(lines: number = 20): string[] {
   if (!existsSync(LOG_FILE)) return [];

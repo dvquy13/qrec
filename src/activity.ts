@@ -2,11 +2,8 @@
 // Append-only activity log at ~/.qrec/activity.jsonl.
 // Written by daemon when indexing runs; read by /activity/entries endpoint.
 
-import { join } from "path";
-import { homedir } from "os";
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
-
-const ACTIVITY_FILE = join(homedir(), ".qrec", "activity.jsonl");
+import { QREC_DIR, ACTIVITY_FILE } from "./dirs.ts";
 
 export type ActivityType =
   | "daemon_started"
@@ -26,7 +23,7 @@ export interface ActivityEvent {
 export function appendActivity(event: Omit<ActivityEvent, "ts">): void {
   const entry: ActivityEvent = { ts: Date.now(), ...event };
   try {
-    mkdirSync(join(homedir(), ".qrec"), { recursive: true });
+    mkdirSync(QREC_DIR, { recursive: true });
     appendFileSync(ACTIVITY_FILE, JSON.stringify(entry) + "\n", "utf-8");
   } catch {
     // Activity log failure must not affect other operations

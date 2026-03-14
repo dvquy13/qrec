@@ -4,13 +4,12 @@
 
 import { Database } from "bun:sqlite";
 import { getLoadablePath } from "sqlite-vec";
-import { join } from "path";
-import { homedir } from "os";
 import { mkdirSync, statSync } from "fs";
+import { DB_PATH } from "./dirs.ts";
 
 export { Database };
 
-export const DEFAULT_DB_PATH = join(homedir(), ".qrec", "qrec.db");
+export const DEFAULT_DB_PATH = DB_PATH;
 
 // Candidates for Homebrew SQLite (supports dynamic extension loading)
 function findHomebrewSQLite(): string | null {

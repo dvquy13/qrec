@@ -2,11 +2,8 @@
 // PID-file daemon management: start (detached child) + stop (SIGTERM)
 
 import { join } from "path";
-import { homedir } from "os";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
-
-const PID_FILE = join(homedir(), ".qrec", "qrec.pid");
-const QREC_DIR = join(homedir(), ".qrec");
+import { QREC_DIR, PID_FILE, LOG_FILE, QREC_PORT } from "./dirs.ts";
 
 function ensureQrecDir(): void {
   mkdirSync(QREC_DIR, { recursive: true });
@@ -44,9 +41,9 @@ export async function startDaemon(): Promise<void> {
     return;
   }
 
-  // Kill any orphaned process still holding port 25927 (escaped pid-file tracking)
+  // Kill any orphaned process still holding the port (escaped pid-file tracking)
   try {
-    const r = Bun.spawnSync(["lsof", "-ti", ":25927"], { stdio: ["ignore", "pipe", "ignore"] });
+    const r = Bun.spawnSync(["lsof", "-ti", `:${QREC_PORT}`], { stdio: ["ignore", "pipe", "ignore"] });
     const pids = new TextDecoder().decode(r.stdout).trim().split("\n").filter(Boolean);
     for (const p of pids) { try { process.kill(parseInt(p), "SIGKILL"); } catch {} }
     if (pids.length > 0) await Bun.sleep(300);
@@ -54,7 +51,7 @@ export async function startDaemon(): Promise<void> {
 
   ensureQrecDir();
 
-  const logFile = join(QREC_DIR, "qrec.log");
+  const logFile = LOG_FILE;
 
   // In Bun ESM (dev): spawn server.ts directly.
   // In compiled CJS bundle: spawn self (process.argv[1]) with "serve" — import.meta.dir is unavailable.
@@ -84,7 +81,7 @@ export async function startDaemon(): Promise<void> {
   while (Date.now() < deadline) {
     await Bun.sleep(500);
     try {
-      const res = await fetch("http://localhost:25927/health");
+      const res = await fetch(`http://localhost:${QREC_PORT}/health`);
       if (res.ok) {
         ready = true;
         break;
@@ -95,7 +92,7 @@ export async function startDaemon(): Promise<void> {
   }
 
   if (ready) {
-    console.log(`[daemon] Server ready at http://localhost:25927`);
+    console.log(`[daemon] Server ready at http://localhost:${QREC_PORT}`);
   } else {
     console.error(`[daemon] Server failed to start within 30 seconds. Check logs: ${logFile}`);
     process.exit(1);

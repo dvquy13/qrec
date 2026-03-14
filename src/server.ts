@@ -14,10 +14,11 @@ import { appendActivity, getRecentActivity } from "./activity.ts";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
+import { LOG_FILE, MODEL_CACHE_DIR, QREC_PORT } from "./dirs.ts";
 import { isEnrichAlive, readEnrichPid, isProcessAlive, ENRICHMENT_VERSION } from "./enrich.ts";
 import { readConfig, writeConfig } from "./config.ts";
 
-const PORT = 25927;
+const PORT = QREC_PORT;
 const DEFAULT_VAULT_PATH = process.env.QREC_PROJECTS_DIR ?? join(homedir(), ".claude", "projects");
 
 // Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.
@@ -381,7 +382,7 @@ async function main() {
       }
 
       if (req.method === "GET" && url.pathname === "/debug/log") {
-        const logPath = join(homedir(), ".qrec", "qrec.log");
+        const logPath = LOG_FILE;
         const limit = parseInt(url.searchParams.get("lines") ?? "100", 10);
         try {
           const content = readFileSync(logPath, "utf-8");
@@ -395,8 +396,8 @@ async function main() {
       if (req.method === "GET" && url.pathname === "/debug/config") {
         return Response.json({
           dbPath: DEFAULT_DB_PATH,
-          logPath: join(homedir(), ".qrec", "qrec.log"),
-          modelCachePath: join(homedir(), ".qrec", "models"),
+          logPath: LOG_FILE,
+          modelCachePath: MODEL_CACHE_DIR,
           embedProvider: process.env.QREC_EMBED_PROVIDER ?? "local",
           ollamaHost: process.env.QREC_OLLAMA_HOST ?? null,
           ollamaModel: process.env.QREC_OLLAMA_MODEL ?? null,
@@ -430,7 +431,7 @@ async function main() {
       console.log("[server] Enrich child already running, skipping spawn.");
       return;
     }
-    const logFile = join(homedir(), ".qrec", "qrec.log");
+    const logFile = LOG_FILE;
     const spawnArgs: string[] =
       typeof (import.meta as { dir?: string }).dir === "string"
         ? ["bun", "run", join((import.meta as { dir: string }).dir, "cli.ts"), "enrich"]

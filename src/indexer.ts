@@ -6,7 +6,7 @@
 
 import { readdirSync, statSync, existsSync, mkdirSync, copyFileSync } from "fs";
 import { join, basename } from "path";
-import { homedir } from "os";
+import { ARCHIVE_DIR } from "./dirs.ts";
 import type { Database } from "bun:sqlite";
 import { chunkMarkdown } from "./chunk.ts";
 import { getEmbedProvider } from "./embed/factory.ts";
@@ -109,7 +109,6 @@ async function buildJsonlCandidate(
 // Archive
 // ---------------------------------------------------------------------------
 
-const ARCHIVE_DIR = join(homedir(), ".qrec", "archive");
 
 /** Copy a JSONL session file to ~/.qrec/archive/<project>/<basename>.
  * Called for every session in toIndex so that Claude's 30-day cleanup

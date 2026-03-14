@@ -2,9 +2,8 @@
 // Standalone enricher: open DB → load Qwen3-1.7B → batch summarize → dispose → exit.
 // Also exports PID helpers so server.ts can check enrichment state without loading a model.
 
-import { join } from "path";
-import { homedir } from "os";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
+import { QREC_DIR, MODEL_CACHE_DIR, ENRICH_PID_FILE } from "./dirs.ts";
 import type { Database } from "bun:sqlite";
 import { openDb } from "./db.ts";
 import type { SummarizerCtx } from "./summarize.ts";
@@ -15,8 +14,7 @@ import { appendActivity } from "./activity.ts";
 export const ENRICHMENT_VERSION = 2;
 
 const MODEL_URI = "hf:bartowski/Qwen_Qwen3-1.7B-GGUF/Qwen_Qwen3-1.7B-Q4_K_M.gguf";
-const MODEL_CACHE_DIR = join(homedir(), ".qrec", "models");
-export const ENRICH_PID_FILE = join(homedir(), ".qrec", "enrich.pid");
+export { ENRICH_PID_FILE };
 
 // ---------------------------------------------------------------------------
 // PID helpers (no model loaded — safe to import from server.ts)
@@ -39,7 +37,7 @@ export function isEnrichAlive(): boolean {
 }
 
 function writeEnrichPid(pid: number): void {
-  mkdirSync(join(homedir(), ".qrec"), { recursive: true });
+  mkdirSync(QREC_DIR, { recursive: true });
   writeFileSync(ENRICH_PID_FILE, String(pid), "utf-8");
 }
 

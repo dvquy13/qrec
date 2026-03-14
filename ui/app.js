@@ -159,7 +159,7 @@ function updateOnboardingBanner(data) {
   if (!onboardingEl) return;
 
   const phase = data.phase ?? 'ready';
-  const isFullyReady = phase === 'ready' && data.searches > 0;
+  const isFullyReady = phase === 'ready';
   if (isFullyReady) { onboardingEl.style.display = 'none'; return; }
 
   const dl = data.modelDownload ?? { percent: 0, downloadedMB: 0, totalMB: null };
@@ -210,7 +210,7 @@ function updateOnboardingBanner(data) {
       } : null,
     },
     {
-      state: searchDone ? 'done' : (indexDone ? 'active' : 'pending'),
+      state: searchDone ? 'done' : 'pending',
       title: searchDone ? 'First search complete' : 'Run your first search',
       desc: searchDone
         ? 'qrec is fully set up and working.'

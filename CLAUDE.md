@@ -19,6 +19,7 @@ Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/
 ```
 src/
   cli.ts          # Entry: `qrec onboard`, `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`, `qrec enrich [--limit N]`
+  dirs.ts         # Single source of truth for all ~/.qrec paths + QREC_PORT. Import from here; never hardcode paths elsewhere.
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
   chunk.ts        # Heading-aware markdown chunker (~900 tokens/chunk, 15% overlap)
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts thinking blocks (Turn.thinking: string[]), extracts chunk text
@@ -59,13 +60,15 @@ scripts/
   reset.sh              # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
   smoke-test.sh         # Build → start CJS daemon (QREC_EMBED_PROVIDER=stub) → health/search/UI asset checks → stop
   check-package.sh      # Pack tarball → assert every file under ui/ and plugin/ is present (run before release)
-  onboard-test-start.sh   # Simulate fresh-user onboarding: wipes DB, sets QREC_PROJECTS_DIR to a temp dir of 10 sessions
-  onboard-test-restore.sh # Restore full projects dir after onboard-test-start.sh
+  onboard-test-start.sh   # Simulate fresh-user onboarding: creates isolated QREC_DIR temp dir, symlinks ~/.qrec/models/, sets QREC_PROJECTS_DIR to 10 sessions, starts daemon on port 25928 — real ~/.qrec never touched
+  onboard-test-stop.sh    # Stop the onboard-test daemon (port 25928) and clean up temp QREC_DIR
 ```
 
 **Source**: `~/.claude/projects/*/*.jsonl` (default; override with `QREC_PROJECTS_DIR=<path>` — useful for onboarding tests with a small session set; legacy `~/vault/sessions/*.md` still supported)
-**DB**: `~/.qrec/qrec.db`
+**DB**: `~/.qrec/qrec.db` (root overridable via `QREC_DIR=<path>`)
 **Model**: `~/.qrec/models/` (new installs); legacy `~/.cache/qmd/models/hf_ggml-org_embeddinggemma-300M-Q8_0.gguf` still checked
+**Port**: 25927 (overridable via `QREC_PORT=<n>`)
+**All `~/.qrec/` paths**: exported from `src/dirs.ts` — single source of truth. `QREC_DIR` overrides the root; all derived paths (db, pid, archive, models, log, config, activity) update automatically.
 
 ## SQLite Schema
 
@@ -119,6 +122,10 @@ qrec status                                 # print status + log tail
 qrec enrich                                 # enrich unenriched sessions with summary/tags/entities (also spawned automatically by daemon)
 qrec enrich --limit N                       # process at most N sessions
 
+# Onboarding test (isolated env — real ~/.qrec never touched)
+bash scripts/onboard-test-start.sh              # creates temp QREC_DIR, symlinks models, starts daemon on port 25928
+bash scripts/onboard-test-stop.sh               # stop test daemon + clean up temp dir
+
 # Dev (without bun link)
 bun run src/cli.ts <command>
 
@@ -126,6 +133,14 @@ bun run src/cli.ts <command>
 bash scripts/reset.sh                       # wipe DB/log/pid for a clean run
 CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed99.yaml
 # agent backend blocks inside Claude Code session — always prefix with CLAUDECODE=""
+
+# Key env vars
+# QREC_DIR=<path>               override ~/.qrec root (all paths derived from it; used for isolated test envs)
+# QREC_PORT=<n>                 override daemon port 25927
+# QREC_EMBED_PROVIDER=stub      skip model load (CI/testing)
+# QREC_PROJECTS_DIR=<path>      override ~/.claude/projects/ source dir
+# QREC_INDEX_INTERVAL_MS=<ms>   cron index interval (default 60000)
+# QREC_ENRICH_IDLE_MS=<ms>      idle time before auto-enrich spawns (default 300000)
 ```
 
 ## Critical Gotchas
