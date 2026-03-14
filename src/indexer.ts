@@ -20,6 +20,7 @@ interface SessionMeta {
   date: string;
   title: string | null;
   hash: string;
+  duration_seconds: number;
   chunkText: string; // text to chunk + embed
 }
 
@@ -96,6 +97,7 @@ async function buildJsonlCandidate(
       date: session.date,
       title: session.title,
       hash: session.hash,
+      duration_seconds: session.duration_seconds,
       chunkText,
     };
   } catch {
@@ -198,11 +200,12 @@ export async function indexVault(
   // that may have been written by the enrich process. INSERT OR REPLACE would clear them.
   // When content changes (hash mismatch), enrichment columns ARE cleared so the session gets re-queued.
   const insertSession = db.prepare(`
-    INSERT INTO sessions (id, path, project, date, title, hash, indexed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sessions (id, path, project, date, title, hash, indexed_at, duration_seconds)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       path=excluded.path, project=excluded.project, date=excluded.date,
       title=excluded.title, hash=excluded.hash, indexed_at=excluded.indexed_at,
+      duration_seconds=excluded.duration_seconds,
       summary=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.summary END,
       tags=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.tags END,
       entities=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.entities END,
@@ -221,7 +224,7 @@ export async function indexVault(
   const deleteVec = db.prepare(`DELETE FROM chunks_vec WHERE chunk_id LIKE ?`);
 
   for (let i = 0; i < toIndex.length; i++) {
-    const { id, path, project, date, title, hash, chunkText } = toIndex[i];
+    const { id, path, project, date, title, hash, duration_seconds, chunkText } = toIndex[i];
 
     // Archive raw JSONL so Claude's 30-day cleanup doesn't lose the transcript.
     archiveJsonl(path, project);
@@ -232,7 +235,7 @@ export async function indexVault(
     const indexSession = db.transaction(() => {
       deleteChunks.run(id);
       deleteVec.run(`${id}_%`);
-      insertSession.run(id, path, project, date, title, hash, now);
+      insertSession.run(id, path, project, date, title, hash, now, duration_seconds);
       return chunks;
     });
 

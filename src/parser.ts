@@ -12,6 +12,7 @@ export interface ParsedSession {
   date: string;          // YYYY-MM-DD from first message timestamp
   title: string | null;  // first real user message text, truncated to 120 chars
   hash: string;          // SHA-256 of file contents (for change detection)
+  duration_seconds: number; // gap-capped active time (15-min idle threshold)
   turns: Turn[];
 }
 
@@ -184,7 +185,20 @@ export async function parseSession(jsonlPath: string): Promise<ParsedSession> {
     }
   }
 
-  return { session_id, path: jsonlPath, project, date, title, hash, turns };
+  // Gap-capped duration: sum min(gap, 15min) over consecutive timestamps.
+  // Drops idle time (lunch breaks, overnight pauses) without needing explicit tracking.
+  const IDLE_GAP_MS = 15 * 60 * 1000;
+  const timestamps = lines
+    .map(l => l.timestamp ? Date.parse(l.timestamp) : NaN)
+    .filter(t => !isNaN(t))
+    .sort((a, b) => a - b);
+  let duration_ms = 0;
+  for (let i = 1; i < timestamps.length; i++) {
+    duration_ms += Math.min(timestamps[i] - timestamps[i - 1], IDLE_GAP_MS);
+  }
+  const duration_seconds = Math.round(duration_ms / 1000);
+
+  return { session_id, path: jsonlPath, project, date, title, hash, duration_seconds, turns };
 }
 
 // ---------------------------------------------------------------------------

@@ -135,6 +135,7 @@ function migrate(db: Database): void {
     "ALTER TABLE sessions ADD COLUMN enrichment_version INTEGER",
     "ALTER TABLE sessions ADD COLUMN learnings TEXT",
     "ALTER TABLE sessions ADD COLUMN questions TEXT",
+    "ALTER TABLE sessions ADD COLUMN duration_seconds INTEGER",
   ]) {
     try { db.exec(col); } catch { /* column already exists */ }
   }

@@ -124,6 +124,43 @@ async function main() {
         });
       }
 
+      if (req.method === "GET" && url.pathname === "/stats/heatmap") {
+        const weeks = Math.min(52, Math.max(4, parseInt(url.searchParams.get("weeks") ?? "15", 10) || 15));
+        const metric = url.searchParams.get("metric") ?? "sessions";
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - weeks * 7 + 1);
+        cutoff.setHours(0, 0, 0, 0);
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+        let rows: Array<{ date: string; count: number }>;
+        if (metric === "hours") {
+          rows = db
+            .prepare("SELECT date, ROUND(SUM(COALESCE(duration_seconds, 0)) / 3600.0, 1) as count FROM sessions WHERE date >= ? GROUP BY date ORDER BY date ASC")
+            .all(cutoffStr) as Array<{ date: string; count: number }>;
+        } else {
+          // default: sessions
+          rows = db
+            .prepare("SELECT date, COUNT(*) as count FROM sessions WHERE date >= ? GROUP BY date ORDER BY date ASC")
+            .all(cutoffStr) as Array<{ date: string; count: number }>;
+        }
+
+        const byDate = new Map(rows.map(r => [r.date, r.count]));
+        const days: Array<{ date: string; count: number }> = [];
+        const cur = new Date(cutoff);
+        const today = new Date(); today.setHours(23, 59, 59, 999);
+        while (cur <= today) {
+          const d = cur.toISOString().slice(0, 10);
+          days.push({ date: d, count: byDate.get(d) ?? 0 });
+          cur.setDate(cur.getDate() + 1);
+        }
+        return Response.json({
+          days,
+          metric,
+          total: rows.reduce((s, r) => s + r.count, 0),
+          active_days: rows.filter(r => r.count > 0).length,
+        });
+      }
+
       if (req.method === "GET" && url.pathname === "/sessions") {
         const limit = 100;
         const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);

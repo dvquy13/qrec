@@ -19,6 +19,12 @@ let _cardFields = (() => {
   catch { return { ...CARD_FIELD_DEFAULTS }; }
 })();
 
+// ── Heatmap state ─────────────────────────────────────────────────────────
+let _heatmapData = null;
+let _heatmapMetric = (() => {
+  try { return localStorage.getItem('qrec_heatmap_metric') || 'sessions'; } catch { return 'sessions'; }
+})();
+
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
 function navigate(hash, push = true) {
@@ -257,6 +263,7 @@ function showDashboardPanel(data, actEntries) {
   renderActivityRuns(_allRunGroups);
 
   if (data.sessions !== _lastRenderedSessionCount) loadRecentSessions(data.sessions);
+  if (data.sessions !== _lastRenderedSessionCount || !_heatmapData) fetchAndRenderHeatmap();
 
   document.getElementById('dashboard').style.display = 'block';
 }
@@ -717,6 +724,11 @@ async function loadSessions() {
     _filterOptions.tag = [...new Set(sessions.flatMap(s => s.tags ?? []))].sort();
 
     applyFilters();
+    if (_heatmapData) {
+      renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: _filterDate });
+    } else {
+      fetchAndRenderHeatmap();
+    }
   } catch (err) {
     content.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
   } finally {
@@ -832,6 +844,223 @@ function applyFilters() {
   }
 }
 
+// ── Session Activity Heatmap ──────────────────────────────────────────────
+
+const HEATMAP_METRICS = [
+  { id: 'sessions', label: 'Sessions', unit: 'session', units: 'sessions' },
+  { id: 'hours',    label: 'Hours',    unit: 'hour',    units: 'hours'    },
+];
+const HEATMAP_COLORS   = ['#f0f0f0', '#d0d0d0', '#a0a0a0', '#686868', '#2a2a2a'];
+const HEATMAP_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const HEATMAP_MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function heatmapIntensity(count, maxCount) {
+  if (count === 0 || maxCount === 0) return 0;
+  const q = count / maxCount;
+  if (q <= 0.25) return 1;
+  if (q <= 0.5)  return 2;
+  if (q <= 0.75) return 3;
+  return 4;
+}
+
+function heatmapUnitLabel(count, metricId) {
+  const m = HEATMAP_METRICS.find(m => m.id === metricId) || HEATMAP_METRICS[0];
+  const display = Number.isInteger(count) ? count.toLocaleString() : count.toFixed(1);
+  return `${display} ${count === 1 ? m.unit : m.units}`;
+}
+
+function localDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function heatmapCurrentWeek(days) {
+  const today = new Date();
+  const wd = (today.getDay() + 6) % 7; // 0=Mon
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - wd);
+  monday.setHours(0, 0, 0, 0);
+  const result = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return { date: localDateStr(d), count: 0 };  // local date, not UTC
+  });
+  const mondayStr = result[0].date;
+  const sundayStr = result[6].date;
+  for (const day of days) {
+    if (day.date >= mondayStr && day.date <= sundayStr) {
+      const i = (new Date(day.date + 'T00:00:00').getDay() + 6) % 7;
+      result[i] = { date: day.date, count: day.count };
+    }
+  }
+  return result;
+}
+
+function selectHeatmapMetric(metricId) {
+  _heatmapMetric = metricId;
+  try { localStorage.setItem('qrec_heatmap_metric', metricId); } catch {}
+  fetchAndRenderHeatmap();
+}
+
+function renderHeatmap(containerId, days, opts = {}) {
+  const container = document.getElementById(containerId);
+  if (!container || !days || days.length === 0) return;
+  const { clickable, selectedDate } = opts;
+
+  const CELL = 12, GAP = 2, LABEL_W = 40;
+  const CHART_H = 70, MAX_INLINE = 80, INLINE_GAP = 16;
+  const cs = `width:${CELL}px;height:${CELL}px;border-radius:2px;flex-shrink:0;`;
+  const maxCount = Math.max(...days.map(d => d.count), 1);
+
+  // Build week columns
+  const weeks = [];
+  for (const day of days) {
+    const d = new Date(day.date + 'T00:00:00');
+    const weekday = (d.getDay() + 6) % 7;
+    const monday = new Date(d); monday.setDate(d.getDate() - weekday);
+    const mondayStr = monday.toISOString().slice(0, 10);
+    if (!weeks.length || weeks[weeks.length - 1].monday !== mondayStr)
+      weeks.push({ monday: mondayStr, cells: new Array(7).fill(null) });
+    weeks[weeks.length - 1].cells[weekday] = day;
+  }
+
+  // Month labels
+  let lastMonth = -1;
+  let lastMonthCol = -99;
+  const monthAtCol = weeks.map((week, i) => {
+    const first = week.cells.find(c => c);
+    if (!first) return null;
+    const m = new Date(first.date + 'T00:00:00').getMonth();
+    if (m !== lastMonth && i - lastMonthCol >= 3) {
+      lastMonth = m; lastMonthCol = i; return HEATMAP_MONTHS[m];
+    }
+    return null;
+  });
+
+  // Current week inline bars
+  const cwDays = heatmapCurrentWeek(days);
+  const cwMax  = Math.max(...cwDays.map(d => d.count), 1);
+  const cwStart = new Date(cwDays[0].date + 'T00:00:00');
+  const cwEnd   = new Date(cwDays[6].date + 'T00:00:00');
+  const fmtDay  = d => `${HEATMAP_MONTHS[d.getMonth()]} ${d.getDate()}`;
+  const cwLabel = `${fmtDay(cwStart)} – ${fmtDay(cwEnd)}`;
+
+  let html = '';
+
+  // Metric selector chips — only render when there's more than one metric
+  if (HEATMAP_METRICS.length > 1) {
+    html += '<div class="heatmap-metrics">';
+    for (const m of HEATMAP_METRICS) {
+      const active = m.id === _heatmapMetric ? ' heatmap-metric--active' : '';
+      html += `<button class="heatmap-metric${active}" onclick="selectHeatmapMetric('${m.id}')">${m.label}</button>`;
+    }
+    html += '</div>';
+  }
+
+  html += '<div class="heatmap">';
+
+  // Month header row + current-week range label
+  html += `<div style="display:flex;align-items:flex-start;gap:${GAP}px;margin-bottom:${GAP}px;">`;
+  html += `<div style="width:${LABEL_W}px;flex-shrink:0;"></div>`;
+  for (let i = 0; i < weeks.length; i++) {
+    html += `<div style="width:${CELL}px;flex-shrink:0;">`;
+    if (monthAtCol[i]) html += `<span class="heatmap-month-label">${monthAtCol[i]}</span>`;
+    html += '</div>';
+  }
+  html += `<div style="margin-left:${INLINE_GAP}px;font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;">${escHtml(cwLabel)}</div>`;
+  html += '</div>';
+
+  // Weekday rows
+  for (let wd = 0; wd < 7; wd++) {
+    html += `<div style="display:flex;align-items:center;gap:${GAP}px;">`;
+    html += `<div class="heatmap-day-label" style="width:${LABEL_W}px;">${HEATMAP_WEEKDAYS[wd]}</div>`;
+
+    for (let wi = 0; wi < weeks.length; wi++) {
+      const cell = weeks[wi].cells[wd];
+      if (cell) {
+        const intensity = heatmapIntensity(cell.count, maxCount);
+        const isSelected = selectedDate && cell.date === selectedDate;
+        const bg = isSelected ? 'var(--accent)' : HEATMAP_COLORS[intensity];
+        const isClick = clickable && cell.count > 0;
+        const title = `${cell.date}: ${heatmapUnitLabel(cell.count, _heatmapMetric)}`;
+        html += `<div class="heatmap-cell${isClick ? ' heatmap-cell--clickable' : ''}" style="${cs}background:${bg};" title="${escHtml(title)}" data-date="${cell.date}" data-count="${cell.count}"></div>`;
+      } else {
+        html += `<div style="${cs}background:${HEATMAP_COLORS[0]};"></div>`;
+      }
+    }
+
+    // Right-side inline bar (current week)
+    const cwCount = cwDays[wd]?.count || 0;
+    const barW    = Math.round((cwCount / cwMax) * MAX_INLINE);
+    const barBg   = cwCount > 0 ? HEATMAP_COLORS[heatmapIntensity(cwCount, cwMax)] : 'transparent';
+    const label   = cwCount > 0 ? String(cwCount) : '';
+    const fitsInside = barW > label.length * 7 + 8;
+    html += `<div style="display:flex;align-items:center;margin-left:${INLINE_GAP}px;min-width:${MAX_INLINE + 24}px;">`;
+    html += `<div style="width:${barW}px;height:${CELL}px;background:${barBg};border-radius:2px;display:flex;align-items:center;justify-content:flex-end;min-width:${cwCount > 0 ? 2 : 0}px;flex-shrink:0;">`;
+    if (label && fitsInside) html += `<span style="font-size:10px;padding-right:2px;color:#fff;line-height:1;">${label}</span>`;
+    html += '</div>';
+    if (label && !fitsInside) html += `<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">${label}</span>`;
+    html += '</div>';
+
+    html += '</div>'; // end row
+  }
+
+  // Bottom weekly bar chart
+  const weeklyTotals = weeks.map(w => {
+    const d = new Date(w.monday + 'T00:00:00');
+    return {
+      label: `${HEATMAP_MONTHS[d.getMonth()]} ${d.getDate()}`,
+      total: w.cells.reduce((s, c) => s + (c?.count || 0), 0),
+    };
+  });
+  const maxWeekly  = Math.max(...weeklyTotals.map(w => w.total), 1);
+  const roundedMax = Math.max(Math.ceil(maxWeekly / 5) * 5, 5);
+  const ticks      = [roundedMax, Math.round(roundedMax / 2), 0];
+
+  html += `<div style="display:flex;align-items:flex-end;height:${CHART_H}px;margin-top:8px;">`;
+  html += `<div style="width:${LABEL_W}px;height:${CHART_H}px;display:flex;flex-direction:column;justify-content:space-between;flex-shrink:0;padding-right:6px;">`;
+  for (const tick of ticks) html += `<div class="heatmap-tick-label">${tick}</div>`;
+  html += '</div>';
+  html += `<div style="display:flex;align-items:flex-end;gap:${GAP}px;">`;
+  for (const week of weeklyTotals) {
+    const barH  = Math.round((week.total / roundedMax) * CHART_H);
+    const title = `Week of ${week.label}: ${heatmapUnitLabel(week.total, _heatmapMetric)}`;
+    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${Math.max(barH, week.total > 0 ? 2 : 0)}px;" title="${escHtml(title)}"></div>`;
+  }
+  html += '</div></div>';
+
+  html += '</div>'; // end .heatmap
+  container.innerHTML = html;
+
+  container.onclick = clickable
+    ? e => {
+        const cell = e.target.closest('[data-date]');
+        if (cell && parseInt(cell.dataset.count || '0') > 0) filterByDate(cell.dataset.date);
+      }
+    : null;
+}
+
+async function fetchAndRenderHeatmap() {
+  try {
+    const res = await fetch(`/stats/heatmap?weeks=15&metric=${_heatmapMetric}`);
+    if (!res.ok) return;
+    _heatmapData = await res.json();
+
+    // Dashboard
+    const dashSection = document.getElementById('dashboard-heatmap-section');
+    if (dashSection) {
+      renderHeatmap('dashboard-heatmap', _heatmapData.days, { clickable: true });
+      const footer = document.getElementById('dashboard-heatmap-footer');
+      if (footer) {
+        const m = HEATMAP_METRICS.find(m => m.id === _heatmapMetric) || HEATMAP_METRICS[0];
+        footer.textContent = `${_heatmapData.total.toLocaleString()} ${m.units} · ${_heatmapData.active_days} active days`;
+      }
+      dashSection.style.display = '';
+    }
+    // Sessions (with current filter highlight)
+    renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: _filterDate });
+  } catch {}
+}
+
 function filterByProject(project) {
   document.getElementById('filter-project').value = project;
   applyFilters();
@@ -850,6 +1079,7 @@ function filterByDate(date) {
   chip.style.display = '';
   chip.innerHTML = `📅 ${escHtml(date)} <span class="date-chip-x" onclick="clearDateFilter()">×</span>`;
   applyFilters();
+  if (_heatmapData) renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: date });
   if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
 }
 
@@ -857,6 +1087,7 @@ function clearDateFilter() {
   _filterDate = null;
   document.getElementById('date-chip').style.display = 'none';
   applyFilters();
+  if (_heatmapData) renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: null });
 }
 
 function clearFilters() {
@@ -868,6 +1099,7 @@ function clearFilters() {
   document.getElementById('date-chip').style.display = 'none';
   document.getElementById('clear-filters-btn').style.display = 'none';
   renderSessionsList(_allSessions);
+  if (_heatmapData) renderHeatmap('sessions-heatmap', _heatmapData.days, { clickable: true, selectedDate: null });
 }
 
 function enrichBlockHtml(s, compact = false) {

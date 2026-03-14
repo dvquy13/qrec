@@ -35,35 +35,41 @@
       <h2 class="section-heading">Dashboard</h2>
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">Sessions</div>
-        <div class="stat-value" id="stat-sessions">—</div>
-        <div class="stat-sub">indexed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Chunks</div>
-        <div class="stat-value" id="stat-chunks">—</div>
-        <div class="stat-sub">searchable units</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Searches</div>
-        <div class="stat-value" id="stat-searches">—</div>
-        <div class="stat-sub">queries run</div>
-      </div>
+    <div class="dashboard-top">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Sessions</div>
+          <div class="stat-value" id="stat-sessions">—</div>
+          <div class="stat-sub">indexed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Chunks</div>
+          <div class="stat-value" id="stat-chunks">—</div>
+          <div class="stat-sub">searchable units</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Searches</div>
+          <div class="stat-value" id="stat-searches">—</div>
+          <div class="stat-sub">queries run</div>
+        </div>
 
-      <div class="stat-card">
-        <div class="stat-label">AI Summaries</div>
-        <div class="stat-value" id="info-ai-summaries">—</div>
-        <div class="stat-sub" id="info-ai-summaries-sub"></div>
+        <div class="stat-card">
+          <div class="stat-label">AI Summaries</div>
+          <div class="stat-value" id="info-ai-summaries">—</div>
+          <div class="stat-sub" id="info-ai-summaries-sub"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Embed Provider</div>
+          <div class="stat-value" id="info-provider">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Last Indexed</div>
+          <div class="stat-value" id="info-last-indexed">—</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Embed Provider</div>
-        <div class="stat-value" id="info-provider">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Last Indexed</div>
-        <div class="stat-value" id="info-last-indexed">—</div>
+      <div class="dashboard-heatmap-col" id="dashboard-heatmap-section" style="display:none;">
+        <div id="dashboard-heatmap"></div>
+        <div class="heatmap-footer" id="dashboard-heatmap-footer"></div>
       </div>
     </div>
 
@@ -133,6 +139,7 @@
       </div>
     </div>
   </div>
+  <div id="sessions-heatmap" style="margin-bottom:20px;"></div>
   <div id="sessions-content">
     <div class="loading-state"><span class="spinner"></span></div>
   </div>
