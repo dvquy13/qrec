@@ -256,7 +256,6 @@ function showDashboardPanel(data, actEntries) {
       if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
     }
   }
-  document.getElementById('db-last-updated').textContent = 'Last updated ' + new Date().toLocaleTimeString();
 
   // Activity runs
   _allRunGroups = groupActivityEvents(actEntries || []);
@@ -287,16 +286,15 @@ async function loadRecentSessions(sessionCount) {
       const summary = s.summary ? escHtml(s.summary.slice(0, 180)) : '';
       const relTime = s.indexed_at ? formatRelative(s.indexed_at) : (s.date || '—');
       return `<div class="dashboard-session-card" onclick="openSession('${escHtml(s.id)}')">
-        <div class="dashboard-session-body">
           <div class="dashboard-session-title">${escHtml(s.title || '(untitled)')}</div>
           <div class="dashboard-session-meta">
             <span>${escHtml(s.project || '—')}</span>
             <span>·</span>
             <span style="font-family:var(--mono);font-size:11px;">${escHtml(s.id)}</span>
+            <span>·</span>
+            <span class="dashboard-session-ts">${relTime}</span>
           </div>
           ${summary ? `<div class="dashboard-session-summary">${summary}</div>` : ''}
-        </div>
-        <span class="dashboard-session-ts">${relTime}</span>
       </div>`;
     }).join('');
     container.insertAdjacentHTML('beforeend', `<button class="dashboard-recent-footer" onclick="showTab('sessions')">All ${total.toLocaleString()} sessions →</button>`);
@@ -422,7 +420,7 @@ function renderRunGroup(group) {
     : `<span class="run-icon-badge ${group.type === 'index_collapsed' ? 'index' : group.type}">${runIcon(group.type)}</span>`;
 
   const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
-  const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;
+  const tsHtml = `<span class="run-ts">· ${formatRelative(group.ts)}</span>`;
 
   if (subEvents.length === 0) {
     return `<div class="run-group no-expand"><div class="run-header">

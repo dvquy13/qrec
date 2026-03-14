@@ -757,8 +757,6 @@
     document.getElementById('info-provider').textContent = data.embedProvider;
     document.getElementById('info-last-indexed').textContent =
       data.lastIndexedAt ? formatRelative(data.lastIndexedAt) : '—';
-    document.getElementById('last-updated').textContent =
-      'Last updated ' + new Date().toLocaleTimeString();
     document.getElementById('dashboard').style.display = 'block';
   }
 
