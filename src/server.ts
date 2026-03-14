@@ -147,7 +147,7 @@ async function main() {
         const byDate = new Map(rows.map(r => [r.date, r.count]));
         const days: Array<{ date: string; count: number }> = [];
         const cur = new Date(cutoff);
-        const today = new Date(); today.setHours(23, 59, 59, 999);
+        const today = new Date(); today.setUTCHours(23, 59, 59, 999);
         while (cur <= today) {
           const d = cur.toISOString().slice(0, 10);
           days.push({ date: d, count: byDate.get(d) ?? 0 });
