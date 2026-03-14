@@ -429,12 +429,12 @@ function renderRunGroup(group) {
     : `<span class="run-icon-badge ${group.type === 'index_collapsed' ? 'index' : group.type}">${runIcon(group.type)}</span>`;
 
   const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
-  const tsHtml = `<span class="run-ts">· ${formatRelative(group.ts)}</span>`;
+  const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;
 
   if (subEvents.length === 0) {
     return `<div class="run-group no-expand"><div class="run-header">
-      <span class="run-chevron-spacer"></span>${iconHtml}
-      <span class="run-label">${escHtml(label)}</span>${detailHtml}${tsHtml}
+      ${tsHtml}<span class="run-chevron-spacer"></span>${iconHtml}
+      <span class="run-label">${escHtml(label)}</span>${detailHtml}
     </div></div>`;
   }
 
@@ -453,7 +453,7 @@ function renderRunGroup(group) {
 
   return `<details class="run-group" data-run-ts="${group.ts}" data-session-ids="${escHtml(sessionIds.join(','))}">
     <summary class="run-header">
-      ${iconHtml}<span class="run-label">${escHtml(label)}</span>${detailHtml}${tsHtml}
+      ${tsHtml}${iconHtml}<span class="run-label">${escHtml(label)}</span>${detailHtml}
     </summary>
     <div class="run-events">${eventsHtml}</div>
   </details>`;
