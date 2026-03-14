@@ -42,7 +42,9 @@ jobs:
         run: node scripts/build.js
 
       - name: Verify build artifact
-        run: test -f plugin/scripts/qrec.cjs
+        run: |
+          test -f plugin/scripts/qrec.cjs
+          test -f plugin/scripts/qrec-mcp.cjs
 
       - name: Register qrec globally
         run: bun link
@@ -61,6 +63,10 @@ jobs:
         env:
           QREC_INDEX_INTERVAL_MS: 5000
         run: |
+          # Disable enrich — Qwen3-1.7B is not cached in CI and enrich is not under test here
+          mkdir -p ~/.qrec
+          echo '{"enrichEnabled":false}' > ~/.qrec/config.json
+
           # First-time setup: loads model, indexes fixtures, starts daemon
           qrec onboard --no-open
 
