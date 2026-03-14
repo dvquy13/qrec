@@ -23,7 +23,7 @@ const DEFAULT_VAULT_PATH = process.env.QREC_PROJECTS_DIR ?? join(homedir(), ".cl
 
 // Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.
 const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000", 10);
-// Only enrich sessions indexed more than this many ms ago (skip in-flight sessions).
+// Only enrich sessions whose last message is older than this (skip in-flight sessions).
 const ENRICH_IDLE_MS = parseInt(process.env.QREC_ENRICH_IDLE_MS ?? String(5 * 60 * 1000), 10);
 
 
@@ -486,6 +486,9 @@ async function main() {
         await runIncrementalIndex(true);
 
         serverProgress.phase = "ready";
+
+        // Kick off enrich immediately after startup index (old sessions already past the age gate).
+        spawnEnrichIfNeeded();
 
         // Schedule periodic incremental scans and enrich runs (both every 1 minute).
         setInterval(runIncrementalIndex, INDEX_INTERVAL_MS);

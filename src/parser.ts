@@ -13,6 +13,7 @@ export interface ParsedSession {
   title: string | null;  // first real user message text, truncated to 120 chars
   hash: string;          // SHA-256 of file contents (for change detection)
   duration_seconds: number; // gap-capped active time (15-min idle threshold)
+  last_message_at: number;  // Unix ms of the last message in the session
   turns: Turn[];
 }
 
@@ -198,8 +199,9 @@ export async function parseSession(jsonlPath: string): Promise<ParsedSession> {
     duration_ms += Math.min(timestamps[i] - timestamps[i - 1], IDLE_GAP_MS);
   }
   const duration_seconds = Math.round(duration_ms / 1000);
+  const last_message_at = timestamps.length > 0 ? timestamps[timestamps.length - 1] : Date.now();
 
-  return { session_id, path: jsonlPath, project, date, title, hash, duration_seconds, turns };
+  return { session_id, path: jsonlPath, project, date, title, hash, duration_seconds, last_message_at, turns };
 }
 
 // ---------------------------------------------------------------------------

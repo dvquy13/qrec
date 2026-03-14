@@ -216,7 +216,7 @@ function showDashboardPanel(data, actEntries) {
       if (aiSubEl) aiSubEl.textContent = `${pct}% enriched`;
     } else {
       aiEl.textContent = enrichDone.toLocaleString();
-      if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
+      if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} ongoing sessions` : 'enriched';
     }
   }
 

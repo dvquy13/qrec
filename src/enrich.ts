@@ -146,11 +146,11 @@ export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}
     // Fast pass: backfill summary chunks for sessions enriched before this feature existed.
     backfillSummaryChunks(db);
 
-    // Only enrich sessions indexed more than minAgeMs ago (avoids touching in-flight sessions).
+    // Only enrich sessions whose last message is older than minAgeMs (avoids touching in-flight sessions).
     const cutoff = opts.minAgeMs !== undefined ? Date.now() - opts.minAgeMs : null;
     let pending = (cutoff !== null
       ? db.prepare(
-          "SELECT id FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND indexed_at < ?"
+          "SELECT id FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND COALESCE(last_message_at, indexed_at) < ?"
         ).all(ENRICHMENT_VERSION, cutoff)
       : db.prepare(
           "SELECT id FROM sessions WHERE enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?"
