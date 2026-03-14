@@ -22,7 +22,7 @@ src/
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
   chunk.ts        # Heading-aware markdown chunker (~900 tokens/chunk, 15% overlap)
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts thinking blocks (Turn.thinking: string[]), extracts chunk text
-  indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store; mtime pre-filter skips unchanged files
+  indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store; mtime pre-filter skips unchanged files; copies every JSONL to ~/.qrec/archive/<project>/ (archiveJsonl) — durable copy for sessions whose source files were deleted by Claude Code cleanup
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
   server.ts       # HTTP server (port 25927): /search /query_db /health /status /sessions /sessions/:id /settings /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; cron incremental index (QREC_INDEX_INTERVAL_MS, default 60000ms); spawns `qrec enrich` after index run only when idle ≥ QREC_ENRICH_IDLE_MS (default 300s) — debounces enrich during active sessions
   progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
@@ -56,12 +56,14 @@ ui/
   app.js          # All SPA logic: tab routing, data fetching, rendering, filters, infinite scroll, search; served fresh
   styles.css      # All styles; served fresh — edit and reload browser, no daemon restart needed
 scripts/
-  reset.sh          # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
-  smoke-test.sh     # Build → start CJS daemon (QREC_EMBED_PROVIDER=stub) → health/search/UI asset checks → stop
-  check-package.sh  # Pack tarball → assert every file under ui/ and plugin/ is present (run before release)
+  reset.sh              # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
+  smoke-test.sh         # Build → start CJS daemon (QREC_EMBED_PROVIDER=stub) → health/search/UI asset checks → stop
+  check-package.sh      # Pack tarball → assert every file under ui/ and plugin/ is present (run before release)
+  onboard-test-start.sh   # Simulate fresh-user onboarding: wipes DB, sets QREC_PROJECTS_DIR to a temp dir of 10 sessions
+  onboard-test-restore.sh # Restore full projects dir after onboard-test-start.sh
 ```
 
-**Source**: `~/.claude/projects/*/*.jsonl` (default; legacy `~/vault/sessions/*.md` still supported)
+**Source**: `~/.claude/projects/*/*.jsonl` (default; override with `QREC_PROJECTS_DIR=<path>` — useful for onboarding tests with a small session set; legacy `~/vault/sessions/*.md` still supported)
 **DB**: `~/.qrec/qrec.db`
 **Model**: `~/.qrec/models/` (new installs); legacy `~/.cache/qmd/models/hf_ggml-org_embeddinggemma-300M-Q8_0.gguf` still checked
 
@@ -142,6 +144,10 @@ CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed9
 **Model download: use `resolveModelFile`, not `createModelDownloader`** — `createModelDownloader` fetches the HF manifest API which returns 401 on gated models (Gemma is gated). `resolveModelFile` handles this correctly. HF URI must be full form: `hf:<user>/<repo>/<file>` (e.g. `hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf`). Short form without the inner repo path → 401.
 
 **Server starts before model loads** — `Bun.serve()` binds immediately; embedder loads async in background. `/health` returns 200 right away (daemon startup fast). `/search` returns 503 until embedder is ready. Server auto-indexes on first run (sessions=0) after model loads.
+
+**`~/.qrec/archive/` is the only durable copy of deleted sessions** — `indexer.ts` copies every indexed JSONL to `~/.qrec/archive/<project>/` via `archiveJsonl()`. Claude Code periodically deletes source JSONL files; sessions older than ~30 days may no longer exist at their original path. Never wipe `~/.qrec/archive/` thinking it's expendable — it is not. `teardown` removes it; `reset.sh` does not.
+
+**Backing up `qrec.db` alone silently loses recent sessions** — SQLite WAL mode writes new data to `qrec.db-wal` and only folds it into the main file at a checkpoint. A `cp qrec.db` taken while the WAL is active misses everything since the last checkpoint. Always run `PRAGMA wal_checkpoint(TRUNCATE)` (after stopping the daemon) before copying the DB. The resulting `qrec.db` is self-contained; no WAL needed for restore. This was discovered when Feb 9–14 sessions vanished after an incomplete backup — they existed only in the WAL.
 
 **Summarizer must be a separate child process** — never load the Qwen3-1.7B summarizer in the same process as the embedding daemon. Co-resident would hold 300MB (embedder) + 1.28GB (summarizer) = 1.6GB indefinitely. `qrec enrich` is transient: loads model → batch-processes all pending sessions → disposes → exits. OS fully reclaims GPU memory on exit. Stale PID in `~/.qrec/enrich.pid` (process dead) never blocks next run.
 

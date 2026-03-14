@@ -57,3 +57,5 @@ paths:
 - **Don't reuse `.session-id` for non-ID text** — `.session-id` has `font-family: var(--mono)`, so any text rendered in it (e.g. relative timestamps) will appear in Menlo. Use a dedicated class (e.g. `.session-ts`) that inherits the page font instead.
 
 - **Page-level headings and section content must share one left alignment line** — `.section-header` uses `padding: 11px 0` (no horizontal indent) so section titles align with `.section-heading` page titles. Session cards use `padding: 14px 0` (no horizontal indent) so card titles align with the heading above. Any horizontal padding on these elements creates a competing vertical line and looks misaligned.
+
+- **Onboarding is a banner inside the dashboard, not a panel replacement** — `updateOnboardingBanner()` prepends a dismissible banner to the dashboard panel; the full dashboard (stats, heatmap, recent sessions, activity) is always rendered. The banner auto-hides when `phase === 'ready' && searches > 0`. Do not revert to hiding the dashboard panel during onboarding — users with zero sessions would see a blank page instead of useful context.

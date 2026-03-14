@@ -8,14 +8,7 @@ set -euo pipefail
 QREC_DIR="$HOME/.qrec"
 
 echo "[reset] Stopping daemon if running..."
-if [ -f "$QREC_DIR/qrec.pid" ]; then
-  PID=$(cat "$QREC_DIR/qrec.pid")
-  if kill -0 "$PID" 2>/dev/null; then
-    kill "$PID" && echo "[reset] Killed daemon (PID $PID)"
-    sleep 1
-  fi
-  rm -f "$QREC_DIR/qrec.pid"
-fi
+qrec stop 2>/dev/null || true
 
 echo "[reset] Removing database..."
 rm -f "$QREC_DIR/qrec.db" \
