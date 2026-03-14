@@ -138,9 +138,6 @@ main {
   border-bottom: 1px solid var(--border);
 }
 
-/* Counter animation: flash subtle highlight when value changes */
-@keyframes stat-pop { 0% { opacity: 0.5; } 100% { opacity: 1; } }
-.stat-value--animating { animation: stat-pop 0.4s ease-out; }
 
 .steps { display: flex; flex-direction: column; gap: 12px; }
 .step {

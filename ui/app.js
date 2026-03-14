@@ -1,6 +1,3 @@
-// ── Counter animation state ──────────────────────────────────────────────────
-const _statPrevVals = {};
-
 // ── Activity state ───────────────────────────────────────────────────────────
 let _allRunGroups = [];
 const RUNS_INITIAL = 5;
@@ -132,28 +129,6 @@ function renderText(text) {
   return '<p>' + escHtml(text).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>') + '</p>';
 }
 
-// ── Counter animation ────────────────────────────────────────────────────────
-
-function animateCounter(el, toVal, duration = 400) {
-  if (!el || typeof toVal !== 'number') return;
-  const key = el.id;
-  const fromVal = _statPrevVals[key] ?? toVal;
-  _statPrevVals[key] = toVal;
-  if (fromVal === toVal) { el.textContent = toVal.toLocaleString(); return; }
-  el.classList.remove('stat-value--animating');
-  // Force reflow to restart animation
-  void el.offsetWidth;
-  el.classList.add('stat-value--animating');
-  const start = performance.now();
-  function tick(now) {
-    const t = Math.min((now - start) / duration, 1);
-    const eased = 1 - (1 - t) ** 3; // ease-out cubic
-    el.textContent = Math.round(fromVal + (toVal - fromVal) * eased).toLocaleString();
-    if (t < 1) requestAnimationFrame(tick);
-    else { el.textContent = toVal.toLocaleString(); el.classList.remove('stat-value--animating'); }
-  }
-  requestAnimationFrame(tick);
-}
 
 // ── Dashboard ───────────────────────────────────────────────────────────────
 
@@ -289,9 +264,9 @@ function showDashboardPanel(data, actEntries) {
 
   updateOnboardingBanner(data);
 
-  animateCounter(document.getElementById('stat-sessions'), data.sessions);
-  animateCounter(document.getElementById('stat-chunks'), data.chunks);
-  animateCounter(document.getElementById('stat-searches'), data.searches);
+  document.getElementById('stat-sessions').textContent = data.sessions.toLocaleString();
+  document.getElementById('stat-chunks').textContent = data.chunks.toLocaleString();
+  document.getElementById('stat-searches').textContent = data.searches.toLocaleString();
   document.getElementById('info-provider').textContent = data.embedProvider;
   document.getElementById('info-last-indexed').textContent =
     data.lastIndexedAt ? formatRelative(data.lastIndexedAt) : '—';
@@ -309,7 +284,7 @@ function showDashboardPanel(data, actEntries) {
       aiEl.innerHTML = `${enrichDone}<span class="enrich-dot" style="margin-left:6px;vertical-align:middle;"></span>`;
       if (aiSubEl) aiSubEl.textContent = `${pct}% enriched`;
     } else {
-      animateCounter(aiEl, enrichDone);
+      aiEl.textContent = enrichDone.toLocaleString();
       if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
     }
   }
