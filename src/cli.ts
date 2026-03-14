@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // src/cli.ts
-// Commands: qrec onboard, qrec teardown, qrec index, qrec serve [--daemon],
+// Commands: qrec teardown, qrec index, qrec serve [--daemon],
 //           qrec stop, qrec mcp [--http], qrec status
 
 import { openDb } from "./db.ts";
@@ -35,105 +35,6 @@ async function main() {
     case "-v": {
       const version = typeof __QREC_VERSION__ !== "undefined" ? __QREC_VERSION__ : "(dev)";
       console.log(`qrec ${version}`);
-      process.exit(0);
-    }
-
-    case "onboard": {
-      const noOpen = args.includes("--no-open");
-
-      // Start daemon first — server binds immediately, model loads async in background.
-      // startDaemon() polls /health until the port is open (~1-2s), then returns.
-      await startDaemon();
-
-      // Open browser now — the UI handles "not ready" state with its own progress bars.
-      if (!noOpen) openBrowser();
-
-      // ── ncurses-style progress renderer ────────────────────────────────────
-      interface StatusResp {
-        phase: string;
-        sessions: number;
-        modelDownload: { percent: number; downloadedMB: number; totalMB: number | null };
-        indexing: { indexed: number; total: number; current: string };
-      }
-      const SPINNER = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
-      const BAR_W = 22;
-      const bar = (pct: number) => {
-        const f = Math.min(BAR_W, Math.round(pct * BAR_W / 100));
-        return "█".repeat(f) + "░".repeat(BAR_W - f);
-      };
-
-      let prevLines = 0;
-      let tick = 0;
-
-      const render = (s: StatusResp) => {
-        const { phase, modelDownload: dl, indexing: idx } = s;
-        const sp = SPINNER[tick % SPINNER.length];
-        const modelDone = ["indexing", "ready"].includes(phase);
-        const indexDone = phase === "ready";
-        const indexActive = phase === "indexing";
-        const W = 46;
-        const lines: string[] = [
-          "",
-          `  qrec — setting up`,
-          `  ${"─".repeat(W)}`,
-        ];
-
-        // Step 1: model
-        if (phase === "model_download") {
-          const pct = dl.percent;
-          lines.push(`  ${sp}  [1/3] Downloading model`);
-          lines.push(`        ${bar(pct)}  ${pct}%  (${dl.downloadedMB.toFixed(0)} / ${dl.totalMB?.toFixed(0) ?? "?"} MB)`);
-        } else if (phase === "model_loading") {
-          lines.push(`  ${sp}  [1/3] Loading model into memory…`);
-          lines.push("");
-        } else {
-          lines.push(`  ✓  [1/3] Model ready`);
-          lines.push("");
-        }
-
-        // Step 2: indexing
-        if (!modelDone) {
-          lines.push(`  ·  [2/3] Index sessions`);
-          lines.push("");
-        } else if (indexActive) {
-          const pct = idx.total > 0 ? Math.round(idx.indexed * 100 / idx.total) : 0;
-          lines.push(`  ${sp}  [2/3] Indexing sessions`);
-          lines.push(`        ${bar(pct)}  ${pct}%  (${idx.indexed}/${idx.total})  ${idx.current}`);
-        } else {
-          lines.push(`  ✓  [2/3] Sessions indexed  (${s.sessions} sessions)`);
-          lines.push("");
-        }
-
-        // Step 3: ready
-        if (indexDone) {
-          lines.push(`  ✓  [3/3] Ready  →  http://localhost:25927`);
-        } else {
-          lines.push(`  ·  [3/3] Ready`);
-        }
-
-        lines.push(`  ${"─".repeat(W)}`);
-        lines.push("");
-
-        // Move cursor up and overwrite previous block
-        if (prevLines > 0) process.stdout.write(`\x1b[${prevLines}A`);
-        for (const line of lines) process.stdout.write(`\x1b[2K${line}\n`);
-        prevLines = lines.length;
-      };
-
-      // Poll /status until ready
-      while (true) {
-        try {
-          const r = await fetch("http://localhost:25927/status");
-          if (r.ok) {
-            const s = await r.json() as StatusResp;
-            render(s);
-            if (s.phase === "ready") break;
-          }
-        } catch {}
-        tick++;
-        await Bun.sleep(500);
-      }
-
       process.exit(0);
     }
 
@@ -292,7 +193,6 @@ async function main() {
     default: {
       console.error(`Unknown command: ${command}`);
       console.error("Usage:");
-      console.error("  qrec onboard [--no-open]          # first-time setup");
       console.error("  qrec teardown [--yes]             # remove all qrec data");
       console.error("  qrec index [path] [--force]       # default: ~/.claude/projects/");
       console.error("  qrec index                        # stdin JSON {transcript_path} (hook mode)");

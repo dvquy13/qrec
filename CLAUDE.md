@@ -18,7 +18,7 @@ Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/
 
 ```
 src/
-  cli.ts          # Entry: `qrec onboard`, `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`, `qrec enrich [--limit N] [--min-age-ms N]`
+  cli.ts          # Entry: `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`, `qrec enrich [--limit N] [--min-age-ms N]`
   dirs.ts         # Single source of truth for all ~/.qrec paths + QREC_PORT. Import from here; never hardcode paths elsewhere.
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
   chunk.ts        # Heading-aware markdown chunker (~900 tokens/chunk, 15% overlap)
@@ -107,14 +107,13 @@ POST /search {query, k}
 bun link                                    # registers qrec globally → ~/.bun/bin/qrec
 
 # Engine (short form after bun link)
-qrec onboard [--no-open]                    # first-time setup: daemon → browser → (model + index async in background)
+qrec serve --daemon                         # first-time setup + all subsequent starts; auto-downloads model, indexes, opens browser
+qrec serve --daemon --no-open               # start as daemon without opening browser (used by plugin hook)
 qrec teardown [--yes]                       # stop daemon + remove ~/.qrec/
 qrec index                                  # index ~/.claude/projects/ (default)
 qrec index <path>                           # index specific path (.jsonl or dir)
 qrec index                                  # stdin JSON {transcript_path} mode (hook compat, piped)
 qrec serve                                  # start server (foreground, port 25927); auto-opens browser
-qrec serve --daemon                         # start as daemon; auto-opens browser
-qrec serve --daemon --no-open               # start as daemon without opening browser
 qrec stop                                   # stop daemon
 qrec mcp                                    # MCP server (stdio)
 qrec mcp --http                             # MCP server (HTTP, port 3031)

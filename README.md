@@ -1,6 +1,6 @@
 # qrec
 
-Purpose-built session recall engine for Claude Code.
+Purpose-built session recall engine for Claude Code. Indexes your past Claude conversations locally so you can search them instantly — and so Claude itself can answer questions like *"What was I working on last week?"* or *"How did we implement that auth flow?"*
 
 ## Install
 
@@ -8,40 +8,39 @@ Purpose-built session recall engine for Claude Code.
 
 ```bash
 npm install -g @dvquys/qrec
-qrec onboard
+qrec serve --daemon
 ```
 
-`qrec onboard` downloads the embedding model (~313 MB, once), indexes your Claude sessions at `~/.claude/projects/`, and starts the daemon. Your browser opens automatically to show live progress.
+On first run, the daemon downloads the embedding model (~313 MB) and indexes your Claude sessions at `~/.claude/projects/`. Your browser opens automatically — watch progress there.
 
-### Step 2 — Claude Code integration (optional)
+### Step 2 — Claude Code plugin (recommended)
 
-Install the plugin so the daemon auto-starts with every Claude Code session:
+Install the plugin to unlock **in-session recall**: Claude can search your past conversations in real time to answer questions about prior work.
 
 ```bash
 /plugin marketplace add dvquy13/qrec
 /plugin install qrec@dvquy13-qrec
 ```
 
-That's it — no further configuration needed.
+Once installed, you can ask Claude things like:
 
-### Local dev
+- *"What was I working on recently?"*
+- *"How did we implement the auth flow last month?"*
+- *"What did we decide about the database schema?"*
+- *"Find that session where we debugged the rate limiter"*
 
-```bash
-bun install
-bun link        # register qrec globally → ~/.bun/bin/qrec
-qrec onboard
-```
+The plugin also ensures the qrec daemon starts automatically with every Claude Code session — no manual `qrec serve` needed.
 
 ## Usage
 
 The daemon runs at **http://localhost:25927**. Open it in your browser to search sessions and monitor indexing activity.
 
 ```bash
-qrec status     # check if daemon is running
+qrec status     # check daemon status
 qrec stop       # stop the daemon
 ```
 
-### API
+### Search API
 
 ```bash
 curl -s -X POST http://localhost:25927/search \
@@ -78,14 +77,21 @@ Tools: `search(query, k?)`, `get(session_id)`, `status()`, `query_db(sql)`
 
 | Command | Description |
 |---|---|
-| `qrec onboard` | First-time setup: starts daemon + opens browser immediately; model download + indexing run in background |
+| `qrec serve [--daemon]` | Start HTTP server on port 25927; auto-downloads model + indexes on first run |
+| `qrec stop` | Stop daemon |
 | `qrec teardown` | Stop daemon and remove all qrec data (`~/.qrec/`) |
 | `qrec index [path]` | Re-index sessions (default: `~/.claude/projects/`) |
-| `qrec serve [--daemon]` | Start HTTP server on port 25927 |
-| `qrec stop` | Stop daemon |
 | `qrec mcp [--http]` | Start MCP server (stdio or HTTP) |
 | `qrec status` | Status summary + log tail |
 | `qrec enrich [--limit N]` | Backfill session summaries, tags, and entities |
+
+## Local dev
+
+```bash
+bun install
+bun link              # register qrec globally → ~/.bun/bin/qrec
+qrec serve --daemon
+```
 
 ## Stack
 
@@ -94,5 +100,5 @@ Tools: `search(query, k?)`, `get(session_id)`, `status()`, `query_db(sql)`
 | Runtime | Bun |
 | Language | TypeScript |
 | Search DB | SQLite (FTS5 + sqlite-vec) |
-| Embeddings | node-llama-cpp 3.17.1 (`embeddinggemma-300M-Q8_0`) |
+| Embeddings | node-llama-cpp (`embeddinggemma-300M-Q8_0`) |
 | MCP | `@modelcontextprotocol/sdk` |
