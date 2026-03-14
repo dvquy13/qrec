@@ -3,11 +3,10 @@
 // Supports:
 //   - ~/.claude/projects/ directory  → scans *.jsonl recursively
 //   - /path/to/session.jsonl          → indexes single JSONL file
-//   - ~/vault/sessions/ directory     → legacy *.md path (kept for migration)
 
-import { readdirSync, readFileSync, statSync, existsSync } from "fs";
+import { readdirSync, statSync, existsSync, mkdirSync, copyFileSync } from "fs";
 import { join, basename } from "path";
-import { createHash } from "crypto";
+import { homedir } from "os";
 import type { Database } from "bun:sqlite";
 import { chunkMarkdown } from "./chunk.ts";
 import { getEmbedProvider } from "./embed/factory.ts";
@@ -22,28 +21,6 @@ interface SessionMeta {
   title: string | null;
   hash: string;
   chunkText: string; // text to chunk + embed
-}
-
-// ---------------------------------------------------------------------------
-// Markdown (legacy) helpers
-// ---------------------------------------------------------------------------
-
-function parseMdSessionMeta(filePath: string): { id: string; project: string; date: string } | null {
-  const name = basename(filePath, ".md");
-  const match = name.match(/^(\d{4}-\d{2}-\d{2})_(.+)_([0-9a-f]{8})$/);
-  if (match) return { date: match[1], project: match[2], id: match[3] };
-  const match2 = name.match(/^(\d{4}-\d{2}-\d{2})__(.+)_([0-9a-f]{8})$/);
-  if (match2) return { date: match2[1], project: match2[2], id: match2[3] };
-  return null;
-}
-
-function extractMdTitle(content: string): string | null {
-  const h1 = content.match(/^# (.+)$/m);
-  return h1 ? h1[1].trim() : null;
-}
-
-function hashContent(content: string): string {
-  return createHash("sha256").update(content).digest("hex");
 }
 
 // ---------------------------------------------------------------------------
@@ -63,22 +40,6 @@ function collectJsonlFiles(dir: string): string[] {
         if (sub.endsWith(".jsonl")) files.push(join(full, sub));
       }
     } else if (entry.endsWith(".jsonl")) {
-      files.push(full);
-    }
-  }
-  return files;
-}
-
-/** Recursively collect all *.md files under a directory (legacy vault). */
-function collectMdFiles(dir: string): string[] {
-  const files: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      for (const sub of readdirSync(full)) {
-        if (sub.endsWith(".md")) files.push(join(full, sub));
-      }
-    } else if (entry.endsWith(".md")) {
       files.push(full);
     }
   }
@@ -142,20 +103,23 @@ async function buildJsonlCandidate(
   }
 }
 
-/** Build a SessionMeta from a legacy .md file. */
-function buildMdCandidate(filePath: string): SessionMeta | null {
-  const parsed = parseMdSessionMeta(filePath);
-  if (!parsed) return null;
-  const content = readFileSync(filePath, "utf-8");
-  return {
-    id: parsed.id,
-    path: filePath,
-    project: parsed.project,
-    date: parsed.date,
-    title: extractMdTitle(content),
-    hash: hashContent(content),
-    chunkText: content,
-  };
+// ---------------------------------------------------------------------------
+// Archive
+// ---------------------------------------------------------------------------
+
+const ARCHIVE_DIR = join(homedir(), ".qrec", "archive");
+
+/** Copy a JSONL session file to ~/.qrec/archive/<project>/<basename>.
+ * Called for every session in toIndex so that Claude's 30-day cleanup
+ * doesn't permanently lose session transcripts. Non-fatal on error. */
+function archiveJsonl(sourcePath: string, project: string): void {
+  try {
+    const destDir = join(ARCHIVE_DIR, project);
+    mkdirSync(destDir, { recursive: true });
+    copyFileSync(sourcePath, join(destDir, basename(sourcePath)));
+  } catch (e) {
+    console.warn(`[indexer] Archive failed for ${sourcePath}: ${e}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -192,24 +156,17 @@ export async function indexVault(
     }
     candidates = [candidate];
   } else if (isDirectory) {
-    // Detect: prefer JSONL, fallback to .md
     const jsonlFiles = collectJsonlFiles(sourcePath);
-    if (jsonlFiles.length > 0) {
-      // Mtime pre-filter: skip files not modified since last index
-      const filesToCheck = jsonlFiles.filter(f => {
-        const indexedAt = indexedAtByPath.get(f);
-        if (!indexedAt) return true;
-        return statSync(f).mtimeMs >= indexedAt;
-      });
-      const skippedByMtime = jsonlFiles.length - filesToCheck.length;
-      console.log(`[indexer] Found ${jsonlFiles.length} JSONL files (${skippedByMtime} skipped by mtime, ${filesToCheck.length} to check)`);
-      const results = await Promise.all(filesToCheck.map(f => buildJsonlCandidate(f, MIN_TURNS)));
-      candidates = results.filter((c): c is SessionMeta => c !== null);
-    } else {
-      const mdFiles = collectMdFiles(sourcePath);
-      console.log(`[indexer] Found ${mdFiles.length} markdown files (legacy path)`);
-      candidates = mdFiles.map(buildMdCandidate).filter((c): c is SessionMeta => c !== null);
-    }
+    // Mtime pre-filter: skip files not modified since last index
+    const filesToCheck = jsonlFiles.filter(f => {
+      const indexedAt = indexedAtByPath.get(f);
+      if (!indexedAt) return true;
+      return statSync(f).mtimeMs >= indexedAt;
+    });
+    const skippedByMtime = jsonlFiles.length - filesToCheck.length;
+    console.log(`[indexer] Found ${jsonlFiles.length} JSONL files (${skippedByMtime} skipped by mtime, ${filesToCheck.length} to check)`);
+    const results = await Promise.all(filesToCheck.map(f => buildJsonlCandidate(f, MIN_TURNS)));
+    candidates = results.filter((c): c is SessionMeta => c !== null);
   } else {
     console.error(`[indexer] Path not found or not a JSONL/directory: ${sourcePath}`);
     return;
@@ -265,6 +222,10 @@ export async function indexVault(
 
   for (let i = 0; i < toIndex.length; i++) {
     const { id, path, project, date, title, hash, chunkText } = toIndex[i];
+
+    // Archive raw JSONL so Claude's 30-day cleanup doesn't lose the transcript.
+    archiveJsonl(path, project);
+
     const chunks = chunkMarkdown(chunkText);
     const now = Date.now();
 
