@@ -138,7 +138,7 @@ function backfillSummaryChunks(db: Database): void {
   console.log(`[enrich] Backfill done.`);
 }
 
-export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
+export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}): Promise<void> {
   writeEnrichPid(process.pid);
   const db = openDb();
 
@@ -146,11 +146,16 @@ export async function runEnrich(opts: { limit?: number } = {}): Promise<void> {
     // Fast pass: backfill summary chunks for sessions enriched before this feature existed.
     backfillSummaryChunks(db);
 
-    let pending = db
-      .prepare(
-        "SELECT id FROM sessions WHERE enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?"
-      )
-      .all(ENRICHMENT_VERSION) as Array<{ id: string }>;
+    // Only enrich sessions indexed more than minAgeMs ago (avoids touching in-flight sessions).
+    const cutoff = opts.minAgeMs !== undefined ? Date.now() - opts.minAgeMs : null;
+    let pending = (cutoff !== null
+      ? db.prepare(
+          "SELECT id FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND indexed_at < ?"
+        ).all(ENRICHMENT_VERSION, cutoff)
+      : db.prepare(
+          "SELECT id FROM sessions WHERE enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?"
+        ).all(ENRICHMENT_VERSION)
+    ) as Array<{ id: string }>;
 
     if (opts.limit !== undefined) {
       pending = pending.slice(0, opts.limit);

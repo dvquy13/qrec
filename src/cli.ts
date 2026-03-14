@@ -282,8 +282,10 @@ async function main() {
     case "enrich": {
       const limitIdx = args.indexOf("--limit");
       const limit = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : undefined;
+      const minAgeIdx = args.indexOf("--min-age-ms");
+      const minAgeMs = minAgeIdx !== -1 ? parseInt(args[minAgeIdx + 1], 10) : undefined;
       const { runEnrich } = await import("./enrich.ts");
-      await runEnrich({ limit });
+      await runEnrich({ limit, minAgeMs });
       process.exit(0);
     }
 

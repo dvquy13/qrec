@@ -23,7 +23,7 @@ const DEFAULT_VAULT_PATH = process.env.QREC_PROJECTS_DIR ?? join(homedir(), ".cl
 
 // Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.
 const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000", 10);
-// Enrich only after this many ms of no index activity (debounce for active sessions).
+// Only enrich sessions indexed more than this many ms ago (skip in-flight sessions).
 const ENRICH_IDLE_MS = parseInt(process.env.QREC_ENRICH_IDLE_MS ?? String(5 * 60 * 1000), 10);
 
 
@@ -83,8 +83,6 @@ async function main() {
   let embedder: EmbedProvider | null = null;
   let embedderError: string | null = null;
   let isIndexing = false;
-  // Tracks when any session was last re-indexed; used to debounce enrich spawning.
-  let lastIndexActivityAt: number = Date.now();
 
   function getIndexedSessionCount(): number {
     const row = db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number };
@@ -419,24 +417,20 @@ async function main() {
   appendActivity({ type: "daemon_started" });
 
   // Spawn qrec enrich as a detached child (non-blocking). PID-guarded to prevent double-spawn.
+  // Passes --min-age-ms so enrich only picks up sessions indexed > ENRICH_IDLE_MS ago.
   function spawnEnrichIfNeeded(): void {
     if (!readConfig().enrichEnabled) return;
-    const idleMs = Date.now() - lastIndexActivityAt;
-    if (idleMs < ENRICH_IDLE_MS) {
-      console.log(`[server] Enrich debounced — last index activity ${Math.round(idleMs / 1000)}s ago (idle threshold ${ENRICH_IDLE_MS / 1000}s)`);
-      return;
-    }
     const pid = readEnrichPid();
     if (pid !== null && isProcessAlive(pid)) {
       console.log("[server] Enrich child already running, skipping spawn.");
       return;
     }
     const logFile = LOG_FILE;
-    const spawnArgs: string[] =
+    const baseArgs: string[] =
       typeof (import.meta as { dir?: string }).dir === "string"
         ? ["bun", "run", join((import.meta as { dir: string }).dir, "cli.ts"), "enrich"]
         : [process.argv[0], process.argv[1], "enrich"];
-    const child = Bun.spawn(spawnArgs, {
+    const child = Bun.spawn([...baseArgs, "--min-age-ms", String(ENRICH_IDLE_MS)], {
       detached: true,
       stdio: ["ignore", Bun.file(logFile), Bun.file(logFile)],
     });
@@ -461,7 +455,6 @@ async function main() {
     try {
       await indexVault(db, DEFAULT_VAULT_PATH, {}, (indexed, total, current) => {
         serverProgress.indexing = { indexed, total, current };
-        if (current) lastIndexActivityAt = Date.now();
         if (current && indexed > prevIndexed) {
           appendActivity({ type: "session_indexed", data: { sessionId: current } });
           newSessions++;
@@ -469,7 +462,6 @@ async function main() {
         }
       });
       appendActivity({ type: "index_complete", data: { newSessions, durationMs: Date.now() - t0 } });
-      spawnEnrichIfNeeded();
       // Embed any summary chunks (seq=-1) not yet in chunks_vec.
       // Enrich child writes summary chunks then exits; the next cron tick picks them up here.
       if (embedder) await embedSummaryChunks(db, embedder);
@@ -495,8 +487,9 @@ async function main() {
 
         serverProgress.phase = "ready";
 
-        // Schedule periodic incremental scans
+        // Schedule periodic incremental scans and enrich runs (both every 1 minute).
         setInterval(runIncrementalIndex, INDEX_INTERVAL_MS);
+        setInterval(spawnEnrichIfNeeded, INDEX_INTERVAL_MS);
 
         return;
       } catch (err) {
