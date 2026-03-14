@@ -277,7 +277,7 @@ function fmtDuration(ms) {
 }
 
 function runIcon(type) {
-  if (type === 'index') return '⊙';
+  if (type === 'index' || type === 'index_collapsed') return '⊙';
   if (type === 'enrich') return '✦';
   return '◉';
 }
@@ -311,7 +311,35 @@ function groupActivityEvents(events) {
   }
 
   if (current) groups.push(current); // ongoing run
-  return groups.reverse(); // newest first
+  return collapseZeroIndexRuns(groups.reverse()); // newest first
+}
+
+function isZeroIndexRun(g) {
+  if (g.type !== 'index' || g.running) return false;
+  const complete = g.events.find(e => e.type === 'index_complete');
+  return (complete?.data?.newSessions ?? 0) === 0;
+}
+
+function collapseZeroIndexRuns(groups) {
+  const result = [];
+  let i = 0;
+  while (i < groups.length) {
+    const g = groups[i];
+    if (isZeroIndexRun(g)) {
+      let count = 1;
+      while (i + count < groups.length && isZeroIndexRun(groups[i + count])) count++;
+      if (count === 1) {
+        result.push(g);
+      } else {
+        result.push({ type: 'index_collapsed', count, ts: g.ts, running: false, events: [] });
+      }
+      i += count;
+    } else {
+      result.push(g);
+      i++;
+    }
+  }
+  return result;
 }
 
 function groupSummary(group) {
@@ -319,6 +347,10 @@ function groupSummary(group) {
   const startEvent = group.events.find(e => e.type === 'index_started' || e.type === 'enrich_started');
 
   if (group.type === 'daemon') return { label: 'Daemon started', detail: null };
+
+  if (group.type === 'index_collapsed') {
+    return { label: 'Index scan', detail: `${group.count}× no new sessions` };
+  }
 
   if (group.type === 'index') {
     if (group.running) {
@@ -352,7 +384,7 @@ function renderRunGroup(group) {
 
   const iconHtml = group.running
     ? `<span class="run-spinner-wrap"><span class="spinner run-spinner"></span></span>`
-    : `<span class="run-icon-badge ${group.type}">${runIcon(group.type)}</span>`;
+    : `<span class="run-icon-badge ${group.type === 'index_collapsed' ? 'index' : group.type}">${runIcon(group.type)}</span>`;
 
   const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
   const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;
