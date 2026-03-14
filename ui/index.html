@@ -13,7 +13,7 @@
   <h1 onclick="showTab('dashboard')" style="cursor:pointer;">qrec</h1>
   <nav>
     <button id="nav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
-    <button id="nav-sessions" onclick="showTab('sessions')">Sessions</button>
+    <button id="nav-sessions" onclick="showTab('sessions')">Search</button>
     <button id="nav-debug" onclick="showTab('debug')">Debug</button>
   </nav>
 </header>
@@ -25,10 +25,6 @@
   <div id="db-error" class="error-state" style="display:none;"></div>
 
   <div class="dashboard-wrap" id="dashboard">
-    <div class="onboarding-wrap" id="onboarding">
-      <div class="steps" id="steps"></div>
-    </div>
-
     <div class="dashboard-header">
       <h2 class="section-heading">Dashboard</h2>
     </div>
@@ -36,7 +32,7 @@
     <div class="dashboard-top">
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-label">Sessions</div>
+          <div class="stat-label">Sessions <span class="stat-indexing-dot" id="stat-sessions-dot"></span></div>
           <div class="stat-value" id="stat-sessions">—</div>
           <div class="stat-sub">indexed</div>
         </div>

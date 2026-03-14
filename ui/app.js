@@ -1,5 +1,6 @@
 // ── Activity state ───────────────────────────────────────────────────────────
 let _allRunGroups = [];
+let _currentSyntheticGroup = null;
 const RUNS_INITIAL = 5;
 let _visibleRunCount = RUNS_INITIAL;
 let _lastRenderedSessionCount = -1;
@@ -154,115 +155,49 @@ async function loadDashboard() {
   }
 }
 
-function updateOnboardingBanner(data) {
-  const onboardingEl = document.getElementById('onboarding');
-  if (!onboardingEl) return;
+function buildRunProgressHtml(progress) {
+  const pct = progress.percent;
+  return `<div class="run-progress">
+    <div class="progress-label">
+      <span>${escHtml(progress.label)}</span>
+      ${pct != null ? `<strong>${pct}%</strong>` : ''}
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill ${pct == null ? 'indeterminate' : ''}" style="width:${pct ?? 40}%"></div>
+    </div>
+  </div>`;
+}
 
+function buildModelSyntheticGroup(data) {
   const phase = data.phase ?? 'ready';
-  const isFullyReady = phase === 'ready';
-  if (isFullyReady) { onboardingEl.style.display = 'none'; return; }
-
-  const dl = data.modelDownload ?? { percent: 0, downloadedMB: 0, totalMB: null };
-  const idx = data.indexing ?? { indexed: 0, total: 0, current: '' };
-
-  const modelDone = ['indexing', 'ready'].includes(phase);
-  const indexDone = phase === 'ready' && data.sessions > 0;
-  const indexActive = phase === 'indexing';
-  const searchDone = data.searches > 0;
-
-  const steps = [
-    {
-      state: 'done',
-      title: 'Server is running',
-      desc: 'The qrec HTTP server is up and accepting requests.',
-    },
-    {
-      state: modelDone ? 'done' : 'active',
-      title: modelDone ? 'Embedding model ready'
-        : phase === 'model_download' ? 'Downloading embedding model…'
-        : 'Loading embedding model…',
-      desc: modelDone ? `${escHtml(data.embedProvider)} provider loaded.`
-        : phase === 'model_download'
-          ? `${dl.downloadedMB} MB${dl.totalMB ? ' / ' + dl.totalMB + ' MB' : ''} downloaded`
-          : 'Loading model into memory…',
-      progress: !modelDone ? {
-        percent: phase === 'model_download' ? dl.percent : null,
-        label: phase === 'model_download'
-          ? `${dl.percent}%${dl.totalMB ? ' — ' + dl.downloadedMB + ' / ' + dl.totalMB + ' MB' : ''}`
-          : 'Loading…',
-      } : null,
-    },
-    {
-      state: indexDone ? 'done' : indexActive ? 'active' : 'pending',
-      title: indexDone
-        ? `Sessions indexed (${data.sessions.toLocaleString()})`
-        : indexActive
-          ? `Indexing sessions… (${idx.indexed}${idx.total ? ' / ' + idx.total : ''})`
-          : 'Indexing sessions',
-      desc: indexDone
-        ? `${data.chunks.toLocaleString()} chunks ready to search.`
-        : indexActive
-          ? (idx.current ? `Current: ${idx.current}` : 'Scanning your Claude Code session history…')
-          : 'Will start automatically after model loads.',
-      progress: indexActive ? {
-        percent: idx.total > 0 ? Math.round((idx.indexed / idx.total) * 100) : null,
-        label: idx.total > 0 ? `${idx.indexed} / ${idx.total} sessions` : `${idx.indexed} sessions indexed…`,
-      } : null,
-    },
-    {
-      state: searchDone ? 'done' : 'pending',
-      title: searchDone ? 'First search complete' : 'Run your first search',
-      desc: searchDone
-        ? 'qrec is fully set up and working.'
-        : 'Open the search tab and try a query — or use the MCP tool in Claude.',
-      link: (!searchDone && indexDone) ? { label: 'Go to search →', tab: 'sessions' } : null,
-    },
-  ];
-
-  const stepsEl = document.getElementById('steps');
-  stepsEl.innerHTML = '';
-  steps.forEach((s, i) => {
-    const div = document.createElement('div');
-    div.className = 'step' + (s.state === 'done' ? ' done' : s.state === 'active' ? ' active' : '');
-
-    const iconHtml = s.state === 'done' ? '✓'
-      : s.state === 'active' ? `<span class="spinner" style="width:14px;height:14px;border-width:2px;"></span>`
-      : String(i + 1);
-
-    const progressHtml = s.progress ? `
-      <div class="progress-wrap">
-        <div class="progress-label">
-          <span>${escHtml(s.progress.label)}</span>
-          ${s.progress.percent != null ? `<strong>${s.progress.percent}%</strong>` : ''}
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill ${s.progress.percent == null ? 'indeterminate' : ''}"
-               style="width:${s.progress.percent ?? 40}%"></div>
-        </div>
-      </div>` : '';
-
-    const linkHtml = s.link
-      ? `<div style="margin-top:10px;"><button class="action-btn primary" style="display:inline-flex;" onclick="showTab('${s.link.tab}')">${s.link.label}</button></div>`
-      : '';
-
-    div.innerHTML = `
-      <div class="step-icon">${iconHtml}</div>
-      <div class="step-body">
-        <div class="step-title">${escHtml(s.title)}</div>
-        <div class="step-desc">${escHtml(s.desc)}</div>
-        ${progressHtml}${linkHtml}
-      </div>
-    `;
-    stepsEl.appendChild(div);
-  });
-
-  onboardingEl.style.display = 'block';
+  if (phase !== 'model_download' && phase !== 'model_loading' && phase !== 'starting') return null;
+  const dl = data.modelDownload ?? {};
+  if (phase === 'model_download') {
+    const pct = dl.percent ?? 0;
+    const label = dl.totalMB
+      ? `${dl.downloadedMB} / ${dl.totalMB} MB`
+      : `${dl.downloadedMB ?? 0} MB downloaded`;
+    return {
+      type: 'model_download', events: [], running: true, ts: Date.now(),
+      syntheticLabel: 'Downloading embedding model',
+      syntheticProgress: { percent: pct, label },
+    };
+  }
+  return {
+    type: 'model_loading', events: [], running: true, ts: Date.now(),
+    syntheticLabel: 'Loading embedding model',
+    syntheticProgress: { percent: null, label: 'Loading…' },
+  };
 }
 
 function showDashboardPanel(data, actEntries) {
   document.getElementById('dashboard').style.display = 'block';
 
-  updateOnboardingBanner(data);
+  const phase = data.phase ?? 'ready';
+
+  // Indexing dot on Sessions stat card
+  const sessionsDot = document.getElementById('stat-sessions-dot');
+  if (sessionsDot) sessionsDot.classList.toggle('visible', phase === 'indexing');
 
   document.getElementById('stat-sessions').textContent = data.sessions.toLocaleString();
   document.getElementById('stat-searches').textContent = data.searches.toLocaleString();
@@ -286,8 +221,9 @@ function showDashboardPanel(data, actEntries) {
   }
 
   // Activity runs
+  _currentSyntheticGroup = buildModelSyntheticGroup(data);
   _allRunGroups = groupActivityEvents(actEntries || []);
-  renderActivityRuns(_allRunGroups);
+  renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
 
   if (data.sessions !== _lastRenderedSessionCount) loadRecentSessions(data.sessions);
   if (data.sessions !== _lastRenderedSessionCount || !_heatmapData) fetchAndRenderHeatmap();
@@ -338,6 +274,8 @@ function fmtDuration(ms) {
 function runIcon(type) {
   if (type === 'index' || type === 'index_collapsed') return '⊙';
   if (type === 'enrich') return '✦';
+  if (type === 'model_download') return '⬇';
+  if (type === 'model_loading') return '◎';
   return '◉';
 }
 
@@ -411,6 +349,8 @@ function collapseZeroIndexRuns(groups) {
 }
 
 function groupSummary(group) {
+  if (group.syntheticLabel !== undefined) return { label: group.syntheticLabel, detail: null };
+
   const completeEvent = group.events.find(e => e.type === 'index_complete' || e.type === 'enrich_complete');
   const startEvent = group.events.find(e => e.type === 'index_started' || e.type === 'enrich_started');
 
@@ -456,12 +396,13 @@ function renderRunGroup(group) {
 
   const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
   const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;
+  const progressHtml = group.syntheticProgress ? buildRunProgressHtml(group.syntheticProgress) : '';
 
   if (subEvents.length === 0) {
     return `<div class="run-group no-expand"><div class="run-header">
       ${tsHtml}<span class="run-chevron-spacer"></span>${iconHtml}
       <span class="run-label">${escHtml(label)}</span>${detailHtml}
-    </div></div>`;
+    </div>${progressHtml}</div>`;
   }
 
   const sessionIds = subEvents.map(e => e.data?.sessionId ?? '').filter(Boolean);
@@ -485,11 +426,13 @@ function renderRunGroup(group) {
   </details>`;
 }
 
-function renderActivityRuns(groups) {
+function renderActivityRuns(groups, syntheticGroup = null) {
   const runList = document.getElementById('run-list');
   const showMoreBtn = document.getElementById('activity-show-more');
   const liveDot = document.getElementById('activity-live-dot');
   if (!runList) return;
+
+  const displayGroups = syntheticGroup ? [syntheticGroup, ...groups] : groups;
 
   // Preserve open state across re-renders
   const openTs = new Set();
@@ -497,9 +440,9 @@ function renderActivityRuns(groups) {
     if (d.open) openTs.add(d.dataset.runTs);
   });
 
-  const visible = groups.slice(0, _visibleRunCount);
-  const hidden = groups.length - visible.length;
-  const anyRunning = groups.slice(0, 3).some(g => g.running);
+  const visible = displayGroups.slice(0, _visibleRunCount);
+  const hidden = displayGroups.length - visible.length;
+  const anyRunning = displayGroups.slice(0, 3).some(g => g.running);
 
   if (groups.length === 0) {
     runList.innerHTML = '<div style="padding:20px 0;color:var(--text-muted);font-size:13px;">No activity yet.</div>';
@@ -529,7 +472,7 @@ function renderActivityRuns(groups) {
 
 function showMoreRuns() {
   _visibleRunCount = _allRunGroups.length;
-  renderActivityRuns(_allRunGroups);
+  renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
 }
 
 async function enrichRunGroup(detailsEl) {

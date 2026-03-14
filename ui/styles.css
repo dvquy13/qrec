@@ -131,37 +131,12 @@ main {
 
 /* ── Dashboard ─────────────────────────────────────────────────────────── */
 .dashboard-wrap { display: none; }
-.onboarding-wrap {
-  display: none;
-  margin-bottom: 32px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid var(--border);
-}
+
+.stat-indexing-dot { display: none; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.5s infinite; vertical-align: middle; margin-left: 4px; }
+.stat-indexing-dot.visible { display: inline-block; }
 
 
-.steps { display: flex; flex-direction: column; gap: 12px; }
-.step {
-  display: flex; align-items: flex-start; gap: 16px;
-  padding: 18px 20px;
-  border-radius: 10px; background: transparent; transition: border-color 0.15s;
-}
-.step.done { background: var(--green-bg); border-color: var(--green-border); }
-.step.active { border-color: var(--accent); background: var(--accent-light); }
-
-.step-icon {
-  width: 32px; height: 32px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
-  background: transparent; color: var(--text-muted);
-}
-.step.done .step-icon { background: var(--green); color: white; border-color: var(--green); }
-.step.active .step-icon { background: var(--accent); color: white; border-color: var(--accent); }
-.step-body { flex: 1; }
-.step-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-.step.done .step-title { color: var(--green); }
-.step.active .step-title { color: var(--accent); }
-.step-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
-
+.run-progress { padding: 0 0 10px 94px; }
 .progress-wrap { margin-top: 12px; }
 .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
 .progress-label strong { color: var(--text); }
@@ -193,7 +168,7 @@ main {
 }
 
 .dashboard-recent { margin-bottom: 32px; }
-.dashboard-recent-header { display: flex; align-items: center; margin-bottom: 0; }
+.dashboard-recent-header { display: flex; align-items: center; gap: 16px; margin-bottom: 0; }
 .dashboard-recent-header .section-heading:hover { color: var(--accent); }
 .dashboard-session-card { padding: 12px 0; cursor: pointer; }
 .dashboard-session-card:hover .dashboard-session-title { color: var(--accent); }
