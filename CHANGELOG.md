@@ -1,3 +1,14 @@
+# [0.5.0](https://github.com/dvquy13/qrec/compare/v0.4.0...v0.5.0) (2026-03-14)
+
+
+### Bug Fixes
+
+* **ui:** show actual enriched count for stale/crashed enrich runs ([3bacb86](https://github.com/dvquy13/qrec/commit/3bacb86a2e02baf2a5d2e5ce059f4304035bd7e1))
+
+
+### Features
+
+* **cli:** remove qrec onboard; use qrec serve --daemon for first-run setup ([ad797bf](https://github.com/dvquy13/qrec/commit/ad797bf511a895bec0a05ae1e808030cc4b3caef))
 # [0.4.0](https://github.com/dvquy13/qrec/compare/v0.3.5...v0.4.0) (2026-03-14)
 
 
