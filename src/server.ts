@@ -18,7 +18,7 @@ import { isEnrichAlive, readEnrichPid, isProcessAlive, ENRICHMENT_VERSION } from
 import { readConfig, writeConfig } from "./config.ts";
 
 const PORT = 25927;
-const DEFAULT_VAULT_PATH = join(homedir(), ".claude", "projects");
+const DEFAULT_VAULT_PATH = process.env.QREC_PROJECTS_DIR ?? join(homedir(), ".claude", "projects");
 
 // Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.
 const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000", 10);

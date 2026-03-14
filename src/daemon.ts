@@ -44,6 +44,14 @@ export async function startDaemon(): Promise<void> {
     return;
   }
 
+  // Kill any orphaned process still holding port 25927 (escaped pid-file tracking)
+  try {
+    const r = Bun.spawnSync(["lsof", "-ti", ":25927"], { stdio: ["ignore", "pipe", "ignore"] });
+    const pids = new TextDecoder().decode(r.stdout).trim().split("\n").filter(Boolean);
+    for (const p of pids) { try { process.kill(parseInt(p), "SIGKILL"); } catch {} }
+    if (pids.length > 0) await Bun.sleep(300);
+  } catch {}
+
   ensureQrecDir();
 
   const logFile = join(QREC_DIR, "qrec.log");
