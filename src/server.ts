@@ -22,6 +22,8 @@ const DEFAULT_VAULT_PATH = join(homedir(), ".claude", "projects");
 
 // Default cron interval: 1 minute. Override with QREC_INDEX_INTERVAL_MS.
 const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000", 10);
+// Enrich only after this many ms of no index activity (debounce for active sessions).
+const ENRICH_IDLE_MS = parseInt(process.env.QREC_ENRICH_IDLE_MS ?? String(5 * 60 * 1000), 10);
 
 
 // In the compiled CJS bundle, __UI_HTML__ is injected by esbuild at build time.
@@ -76,6 +78,8 @@ async function main() {
   let embedder: EmbedProvider | null = null;
   let embedderError: string | null = null;
   let isIndexing = false;
+  // Tracks when any session was last re-indexed; used to debounce enrich spawning.
+  let lastIndexActivityAt: number = Date.now();
 
   function getIndexedSessionCount(): number {
     const row = db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number };
@@ -339,6 +343,11 @@ async function main() {
   // Spawn qrec enrich as a detached child (non-blocking). PID-guarded to prevent double-spawn.
   function spawnEnrichIfNeeded(): void {
     if (!readConfig().enrichEnabled) return;
+    const idleMs = Date.now() - lastIndexActivityAt;
+    if (idleMs < ENRICH_IDLE_MS) {
+      console.log(`[server] Enrich debounced — last index activity ${Math.round(idleMs / 1000)}s ago (idle threshold ${ENRICH_IDLE_MS / 1000}s)`);
+      return;
+    }
     const pid = readEnrichPid();
     if (pid !== null && isProcessAlive(pid)) {
       console.log("[server] Enrich child already running, skipping spawn.");
@@ -372,6 +381,7 @@ async function main() {
     try {
       await indexVault(db, DEFAULT_VAULT_PATH, {}, (indexed, total, current) => {
         serverProgress.indexing = { indexed, total, current };
+        if (current) lastIndexActivityAt = Date.now();
         if (current && indexed > prevIndexed) {
           appendActivity({ type: "session_indexed", data: { sessionId: current } });
           newSessions++;
