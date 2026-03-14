@@ -164,11 +164,31 @@ async function main() {
           days.push({ date: d, count: byDate.get(d) ?? 0 });
           cur.setDate(cur.getDate() + 1);
         }
+        // Per-project breakdown (only when not filtered — redundant when already filtered to one project)
+        let byProject: Record<string, Record<string, number>> = {};
+        if (!project) {
+          let projectRows: Array<{ date: string; project: string; count: number }>;
+          if (metric === "hours") {
+            projectRows = db
+              .prepare(`SELECT date, project, ROUND(SUM(COALESCE(duration_seconds, 0)) / 3600.0, 1) as count FROM sessions WHERE date >= ? AND project IS NOT NULL AND project != '' GROUP BY date, project ORDER BY date, count DESC`)
+              .all(cutoffStr) as Array<{ date: string; project: string; count: number }>;
+          } else {
+            projectRows = db
+              .prepare(`SELECT date, project, COUNT(*) as count FROM sessions WHERE date >= ? AND project IS NOT NULL AND project != '' GROUP BY date, project ORDER BY date, count DESC`)
+              .all(cutoffStr) as Array<{ date: string; project: string; count: number }>;
+          }
+          for (const row of projectRows) {
+            if (!byProject[row.date]) byProject[row.date] = {};
+            byProject[row.date][row.project] = row.count;
+          }
+        }
+
         return Response.json({
           days,
           metric,
           total: rows.reduce((s, r) => s + r.count, 0),
           active_days: rows.filter(r => r.count > 0).length,
+          byProject,
         });
       }
 

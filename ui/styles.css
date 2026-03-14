@@ -631,6 +631,7 @@ main {
   transition: opacity 0.08s ease;
 }
 #qrec-tooltip.visible { opacity: 1; }
+#qrec-tooltip.tip--rich { white-space: normal; min-width: 140px; max-width: 220px; }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {

@@ -72,13 +72,19 @@ const _tip = document.createElement('div');
 _tip.id = 'qrec-tooltip';
 document.body.appendChild(_tip);
 document.addEventListener('mouseover', e => {
-  const el = e.target.closest('[data-tooltip]');
+  const el = e.target.closest('[data-tip-html],[data-tooltip]');
   if (!el) return;
-  _tip.textContent = el.dataset.tooltip;
+  if (el.dataset.tipHtml) {
+    _tip.innerHTML = el.dataset.tipHtml;
+    _tip.classList.add('tip--rich');
+  } else {
+    _tip.textContent = el.dataset.tooltip || '';
+    _tip.classList.remove('tip--rich');
+  }
   _tip.classList.add('visible');
 });
 document.addEventListener('mouseout', e => {
-  if (e.target.closest('[data-tooltip]')) _tip.classList.remove('visible');
+  if (e.target.closest('[data-tip-html],[data-tooltip]')) _tip.classList.remove('visible');
 });
 document.addEventListener('mousemove', e => {
   if (!_tip.classList.contains('visible')) return;
@@ -925,6 +931,19 @@ function heatmapUnitLabel(count, metricId) {
   return `${display} ${count === 1 ? m.unit : m.units}`;
 }
 
+function buildProjectTooltip(headerHtml, projectCounts) {
+  const sorted = Object.entries(projectCounts).sort((a, b) => b[1] - a[1]);
+  let html = `<div style="font-weight:600;margin-bottom:4px;">${headerHtml}</div>`;
+  for (const [proj, cnt] of sorted) {
+    html += `<div style="display:flex;align-items:center;gap:5px;margin-top:2px;">`;
+    html += `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${projectColor(proj)};flex-shrink:0;"></span>`;
+    html += `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${escHtml(proj)}</span>`;
+    html += `<span style="margin-left:6px;opacity:0.85;">${heatmapUnitLabel(cnt, _heatmapMetric)}</span>`;
+    html += `</div>`;
+  }
+  return html;
+}
+
 function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -999,7 +1018,7 @@ function hideHeatmapProjectDropdown() {
 function renderHeatmap(containerId, days, opts = {}) {
   const container = document.getElementById(containerId);
   if (!container || !days || days.length === 0) return;
-  const { clickable, selectedDate } = opts;
+  const { clickable, selectedDate, byProject } = opts;
 
   const CELL = 15, GAP = 2, LABEL_W = 40;
   const CHART_H = 70, MAX_INLINE = 80, INLINE_GAP = 16;
@@ -1069,7 +1088,11 @@ function renderHeatmap(containerId, days, opts = {}) {
         const cd = new Date(cell.date + 'T00:00:00');
         const friendlyDate = `${HEATMAP_WEEKDAYS[wd]}, ${HEATMAP_MONTHS[cd.getMonth()]} ${cd.getDate()}`;
         const title = `${friendlyDate}: ${heatmapUnitLabel(cell.count, _heatmapMetric)}`;
-        html += `<div class="heatmap-cell${isClick ? ' heatmap-cell--clickable' : ''}" style="${cs}background:${bg};" data-tooltip="${escHtml(title)}" data-date="${cell.date}" data-count="${cell.count}"></div>`;
+        const cellProjects = byProject && byProject[cell.date];
+        const tipHtmlAttr = (cellProjects && Object.keys(cellProjects).length > 1)
+          ? ` data-tip-html="${escHtml(buildProjectTooltip(escHtml(title), cellProjects))}"`
+          : '';
+        html += `<div class="heatmap-cell${isClick ? ' heatmap-cell--clickable' : ''}" style="${cs}background:${bg};" data-tooltip="${escHtml(title)}"${tipHtmlAttr} data-date="${cell.date}" data-count="${cell.count}"></div>`;
       } else {
         const ed = new Date(weeks[wi].monday + 'T00:00:00');
         ed.setDate(ed.getDate() + wd);
@@ -1080,11 +1103,18 @@ function renderHeatmap(containerId, days, opts = {}) {
 
     // Right-side inline bar (current week)
     const cwCount = cwDays[wd]?.count || 0;
+    const cwDate  = cwDays[wd]?.date;
     const barW    = Math.round((cwCount / cwMax) * MAX_INLINE);
     const barBg   = cwCount > 0 ? colors[heatmapIntensity(cwCount, cwMax)] : 'transparent';
     const label   = cwCount > 0 ? String(cwCount) : '';
     const fitsInside = barW > label.length * 7 + 8;
-    html += `<div style="display:flex;align-items:center;margin-left:${INLINE_GAP}px;min-width:${MAX_INLINE + 24}px;">`;
+    const cwFriendly = cwDate ? `${HEATMAP_WEEKDAYS[wd]}, ${HEATMAP_MONTHS[new Date(cwDate + 'T00:00:00').getMonth()]} ${new Date(cwDate + 'T00:00:00').getDate()}` : HEATMAP_WEEKDAYS[wd];
+    const cwTitle = cwCount > 0 ? `${cwFriendly}: ${heatmapUnitLabel(cwCount, _heatmapMetric)}` : cwFriendly;
+    const cwProjects = byProject && cwDate && byProject[cwDate];
+    const cwTipAttr = (cwProjects && Object.keys(cwProjects).length > 1)
+      ? `data-tip-html="${escHtml(buildProjectTooltip(escHtml(cwTitle), cwProjects))}"`
+      : `data-tooltip="${escHtml(cwTitle)}"`;
+    html += `<div style="display:flex;align-items:center;margin-left:${INLINE_GAP}px;min-width:${MAX_INLINE + 24}px;" ${cwTipAttr}>`;
     html += `<div style="width:${barW}px;height:${CELL}px;background:${barBg};border-radius:2px;display:flex;align-items:center;justify-content:flex-end;min-width:${cwCount > 0 ? 2 : 0}px;flex-shrink:0;">`;
     if (label && fitsInside) html += `<span style="font-size:10px;padding-right:2px;color:#fff;line-height:1;">${label}</span>`;
     html += '</div>';
@@ -1097,9 +1127,21 @@ function renderHeatmap(containerId, days, opts = {}) {
   // Bottom weekly bar chart
   const weeklyTotals = weeks.map(w => {
     const d = new Date(w.monday + 'T00:00:00');
+    const weekProjects = {};
+    if (byProject) {
+      for (const cell of w.cells) {
+        if (!cell) continue;
+        const dp = byProject[cell.date];
+        if (!dp) continue;
+        for (const [proj, cnt] of Object.entries(dp)) {
+          weekProjects[proj] = (weekProjects[proj] || 0) + cnt;
+        }
+      }
+    }
     return {
       label: `${HEATMAP_MONTHS[d.getMonth()]} ${d.getDate()}`,
       total: w.cells.reduce((s, c) => s + (c?.count || 0), 0),
+      projects: weekProjects,
     };
   });
   const maxWeekly  = Math.max(...weeklyTotals.map(w => w.total), 1);
@@ -1115,7 +1157,10 @@ function renderHeatmap(containerId, days, opts = {}) {
     const labelInside = week.total > 0 && actualH >= 14
       ? `<span style="position:absolute;top:2px;left:0;right:0;text-align:center;font-size:10px;color:rgba(255,255,255,0.85);line-height:1;pointer-events:none;">${Math.round(week.total)}</span>`
       : '';
-    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${actualH}px;position:relative;background:${barColor};" data-tooltip="${escHtml(title)}">${labelInside}</div>`;
+    const weekTipHtmlAttr = (Object.keys(week.projects).length > 1)
+      ? ` data-tip-html="${escHtml(buildProjectTooltip(escHtml(title), week.projects))}"`
+      : ` data-tooltip="${escHtml(title)}"`;
+    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${actualH}px;position:relative;background:${barColor};"${weekTipHtmlAttr}>${labelInside}</div>`;
   }
   html += '</div></div>';
 
@@ -1148,7 +1193,7 @@ async function fetchAndRenderHeatmap() {
     const dashSection = document.getElementById('dashboard-heatmap-section');
     if (dashSection) {
       renderHeatmapMetricBtns();
-      renderHeatmap('dashboard-heatmap', _heatmapData.days, { clickable: true });
+      renderHeatmap('dashboard-heatmap', _heatmapData.days, { clickable: true, byProject: _heatmapData.byProject });
       const footer = document.getElementById('dashboard-heatmap-footer');
       if (footer) {
         const m = HEATMAP_METRICS.find(m => m.id === _heatmapMetric) || HEATMAP_METRICS[0];
