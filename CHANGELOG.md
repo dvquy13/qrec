@@ -1,3 +1,22 @@
+## [0.5.1](https://github.com/dvquy13/qrec/compare/v0.5.0...v0.5.1) (2026-03-15)
+
+
+### Bug Fixes
+
+* **ci:** handle curl ECONNREFUSED in daemon poll loop ([#5](https://github.com/dvquy13/qrec/issues/5)) ([68e0a8a](https://github.com/dvquy13/qrec/commit/68e0a8af0d63ffca584fb62100ce0857d54561ca))
+* **ci:** replace qrec onboard with qrec serve --daemon --no-open ([f4ec9e4](https://github.com/dvquy13/qrec/commit/f4ec9e4df05087ac49b4ec6d3c70cfb95f82115d))
+* correct prevIndexed sentinel so all sessions appear in activity log ([866a37e](https://github.com/dvquy13/qrec/commit/866a37e92a5f786b9940bf5193f7ef7b6f2a160e))
+* **parser:** use git root as project name for worktree sessions ([4f8f5d3](https://github.com/dvquy13/qrec/commit/4f8f5d3152b7989881ff75b8b51083328fac6598))
+* **release:** include qrec-mcp.cjs in release commit ([e28acc4](https://github.com/dvquy13/qrec/commit/e28acc47ecfe45be941b56bda67f014bd4606ce8))
+* session ordering, activity event flooding, absorb session learnings ([cc65f6e](https://github.com/dvquy13/qrec/commit/cc65f6e0511ef4695022223c4773536c55c26093))
+* **ui:** fix model download acitivity incorrec showing up ([36e1d63](https://github.com/dvquy13/qrec/commit/36e1d63555015b3166581dd00ab24a4e39453af8))
+* **ui:** polish activity alignment, search UX, and README install commands ([afe4c20](https://github.com/dvquy13/qrec/commit/afe4c20eb31ce6ff78eaa98051f9535b47aa9766))
+
+
+### Features
+
+* parallel indexing+enriching, last_message_at timestamps, activity UI fixes ([844deda](https://github.com/dvquy13/qrec/commit/844deda6bb37f97d0f3dc6e6ec2c9aa2b2a37b1e))
+* **ui:** permanent model download rows + activity ordering fixes ([86a1b16](https://github.com/dvquy13/qrec/commit/86a1b1675933ef6cc7d9148843cbb53079169617))
 # [0.5.0](https://github.com/dvquy13/qrec/compare/v0.4.0...v0.5.0) (2026-03-14)
 
 
