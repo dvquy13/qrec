@@ -113,14 +113,14 @@ async function buildJsonlCandidate(
 // ---------------------------------------------------------------------------
 
 
-/** Copy a JSONL session file to ~/.qrec/archive/<project>/<basename>.
+/** Copy a JSONL session file to <archiveDir>/<project>/<basename>.
  * Called for every session in toIndex so that Claude's 30-day cleanup
  * doesn't permanently lose session transcripts. Non-fatal on error.
- * Skips if source is already inside ARCHIVE_DIR (e.g. when indexing the archive). */
-function archiveJsonl(sourcePath: string, project: string): void {
-  if (sourcePath.startsWith(ARCHIVE_DIR)) return;
+ * Skips if source is already inside archiveDir (e.g. when indexing the archive). */
+function archiveJsonl(sourcePath: string, project: string, archiveDir: string): void {
+  if (sourcePath.startsWith(archiveDir)) return;
   try {
-    const destDir = join(ARCHIVE_DIR, project);
+    const destDir = join(archiveDir, project);
     mkdirSync(destDir, { recursive: true });
     copyFileSync(sourcePath, join(destDir, basename(sourcePath)));
   } catch (e) {
@@ -137,7 +137,7 @@ const MIN_TURNS = 2;
 export async function indexVault(
   db: Database,
   sourcePath: string,
-  options: { force?: boolean; sessions?: number; seed?: number } = {},
+  options: { force?: boolean; sessions?: number; seed?: number; archiveDir?: string | null } = {},
   onProgress?: (indexed: number, total: number, current: string) => void,
   embedder?: EmbedProvider
 ): Promise<void> {
@@ -232,7 +232,8 @@ export async function indexVault(
     const { id, path, project, date, title, hash, duration_seconds, last_message_at, chunkText } = toIndex[i];
 
     // Archive raw JSONL so Claude's 30-day cleanup doesn't lose the transcript.
-    archiveJsonl(path, project);
+    const effectiveArchiveDir = options.archiveDir === undefined ? ARCHIVE_DIR : options.archiveDir;
+    if (effectiveArchiveDir !== null) archiveJsonl(path, project, effectiveArchiveDir);
 
     const chunks = chunkMarkdown(chunkText);
     const now = Date.now();

@@ -4,7 +4,6 @@ import { mkdtempSync, writeFileSync, existsSync, unlinkSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join, basename } from "path";
 import { indexVault, embedSummaryChunks } from "../src/indexer.ts";
-import { ARCHIVE_DIR } from "../src/dirs.ts";
 import type { EmbedProvider } from "../src/embed/provider.ts";
 import { createTestDb, cleanupTestDb } from "./helpers.ts";
 
@@ -55,7 +54,7 @@ describe("indexVault", () => {
     const { db, path } = createTestDb();
     const embedder = makeStubEmbedder();
     try {
-      await indexVault(db, MINIMAL_JSONL, {}, undefined, embedder);
+      await indexVault(db, MINIMAL_JSONL, { archiveDir: null }, undefined, embedder);
 
       const sessions = db.prepare("SELECT * FROM sessions").all();
       expect(sessions).toHaveLength(1);
@@ -77,10 +76,10 @@ describe("indexVault", () => {
     const { db, path } = createTestDb();
     const embedder = makeStubEmbedder();
     try {
-      await indexVault(db, MINIMAL_JSONL, {}, undefined, embedder);
+      await indexVault(db, MINIMAL_JSONL, { archiveDir: null }, undefined, embedder);
       const firstCallCount = embedder.callCount;
 
-      await indexVault(db, MINIMAL_JSONL, {}, undefined, embedder);
+      await indexVault(db, MINIMAL_JSONL, { archiveDir: null }, undefined, embedder);
 
       expect(embedder.callCount).toBe(firstCallCount);
       const count = (db.prepare("SELECT COUNT(*) as n FROM sessions").get() as any).n;
@@ -94,10 +93,10 @@ describe("indexVault", () => {
     const { db, path } = createTestDb();
     const embedder = makeStubEmbedder();
     try {
-      await indexVault(db, MINIMAL_JSONL, {}, undefined, embedder);
+      await indexVault(db, MINIMAL_JSONL, { archiveDir: null }, undefined, embedder);
       const firstCallCount = embedder.callCount;
 
-      await indexVault(db, MINIMAL_JSONL, { force: true }, undefined, embedder);
+      await indexVault(db, MINIMAL_JSONL, { force: true, archiveDir: null }, undefined, embedder);
 
       expect(embedder.callCount).toBeGreaterThan(firstCallCount);
     } finally {
@@ -109,7 +108,7 @@ describe("indexVault", () => {
     const { db, path } = createTestDb();
     const embedder = makeStubEmbedder();
     try {
-      await indexVault(db, SINGLE_TURN_JSONL, {}, undefined, embedder);
+      await indexVault(db, SINGLE_TURN_JSONL, { archiveDir: null }, undefined, embedder);
 
       const count = (db.prepare("SELECT COUNT(*) as n FROM sessions").get() as any).n;
       expect(count).toBe(0);
@@ -120,16 +119,17 @@ describe("indexVault", () => {
   });
 
   test("archive: source JSONL copied to archive dir", async () => {
+    const archiveDir = mkdtempSync(join(tmpdir(), "qrec-archive-test-"));
+    tempDirs.push(archiveDir);
     const { db, path } = createTestDb();
     const embedder = makeStubEmbedder();
     // MINIMAL_JSONL has cwd="/tmp/testproject" → project = "testproject"
-    const archivePath = join(ARCHIVE_DIR, "testproject", basename(MINIMAL_JSONL));
+    const archivePath = join(archiveDir, "testproject", basename(MINIMAL_JSONL));
     try {
-      await indexVault(db, MINIMAL_JSONL, {}, undefined, embedder);
+      await indexVault(db, MINIMAL_JSONL, { archiveDir }, undefined, embedder);
       expect(existsSync(archivePath)).toBe(true);
     } finally {
       cleanupTestDb(db, path);
-      try { unlinkSync(archivePath); } catch { /* may not exist */ }
     }
   });
 
@@ -137,7 +137,7 @@ describe("indexVault", () => {
     const { db, path } = createTestDb();
     const embedder = makeStubEmbedder();
     try {
-      await indexVault(db, MINIMAL_JSONL, {}, undefined, embedder);
+      await indexVault(db, MINIMAL_JSONL, { archiveDir: null }, undefined, embedder);
 
       // Simulate enrichment
       db.prepare(`
@@ -146,7 +146,7 @@ describe("indexVault", () => {
       `).run();
 
       // Force re-index with same file (hash unchanged)
-      await indexVault(db, MINIMAL_JSONL, { force: true }, undefined, embedder);
+      await indexVault(db, MINIMAL_JSONL, { force: true, archiveDir: null }, undefined, embedder);
 
       const session = db.prepare("SELECT * FROM sessions WHERE id='01234567'").get() as any;
       expect(session.summary).toBe("test summary");
@@ -166,7 +166,7 @@ describe("indexVault", () => {
     const { db, path } = createTestDb();
     const embedder = makeStubEmbedder();
     try {
-      await indexVault(db, tmpFile, {}, undefined, embedder);
+      await indexVault(db, tmpFile, { archiveDir: null }, undefined, embedder);
 
       // Simulate enrichment
       db.prepare(`
@@ -177,7 +177,7 @@ describe("indexVault", () => {
       // Modify file → new hash
       writeFileSync(tmpFile, MINIMAL_CONTENT_V2);
 
-      await indexVault(db, tmpFile, {}, undefined, embedder);
+      await indexVault(db, tmpFile, { archiveDir: null }, undefined, embedder);
 
       const session = db.prepare("SELECT * FROM sessions WHERE id='eeee1111'").get() as any;
       expect(session.summary).toBeNull();
