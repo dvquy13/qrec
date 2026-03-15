@@ -81,7 +81,7 @@ export async function loadSummarizer(): Promise<SummarizerCtx> {
   const ctx = await model.createContext({ contextSize: 8192, sequences: 1 });
   console.log("[enrich] Model loaded.");
   try { unlinkSync(ENRICH_PROGRESS_FILE); } catch {}
-  appendActivity({ type: "enrich_model_downloaded", data: { totalMB: capturedTotalMB } });
+  if (progressCalled) appendActivity({ type: "enrich_model_downloaded", data: { totalMB: capturedTotalMB } });
   appendActivity({ type: "enrich_model_loaded" });
   return { llama, model, ctx };
 }
