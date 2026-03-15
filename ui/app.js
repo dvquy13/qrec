@@ -1170,20 +1170,22 @@ function renderHeatmap(containerId, days, opts = {}) {
   const maxWeekly  = Math.max(...weeklyTotals.map(w => w.total), 1);
   const roundedMax = Math.max(Math.ceil(maxWeekly / 5) * 5, 5);
 
-  html += `<div style="display:flex;align-items:flex-end;height:${CHART_H}px;margin-top:8px;">`;
+  const LABEL_H = 14;
+  html += `<div style="display:flex;align-items:flex-end;height:${CHART_H + LABEL_H}px;margin-top:8px;">`;
   html += `<div style="width:${LABEL_W}px;flex-shrink:0;"></div>`;
   html += `<div style="display:flex;align-items:flex-end;gap:${GAP}px;">`;
   for (const week of weeklyTotals) {
     const barH   = Math.round((week.total / roundedMax) * CHART_H);
     const actualH = Math.max(barH, week.total > 0 ? 2 : 0);
     const title  = `Week of ${week.label}: ${heatmapUnitLabel(week.total, _heatmapMetric)}`;
-    const labelInside = week.total > 0 && actualH >= 14
-      ? `<span style="position:absolute;top:2px;left:0;right:0;text-align:center;font-size:10px;color:rgba(255,255,255,0.85);line-height:1;pointer-events:none;">${Math.round(week.total)}</span>`
-      : '';
+    const label  = week.total > 0 ? String(Math.round(week.total)) : '';
     const weekTipHtmlAttr = (Object.keys(week.projects).length > 1)
       ? ` data-tip-html="${escHtml(buildProjectTooltip(escHtml(title), week.projects))}"`
       : ` data-tooltip="${escHtml(title)}"`;
-    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${actualH}px;position:relative;background:${barColor};"${weekTipHtmlAttr}>${labelInside}</div>`;
+    html += `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${CHART_H + LABEL_H}px;">`;
+    if (label) html += `<span style="font-size:10px;color:var(--text-muted);line-height:1;margin-bottom:2px;pointer-events:none;">${label}</span>`;
+    html += `<div class="heatmap-weekly-bar" style="width:${CELL}px;height:${actualH}px;background:${barColor};"${weekTipHtmlAttr}></div>`;
+    html += '</div>';
   }
   html += '</div></div>';
 
