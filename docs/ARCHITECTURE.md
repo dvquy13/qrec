@@ -91,7 +91,7 @@ cache_key = f"{query_gen_fingerprint}_{sha256(session_body)}"
 
 | Package | Version | Purpose |
 |---|---|---|
-| `node-llama-cpp` | 3.15.1 (pinned) | Embedding model inference |
+| `node-llama-cpp` | 3.17.1 (pinned) | Embedding model inference |
 | `sqlite-vec` | latest | Cosine KNN via SQLite extension |
 | `bun:sqlite` | built-in | SQLite (not better-sqlite3 — Node native, unsupported in Bun) |
 | `@modelcontextprotocol/sdk` | ^1.0.0 | MCP server (Phase 4) |

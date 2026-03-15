@@ -64,6 +64,8 @@ paths:
 
 - **`groupActivityEvents` uses dual cursors `curIndex` / `curEnrich`** — index and enrich run in separate processes and their events interleave. A single `current` cursor closed the enrich group prematurely when `index_started` arrived mid-enrich (cron fires every 60s), causing "Enriching... 0/N" to stick forever. Track each independently.
 
+- **`daemon_started` must set `running = false` on any open cursor before pushing** — when `daemon_started` arrives, both `curIndex` and `curEnrich` must have `running = false` before being pushed to `groups`. The original bug: groups were pushed with `running = true` → two spinning index entries appeared simultaneously in the UI. The fix: `curIndex.running = false; groups.push(curIndex)` (not `groups.push(curIndex); curIndex.running = false`).
+
 - **Enrich spinner resolves in 30s when process is dead** — `showDashboardPanel` cross-references `data.enriching` from `/status`. If `false` (process dead) and the enrich group is still `running` after 30s grace, mark it closed immediately instead of waiting the 10-minute stale timeout.
 
 - **`showMoreRuns()` sets `_visibleRunCount = Infinity`** — `_allRunGroups` holds real groups only, but `displayGroups` includes synthetic entries too. Setting `_visibleRunCount = _allRunGroups.length` left `hidden = syntheticCount` → clicking the button showed the same count → no change. `Infinity` always reveals everything.

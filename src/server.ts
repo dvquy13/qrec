@@ -208,9 +208,9 @@ async function main() {
         const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
         const dateFilter = url.searchParams.get("date") ?? null;
         const rows = (dateFilter
-          ? db.prepare("SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions WHERE date = ? ORDER BY indexed_at DESC LIMIT ? OFFSET ?")
+          ? db.prepare("SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions WHERE date = ? ORDER BY COALESCE(last_message_at, indexed_at) DESC LIMIT ? OFFSET ?")
               .all(dateFilter, limit, offset)
-          : db.prepare("SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
+          : db.prepare("SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY COALESCE(last_message_at, indexed_at) DESC LIMIT ? OFFSET ?")
               .all(limit, offset)) as Array<{
             id: string; title: string | null; project: string; date: string; indexed_at: number; last_message_at: number | null;
             summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null;
@@ -458,18 +458,27 @@ async function main() {
     if (isIndexing || !existsSync(DEFAULT_VAULT_PATH)) return;
     isIndexing = true;
     const t0 = Date.now();
-    appendActivity({ type: "index_started" });
+    // Initial run: log index_started immediately so the UI can show live progress.
+    // Cron runs: defer logging — only write to activity.jsonl if new sessions are found.
+    // Zero-session cron runs are silently skipped to prevent event flooding.
+    if (isInitialRun) appendActivity({ type: "index_started" });
     if (isInitialRun) serverProgress.phase = "indexing";
     serverProgress.indexing = { indexed: 0, total: 0, current: "" };
 
     let newSessions = 0;
     let prevIndexed = 0;
+    // Cron runs buffer session IDs; flushed to activity only if newSessions > 0.
+    const bufferedSessions: string[] = [];
 
     try {
       await indexVault(db, DEFAULT_VAULT_PATH, {}, (indexed, total, current) => {
         serverProgress.indexing = { indexed, total, current };
         if (current && indexed > prevIndexed) {
-          appendActivity({ type: "session_indexed", data: { sessionId: current } });
+          if (isInitialRun) {
+            appendActivity({ type: "session_indexed", data: { sessionId: current } });
+          } else {
+            bufferedSessions.push(current);
+          }
           newSessions++;
           prevIndexed = indexed;
         }
@@ -489,7 +498,16 @@ async function main() {
         });
       }
 
-      appendActivity({ type: "index_complete", data: { newSessions, durationMs: Date.now() - t0 } });
+      // Flush buffered cron sessions and log completion (only when there's something to show).
+      if (!isInitialRun && newSessions > 0) {
+        appendActivity({ type: "index_started" });
+        for (const id of bufferedSessions) {
+          appendActivity({ type: "session_indexed", data: { sessionId: id } });
+        }
+      }
+      if (isInitialRun || newSessions > 0) {
+        appendActivity({ type: "index_complete", data: { newSessions, durationMs: Date.now() - t0 } });
+      }
       // Embed any summary chunks (seq=-1) not yet in chunks_vec.
       // Enrich child writes summary chunks then exits; the next cron tick picks them up here.
       if (embedder) await embedSummaryChunks(db, embedder);

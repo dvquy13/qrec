@@ -57,7 +57,7 @@ ui/
   app.js          # All SPA logic: tab routing, data fetching, rendering, filters, infinite scroll, search; served fresh
   styles.css      # All styles; served fresh — edit and reload browser, no daemon restart needed
 scripts/
-  reset.sh              # Wipe ~/.qrec/ DB/log/pid (keeps model cache)
+  reset.sh              # Wipe ~/.qrec/ DB/log/pid/activity.jsonl (keeps model cache)
   smoke-test.sh         # Build → start CJS daemon (QREC_EMBED_PROVIDER=stub) → health/search/UI asset checks → stop
   check-package.sh      # Pack tarball → assert every file under ui/ and plugin/ is present (run before release)
   onboard-test-start.sh   # Simulate fresh-user onboarding: creates isolated QREC_DIR temp dir, symlinks ~/.qrec/models/, sets QREC_PROJECTS_DIR to 10 sessions, starts daemon on port 25928 — real ~/.qrec never touched

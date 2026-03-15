@@ -140,7 +140,7 @@ async function loadDashboard() {
   try {
     const [statusRes, actRes] = await Promise.all([
       fetch('/status'),
-      fetch('/activity/entries?limit=500'),
+      fetch('/activity/entries?limit=2000'),
     ]);
     if (!statusRes.ok) throw new Error(`HTTP ${statusRes.status}`);
     const data = await statusRes.json();
