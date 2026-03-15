@@ -137,9 +137,10 @@ export async function indexVault(
   db: Database,
   sourcePath: string,
   options: { force?: boolean; sessions?: number; seed?: number } = {},
-  onProgress?: (indexed: number, total: number, current: string) => void
+  onProgress?: (indexed: number, total: number, current: string) => void,
+  embedder?: EmbedProvider
 ): Promise<void> {
-  const embedder = await getEmbedProvider();
+  const embed = embedder ?? await getEmbedProvider();
 
   // Determine source type
   const isSingleJsonl = sourcePath.endsWith(".jsonl") && existsSync(sourcePath);
@@ -259,7 +260,7 @@ export async function indexVault(
     for (let j = 0; j < chunksToEmbed.length; j++) {
       const chunk = chunksToEmbed[j];
       const chunkId = `${id}_${j}`;
-      const embedding = await embedder.embed(chunk.text);
+      const embedding = await embed.embed(chunk.text);
       embeddedChunks.push({ chunkId, seq: j, pos: chunk.pos, text: chunk.text, embedding });
     }
     embedAndInsert(embeddedChunks);

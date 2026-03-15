@@ -83,7 +83,7 @@ All search tests pass before AND after the RRF refactor. `bun test` all green.
 
 ---
 
-## Phase 3: Indexer Tests + Embedder Injection
+## Phase 3: Indexer Tests + Embedder Injection ✅ DONE (2026-03-15)
 
 ### 3a. Embedder Injection Refactor (small, do first)
 Change `indexVault` signature from:
