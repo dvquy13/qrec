@@ -58,7 +58,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: brew install sqlite
 
-      # Integration test: onboard (model + index + daemon) → search → activity → cron auto-index
+      # Integration test: serve --daemon (model + index + daemon) → search → activity → cron auto-index
       - name: Integration test
         env:
           QREC_INDEX_INTERVAL_MS: 5000
@@ -68,7 +68,7 @@ jobs:
           echo '{"enrichEnabled":false}' > ~/.qrec/config.json
 
           # First-time setup: loads model, indexes fixtures, starts daemon
-          qrec onboard --no-open
+          qrec serve --daemon --no-open
 
           echo "Waiting for search to be ready (model loading in daemon)..."
           for i in $(seq 1 24); do

@@ -9,15 +9,13 @@ paths:
 
 `setup-bun` installs bun. Dependencies via `bun install --frozen-lockfile`. Then `bun link` registers the `qrec` CLI globally.
 
-Integration test uses `qrec onboard --no-open` to load model + index fixtures + start daemon in one step.
+Integration test uses `qrec serve --daemon --no-open` to start daemon, then polls `/search` for 200 before asserting (`qrec onboard` was removed in v0.5.0).
 
 ## Embed provider in CI
 
 Set `QREC_EMBED_PROVIDER: stub` on steps that need fast startup (MCP round-trip test). The real model is downloaded + cached by the integration test step.
 
-**`qrec onboard --no-open`** starts the daemon (fire-and-fork internally), then polls `/status` until `phase=ready`. Server binds immediately; model loads async. After onboard returns, server is fully ready.
-
-For direct `qrec serve --daemon` usage (if needed): it exits immediately. Poll `/search` for 200 before asserting — `/health` is always 200 but search needs the model loaded:
+**`qrec serve --daemon --no-open`** exits immediately (fire-and-fork). Poll `/search` for 200 before asserting — `/health` is always 200 but search needs the model loaded:
 
 ```bash
 for i in $(seq 1 24); do
