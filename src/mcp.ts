@@ -12,11 +12,13 @@ const DAEMON_BASE = `http://localhost:${QREC_PORT}`;
 const MCP_HTTP_PORT = 3031;
 const DAEMON_DOWN_MSG = "qrec daemon is not running. Start it with: qrec serve --daemon";
 
-async function daemonSearch(query: string, k: number): Promise<unknown> {
+interface SearchFilters { dateFrom?: string; dateTo?: string; project?: string; tag?: string; }
+
+async function daemonSearch(query: string, k: number, filters?: SearchFilters): Promise<unknown> {
   const res = await fetch(`${DAEMON_BASE}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, k }),
+    body: JSON.stringify({ query, k, ...filters }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string };
@@ -77,6 +79,10 @@ const TOOLS = [
       properties: {
         query: { type: "string", description: "Search query (use concrete nouns: function names, error messages, feature names)" },
         k: { type: "number", description: "Number of results (default: 10)" },
+        dateFrom: { type: "string", description: "Filter: sessions on or after this date (YYYY-MM-DD)" },
+        dateTo: { type: "string", description: "Filter: sessions on or before this date (YYYY-MM-DD)" },
+        project: { type: "string", description: "Filter: project name substring (case-insensitive)" },
+        tag: { type: "string", description: "Filter: tag substring (case-insensitive, requires enriched sessions)" },
       },
       required: ["query"],
     },
@@ -151,7 +157,12 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
     const query = String(args?.query ?? "").trim();
     if (!query) return mcpError("Missing required field: query");
     const k = typeof args?.k === "number" ? args.k : 10;
-    return callDaemon(() => daemonSearch(query, k), (d) => JSON.stringify(d));
+    const filters: SearchFilters = {};
+    if (typeof args?.dateFrom === "string") filters.dateFrom = args.dateFrom;
+    if (typeof args?.dateTo   === "string") filters.dateTo   = args.dateTo;
+    if (typeof args?.project  === "string") filters.project  = args.project;
+    if (typeof args?.tag      === "string") filters.tag      = args.tag;
+    return callDaemon(() => daemonSearch(query, k, filters), (d) => JSON.stringify(d));
   }
 
   if (name === "get") {

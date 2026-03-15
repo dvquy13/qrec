@@ -49,6 +49,13 @@ export function extractHighlightSnippets(html: string, window = 150): string {
     .join(" <span class='snippet-gap'>…</span> ");
 }
 
+export interface SearchFilters {
+  dateFrom?: string;  // YYYY-MM-DD inclusive
+  dateTo?: string;    // YYYY-MM-DD inclusive
+  project?: string;   // case-insensitive substring
+  tag?: string;       // case-insensitive substring via json_each
+}
+
 export interface SearchResult {
   session_id: string;
   score: number;
@@ -145,7 +152,8 @@ export async function search(
   db: Database,
   embedder: EmbedProvider,
   query: string,
-  k: number = 10
+  k: number = 10,
+  filters?: SearchFilters
 ): Promise<SearchResult[]> {
   const totalStart = performance.now();
 
@@ -216,6 +224,36 @@ export async function search(
       entry.vecRank = i + 1;
     } else {
       rankMap.set(chunkId, { vecRank: i + 1 });
+    }
+  }
+
+  // === Pre-filter: remove rankMap entries for sessions not matching filters ===
+  if (filters && (filters.dateFrom || filters.dateTo || filters.project || filters.tag)) {
+    // Collect unique session IDs from rankMap
+    const sessionIds = new Set<string>();
+    for (const chunkId of rankMap.keys()) {
+      sessionIds.add(chunkId.split("_").slice(0, -1).join("_"));
+    }
+    if (sessionIds.size > 0) {
+      const ids = [...sessionIds];
+      const placeholders = ids.map(() => "?").join(",");
+      const clauses: string[] = [`id IN (${placeholders})`];
+      const params: unknown[] = [...ids];
+      if (filters.dateFrom) { clauses.push("date >= ?"); params.push(filters.dateFrom); }
+      if (filters.dateTo)   { clauses.push("date <= ?"); params.push(filters.dateTo); }
+      if (filters.project)  { clauses.push("LOWER(project) LIKE '%' || LOWER(?) || '%'"); params.push(filters.project); }
+      if (filters.tag)      {
+        clauses.push("EXISTS (SELECT 1 FROM json_each(tags) WHERE LOWER(json_each.value) LIKE '%' || LOWER(?) || '%')");
+        params.push(filters.tag);
+      }
+      const matchingRows = db
+        .prepare(`SELECT id FROM sessions WHERE ${clauses.join(" AND ")}`)
+        .all(...params) as Array<{ id: string }>;
+      const matchingIds = new Set(matchingRows.map(r => r.id));
+      for (const [chunkId] of rankMap) {
+        const sessionId = chunkId.split("_").slice(0, -1).join("_");
+        if (!matchingIds.has(sessionId)) rankMap.delete(chunkId);
+      }
     }
   }
 

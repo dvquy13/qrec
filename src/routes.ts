@@ -6,6 +6,7 @@ import type { Database } from "bun:sqlite";
 import type { ServerState } from "./lifecycle.ts";
 import { INDEX_INTERVAL_MS } from "./lifecycle.ts";
 import { search } from "./search.ts";
+import type { SearchFilters } from "./search.ts";
 import { logQuery, getAuditEntries } from "./audit.ts";
 import { parseSession, renderMarkdown } from "./parser.ts";
 import { serverProgress } from "./progress.ts";
@@ -76,7 +77,7 @@ export async function handleSearch(db: Database, state: ServerState, req: Reques
     );
   }
 
-  let body: { query?: string; k?: number };
+  let body: { query?: string; k?: number; dateFrom?: string; dateTo?: string; project?: string; tag?: string };
   try {
     body = await req.json();
   } catch {
@@ -89,9 +90,14 @@ export async function handleSearch(db: Database, state: ServerState, req: Reques
   }
 
   const k = body.k ?? 10;
+  const filters: SearchFilters = {};
+  if (body.dateFrom) filters.dateFrom = body.dateFrom;
+  if (body.dateTo)   filters.dateTo   = body.dateTo;
+  if (body.project)  filters.project  = body.project;
+  if (body.tag)      filters.tag      = body.tag;
   const t0 = performance.now();
   try {
-    const results = await search(db, state.embedder, query, k);
+    const results = await search(db, state.embedder, query, k, filters);
     const durationMs = performance.now() - t0;
     try { logQuery(db, query, k, results, durationMs); } catch (e) { console.warn("[server] Failed to write audit query:", e); }
     const latencyMs = results[0]?.latency.totalMs ?? 0;
@@ -133,18 +139,33 @@ export async function handleSettingsUpdate(req: Request): Promise<Response> {
 export function handleSessions(db: Database, url: URL): Response {
   const limit = 100;
   const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
-  const dateFilter = url.searchParams.get("date") ?? null;
-  const rows = (dateFilter
-    ? db.prepare("SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions WHERE date = ? ORDER BY COALESCE(last_message_at, indexed_at) DESC LIMIT ? OFFSET ?")
-        .all(dateFilter, limit, offset)
-    : db.prepare("SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY COALESCE(last_message_at, indexed_at) DESC LIMIT ? OFFSET ?")
-        .all(limit, offset)) as Array<{
+  // ?date=X is shorthand for dateFrom=X&dateTo=X
+  const dateShorthand = url.searchParams.get("date") ?? null;
+  const dateFrom = dateShorthand ?? url.searchParams.get("dateFrom") ?? null;
+  const dateTo   = dateShorthand ?? url.searchParams.get("dateTo")   ?? null;
+  const project  = url.searchParams.get("project") ?? null;
+  const tag      = url.searchParams.get("tag")     ?? null;
+
+  const whereClauses: string[] = [];
+  const whereParams: unknown[] = [];
+  if (dateFrom) { whereClauses.push("date >= ?"); whereParams.push(dateFrom); }
+  if (dateTo)   { whereClauses.push("date <= ?"); whereParams.push(dateTo); }
+  if (project)  { whereClauses.push("LOWER(project) LIKE '%' || LOWER(?) || '%'"); whereParams.push(project); }
+  if (tag)      {
+    whereClauses.push("EXISTS (SELECT 1 FROM json_each(tags) WHERE LOWER(json_each.value) LIKE '%' || LOWER(?) || '%')");
+    whereParams.push(tag);
+  }
+  const where = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+  const rows = db
+    .prepare(`SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions ${where} ORDER BY COALESCE(last_message_at, indexed_at) DESC LIMIT ? OFFSET ?`)
+    .all(...whereParams, limit, offset) as Array<{
       id: string; title: string | null; project: string; date: string; indexed_at: number; last_message_at: number | null;
       summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null;
     }>;
-  const total = dateFilter
-    ? (db.prepare("SELECT COUNT(*) as count FROM sessions WHERE date = ?").get(dateFilter) as { count: number }).count
-    : (db.prepare("SELECT COUNT(*) as count FROM sessions").get() as { count: number }).count;
+  const total = (db
+    .prepare(`SELECT COUNT(*) as count FROM sessions ${where}`)
+    .get(...whereParams) as { count: number }).count;
   const sessions = rows.map(r => ({
     ...r,
     tags: r.tags ? JSON.parse(r.tags) as string[] : null,

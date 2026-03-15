@@ -112,7 +112,28 @@
                onfocus="showFilterDropdown('tag')" onblur="hideFilterDropdown('tag')">
         <div class="filter-dropdown" id="dropdown-tag" onmousedown="return false;"></div>
       </div>
-      <span id="date-chip" class="date-chip" style="display:none;"></span>
+      <div class="filter-wrap" id="date-filter-wrap">
+        <button class="btn date-btn" id="date-btn" onclick="toggleDatePicker(event)">Date ▾</button>
+        <div class="date-picker-dropdown" id="date-picker-dropdown" style="display:none;" onmousedown="return false;">
+          <div class="date-picker-presets">
+            <button class="btn date-preset" data-preset="today" onclick="setDatePreset('today')">Today</button>
+            <button class="btn date-preset" data-preset="week" onclick="setDatePreset('week')">This week</button>
+            <button class="btn date-preset" data-preset="month" onclick="setDatePreset('month')">This month</button>
+          </div>
+          <div class="date-picker-sep"></div>
+          <div class="date-picker-custom">
+            <div class="date-picker-row">
+              <label class="date-picker-label">From</label>
+              <input type="date" id="date-from" class="date-input">
+            </div>
+            <div class="date-picker-row">
+              <label class="date-picker-label">To</label>
+              <input type="date" id="date-to" class="date-input">
+            </div>
+            <button class="btn date-apply-btn" onclick="applyCustomDateRange()">Apply</button>
+          </div>
+        </div>
+      </div>
       <button class="btn" id="clear-filters-btn" onclick="clearFilters()" style="display:none;">Clear</button>
     </div>
     <div class="filter-wrap">

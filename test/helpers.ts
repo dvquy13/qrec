@@ -39,11 +39,12 @@ export function insertSession(
     hash?: string;
     indexed_at?: number;
     last_message_at?: number | null;
+    tags?: string[];
   }
 ): void {
   db.prepare(`
-    INSERT INTO sessions (id, path, project, date, title, hash, indexed_at, last_message_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sessions (id, path, project, date, title, hash, indexed_at, last_message_at, tags)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     opts.id,
     opts.path ?? "/test/session.jsonl",
@@ -52,7 +53,8 @@ export function insertSession(
     opts.title ?? null,
     opts.hash ?? "deadbeef",
     opts.indexed_at ?? Date.now(),
-    opts.last_message_at ?? null
+    opts.last_message_at ?? null,
+    opts.tags ? JSON.stringify(opts.tags) : null
   );
 }
 

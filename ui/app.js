@@ -15,8 +15,10 @@ let _sessionsTotal = 0;
 let _sessionsOffset = 0;
 let _sessionsLoading = false;
 let _scrollObserver = null;
-let _filterDate = null;
+let _filterDateRange = null; // { from: string, to: string, label: string } | null
 let _filterOptions = { project: [], tag: [] };
+let _filterDebounceTimer = null;
+let _datepickerOutsideHandler = null;
 const CARD_FIELD_DEFAULTS = { summary: true, tags: true, entities: false, learnings: false, questions: false };
 let _cardFields = (() => {
   try { return { ...CARD_FIELD_DEFAULTS, ...JSON.parse(localStorage.getItem('qrec_card_fields') || '{}') }; }
@@ -622,10 +624,17 @@ async function doSearch() {
   document.getElementById('latency-bar').style.display = 'none';
 
   try {
+    const body = { query, k };
+    if (_filterDateRange) { body.dateFrom = _filterDateRange.from; body.dateTo = _filterDateRange.to; }
+    const fp = document.getElementById('filter-project').value.trim();
+    if (fp) body.project = fp;
+    const ft = document.getElementById('filter-tag').value.trim();
+    if (ft) body.tag = ft;
+
     const res = await fetch('/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, k }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
@@ -651,7 +660,10 @@ async function doSearch() {
       `;
     }
     document.getElementById('clear-search-btn').style.display = '';
-    applyFilters();
+    document.getElementById('sessions-count').textContent = `${_lastSearchResults.length} results`;
+    renderSearchResults(_lastSearchResults);
+    const hasFilter = _filterDateRange || fp || ft;
+    document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
   } catch (err) {
     document.getElementById('sessions-content').innerHTML =
       `<div class="error-state">Error: ${escHtml(String(err))}</div>`;
@@ -785,8 +797,13 @@ async function loadSessions() {
   const content = document.getElementById('sessions-content');
   content.innerHTML = '<div class="loading-state"><span class="spinner"></span></div>';
   try {
-    const dateParam = _filterDate ? `&date=${encodeURIComponent(_filterDate)}` : '';
-    const res = await fetch(`/sessions?offset=0${dateParam}`);
+    const params = new URLSearchParams({ offset: '0' });
+    if (_filterDateRange) { params.set('dateFrom', _filterDateRange.from); params.set('dateTo', _filterDateRange.to); }
+    const fp = document.getElementById('filter-project').value.trim();
+    if (fp) params.set('project', fp);
+    const ft = document.getElementById('filter-tag').value.trim();
+    if (ft) params.set('tag', ft);
+    const res = await fetch(`/sessions?${params}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { sessions, total } = await res.json();
 
@@ -799,7 +816,10 @@ async function loadSessions() {
     _filterOptions.tag = [];
     updateFilterOptions(sessions);
 
-    applyFilters();
+    const hasFilter = _filterDateRange || fp || ft;
+    document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
+    document.getElementById('sessions-count').textContent = `${total} results`;
+    renderSessionsList(sessions);
     if (!_heatmapData) fetchAndRenderHeatmap();
   } catch (err) {
     content.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
@@ -812,8 +832,13 @@ async function loadMoreSessions() {
   if (_sessionsLoading || _sessionsOffset >= _sessionsTotal) return;
   _sessionsLoading = true;
   try {
-    const dateParam = _filterDate ? `&date=${encodeURIComponent(_filterDate)}` : '';
-    const res = await fetch(`/sessions?offset=${_sessionsOffset}${dateParam}`);
+    const params = new URLSearchParams({ offset: String(_sessionsOffset) });
+    if (_filterDateRange) { params.set('dateFrom', _filterDateRange.from); params.set('dateTo', _filterDateRange.to); }
+    const fp = document.getElementById('filter-project').value.trim();
+    if (fp) params.set('project', fp);
+    const ft = document.getElementById('filter-tag').value.trim();
+    if (ft) params.set('tag', ft);
+    const res = await fetch(`/sessions?${params}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { sessions, total } = await res.json();
 
@@ -824,15 +849,8 @@ async function loadMoreSessions() {
     // Incrementally update filter options from the new batch only — O(batch) not O(total)
     updateFilterOptions(sessions);
 
-    // Append matching cards directly — no full re-render to avoid scroll jump
-    const project = document.getElementById('filter-project').value.trim().toLowerCase();
-    const tag = document.getElementById('filter-tag').value.trim().toLowerCase();
-    const matching = sessions.filter(s => {
-      if (project && !(s.project ?? '').toLowerCase().includes(project)) return false;
-      if (tag && !(s.tags ?? []).some(t => t.toLowerCase().includes(tag))) return false;
-      if (_filterDate && s.date !== _filterDate) return false;
-      return true;
-    });
+    // Server already filtered — append all returned sessions directly
+    const matching = sessions;
 
     const grid = document.getElementById('sessions-grid');
     if (grid && matching.length > 0) {
@@ -895,32 +913,31 @@ function selectFilterOption(type, value) {
 }
 
 function getFilteredSessions() {
-  const project = document.getElementById('filter-project').value.trim().toLowerCase();
-  const tag = document.getElementById('filter-tag').value.trim().toLowerCase();
-  return _allSessions.filter(s => {
-    if (project && !(s.project ?? '').toLowerCase().includes(project)) return false;
-    if (tag && !(s.tags ?? []).some(t => t.toLowerCase().includes(tag))) return false;
-    if (_filterDate && s.date !== _filterDate) return false;
-    return true;
-  });
+  // Safety net for loadMoreSessions append path — server already filtered these sessions
+  return _allSessions;
 }
 
-function applyFilters() {
-  const project = document.getElementById('filter-project').value.trim().toLowerCase();
-  const tag = document.getElementById('filter-tag').value.trim().toLowerCase();
-  const hasFilter = project || tag || _filterDate;
+function applyFilters(immediate = false) {
+  updateDateChip();
+  const project = document.getElementById('filter-project').value.trim();
+  const tag = document.getElementById('filter-tag').value.trim();
+  const hasFilter = _filterDateRange || project || tag;
   document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
 
-  const filteredSessions = getFilteredSessions();
+  const trigger = () => {
+    if (_lastSearchResults !== null) {
+      doSearch();
+    } else {
+      loadSessions();
+    }
+  };
 
-  if (_lastSearchResults !== null) {
-    const filteredIds = new Set(filteredSessions.map(s => s.id));
-    const intersected = _lastSearchResults.filter(r => filteredIds.has(r.session_id));
-    document.getElementById('sessions-count').textContent = `${intersected.length} results`;
-    renderSearchResults(intersected);
+  if (immediate) {
+    clearTimeout(_filterDebounceTimer);
+    trigger();
   } else {
-    document.getElementById('sessions-count').textContent = `${filteredSessions.length} results`;
-    renderSessionsList(filteredSessions);
+    clearTimeout(_filterDebounceTimer);
+    _filterDebounceTimer = setTimeout(trigger, 300);
   }
 }
 
@@ -1251,25 +1268,120 @@ function filterByTag(tag) {
   if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
 }
 
+function updateDateChip() {
+  const btn = document.getElementById('date-btn');
+  if (!btn) return;
+  if (_filterDateRange) {
+    btn.classList.add('active');
+    btn.innerHTML = `${escHtml(_filterDateRange.label)} <span class="date-btn-clear" onclick="clearDateFilter();event.stopPropagation()">×</span>`;
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = 'Date ▾';
+  }
+}
+
+function toggleDatePicker(e) {
+  e.stopPropagation();
+  const dp = document.getElementById('date-picker-dropdown');
+  if (dp.style.display === 'none') {
+    if (_filterDateRange) {
+      document.getElementById('date-from').value = _filterDateRange.from;
+      document.getElementById('date-to').value = _filterDateRange.to;
+    } else {
+      document.getElementById('date-from').value = '';
+      document.getElementById('date-to').value = '';
+    }
+    dp.style.display = '';
+    _datepickerOutsideHandler = ev => {
+      if (!document.getElementById('date-filter-wrap').contains(ev.target)) closeDatePicker();
+    };
+    document.addEventListener('click', _datepickerOutsideHandler);
+  } else {
+    closeDatePicker();
+  }
+}
+
+function closeDatePicker() {
+  const dp = document.getElementById('date-picker-dropdown');
+  if (dp) dp.style.display = 'none';
+  if (_datepickerOutsideHandler) {
+    document.removeEventListener('click', _datepickerOutsideHandler);
+    _datepickerOutsideHandler = null;
+  }
+}
+
+function formatCustomRangeLabel(from, to) {
+  if (from === to) return from;
+  const parseLocal = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const fmtY = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const fd = parseLocal(from), td = parseLocal(to);
+  return fd.getFullYear() !== td.getFullYear() ? `${fmtY(fd)} – ${fmtY(td)}` : `${fmt(fd)} – ${fmt(td)}`;
+}
+
+function applyCustomDateRange() {
+  const from = document.getElementById('date-from').value;
+  const to = document.getElementById('date-to').value;
+  if (!from && !to) { clearDateFilter(); return; }
+  const f = from || to;
+  const t = to || from;
+  _filterDateRange = { from: f, to: t, label: formatCustomRangeLabel(f, t) };
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
+  updateDateChip();
+  closeDatePicker();
+  if (document.getElementById('tab-sessions').classList.contains('active')) {
+    applyFilters(true);
+  } else {
+    showTab('sessions');
+  }
+}
+
 function filterByDate(date) {
-  _filterDate = date;
+  _filterDateRange = { from: date, to: date, label: date };
   if (_heatmapProject) {
     document.getElementById('filter-project').value = _heatmapProject;
   }
-  const chip = document.getElementById('date-chip');
-  chip.style.display = '';
-  chip.innerHTML = `${escHtml(date)} <span class="date-chip-x" onclick="clearDateFilter()">×</span>`;
+  updateDateChip();
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
   if (document.getElementById('tab-sessions').classList.contains('active')) {
-    loadSessions();
+    applyFilters(true);
+  } else {
+    showTab('sessions');
+  }
+}
+
+function setDatePreset(preset) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = fmt(now);
+  let from, to, label;
+  if (preset === 'today') {
+    from = to = today; label = 'Today';
+  } else if (preset === 'week') {
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay());
+    from = fmt(start); to = today; label = 'This week';
+  } else if (preset === 'month') {
+    from = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`; to = today; label = 'This month';
+  } else { return; }
+  _filterDateRange = { from, to, label };
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+  updateDateChip();
+  closeDatePicker();
+  if (document.getElementById('tab-sessions').classList.contains('active')) {
+    applyFilters(true);
   } else {
     showTab('sessions');
   }
 }
 
 function clearDateFilter() {
-  _filterDate = null;
-  document.getElementById('date-chip').style.display = 'none';
-  loadSessions();
+  _filterDateRange = null;
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
+  updateDateChip();
+  closeDatePicker();
+  applyFilters(true);
 }
 
 function clearFilters() {
@@ -1277,10 +1389,16 @@ function clearFilters() {
   document.getElementById('filter-tag').value = '';
   hideFilterDropdown('project');
   hideFilterDropdown('tag');
-  _filterDate = null;
-  document.getElementById('date-chip').style.display = 'none';
+  _filterDateRange = null;
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
+  updateDateChip();
+  closeDatePicker();
   document.getElementById('clear-filters-btn').style.display = 'none';
-  loadSessions();
+  if (_lastSearchResults !== null) {
+    doSearch();
+  } else {
+    loadSessions();
+  }
 }
 
 function enrichBlockHtml(s, compact = false) {

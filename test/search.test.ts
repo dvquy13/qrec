@@ -1,6 +1,7 @@
 // test/search.test.ts
 import { test, expect, describe } from "bun:test";
 import { search, extractHighlightSnippets } from "../src/search.ts";
+import type { SearchFilters } from "../src/search.ts";
 import type { EmbedProvider } from "../src/embed/provider.ts";
 import { createTestDb, cleanupTestDb, insertSession, insertChunkWithVec } from "./helpers.ts";
 
@@ -157,6 +158,94 @@ describe("search", () => {
       expect(r.score).toBeGreaterThan(0);
       expect(r.preview).toBeTruthy();
       expect(r.latency).toBeDefined();
+    } finally {
+      cleanupTestDb(db, path);
+    }
+  });
+});
+
+describe("search filters", () => {
+  test("date range filter: only sessions within range returned", async () => {
+    const { db, path } = createTestDb();
+    try {
+      insertSession(db, { id: "aaaa0001", date: "2024-01-10" });
+      insertChunkWithVec(db, { id: "aaaa0001_0", session_id: "aaaa0001", seq: 0, text: "typescript refactoring" });
+      insertSession(db, { id: "bbbb0002", date: "2024-01-20" });
+      insertChunkWithVec(db, { id: "bbbb0002_0", session_id: "bbbb0002", seq: 0, text: "typescript refactoring" });
+      insertSession(db, { id: "cccc0003", date: "2024-02-01" });
+      insertChunkWithVec(db, { id: "cccc0003_0", session_id: "cccc0003", seq: 0, text: "typescript refactoring" });
+
+      const filters: SearchFilters = { dateFrom: "2024-01-15", dateTo: "2024-01-25" };
+      const results = await search(db, makeStubEmbedder(), "typescript", 10, filters);
+      expect(results.map(r => r.session_id)).toEqual(["bbbb0002"]);
+    } finally {
+      cleanupTestDb(db, path);
+    }
+  });
+
+  test("project substring filter: only matching project returned", async () => {
+    const { db, path } = createTestDb();
+    try {
+      insertSession(db, { id: "aaaa0001", project: "qrec" });
+      insertChunkWithVec(db, { id: "aaaa0001_0", session_id: "aaaa0001", seq: 0, text: "embedding search" });
+      insertSession(db, { id: "bbbb0002", project: "myapp" });
+      insertChunkWithVec(db, { id: "bbbb0002_0", session_id: "bbbb0002", seq: 0, text: "embedding search" });
+
+      const results = await search(db, makeStubEmbedder(), "embedding", 10, { project: "qrec" });
+      expect(results.length).toBe(1);
+      expect(results[0].session_id).toBe("aaaa0001");
+    } finally {
+      cleanupTestDb(db, path);
+    }
+  });
+
+  test("tag filter: only sessions with matching tag returned", async () => {
+    const { db, path } = createTestDb();
+    try {
+      insertSession(db, { id: "aaaa0001", tags: ["typescript", "refactoring"] });
+      insertChunkWithVec(db, { id: "aaaa0001_0", session_id: "aaaa0001", seq: 0, text: "code changes" });
+      insertSession(db, { id: "bbbb0002", tags: ["python", "ml"] });
+      insertChunkWithVec(db, { id: "bbbb0002_0", session_id: "bbbb0002", seq: 0, text: "code changes" });
+      // unenriched session (no tags)
+      insertSession(db, { id: "cccc0003" });
+      insertChunkWithVec(db, { id: "cccc0003_0", session_id: "cccc0003", seq: 0, text: "code changes" });
+
+      const results = await search(db, makeStubEmbedder(), "code", 10, { tag: "typescript" });
+      expect(results.length).toBe(1);
+      expect(results[0].session_id).toBe("aaaa0001");
+    } finally {
+      cleanupTestDb(db, path);
+    }
+  });
+
+  test("combined filters: intersection of date + project", async () => {
+    const { db, path } = createTestDb();
+    try {
+      insertSession(db, { id: "aaaa0001", date: "2024-01-10", project: "qrec" });
+      insertChunkWithVec(db, { id: "aaaa0001_0", session_id: "aaaa0001", seq: 0, text: "search pipeline" });
+      insertSession(db, { id: "bbbb0002", date: "2024-01-10", project: "other" });
+      insertChunkWithVec(db, { id: "bbbb0002_0", session_id: "bbbb0002", seq: 0, text: "search pipeline" });
+      insertSession(db, { id: "cccc0003", date: "2024-02-01", project: "qrec" });
+      insertChunkWithVec(db, { id: "cccc0003_0", session_id: "cccc0003", seq: 0, text: "search pipeline" });
+
+      const results = await search(db, makeStubEmbedder(), "search", 10, {
+        dateFrom: "2024-01-01", dateTo: "2024-01-31", project: "qrec"
+      });
+      expect(results.length).toBe(1);
+      expect(results[0].session_id).toBe("aaaa0001");
+    } finally {
+      cleanupTestDb(db, path);
+    }
+  });
+
+  test("no matches → empty []", async () => {
+    const { db, path } = createTestDb();
+    try {
+      insertSession(db, { id: "aaaa0001", date: "2024-01-10" });
+      insertChunkWithVec(db, { id: "aaaa0001_0", session_id: "aaaa0001", seq: 0, text: "some content" });
+
+      const results = await search(db, makeStubEmbedder(), "some", 10, { dateFrom: "2025-01-01" });
+      expect(results).toEqual([]);
     } finally {
       cleanupTestDb(db, path);
     }
