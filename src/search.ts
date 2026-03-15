@@ -2,7 +2,7 @@
 // search(query, {k}): BM25 → KNN → RRF → top-k results
 
 import { createHash } from "crypto";
-import type { Database } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import type { EmbedProvider } from "./embed/provider.ts";
 
 /** Extract ±`window` char snippets around each <mark> in highlighted HTML, merged and joined with " … ". */
@@ -238,7 +238,7 @@ export async function search(
       const ids = [...sessionIds];
       const placeholders = ids.map(() => "?").join(",");
       const clauses: string[] = [`id IN (${placeholders})`];
-      const params: unknown[] = [...ids];
+      const params: SQLQueryBindings[] = [...ids];
       if (filters.dateFrom) { clauses.push("date >= ?"); params.push(filters.dateFrom); }
       if (filters.dateTo)   { clauses.push("date <= ?"); params.push(filters.dateTo); }
       if (filters.project)  { clauses.push("LOWER(project) LIKE '%' || LOWER(?) || '%'"); params.push(filters.project); }

@@ -2,7 +2,7 @@
 // HTTP route handlers extracted from server.ts.
 // Each handler accepts its dependencies explicitly (db, state, req/url).
 
-import type { Database } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import type { ServerState } from "./lifecycle.ts";
 import { INDEX_INTERVAL_MS } from "./lifecycle.ts";
 import { search } from "./search.ts";
@@ -147,7 +147,7 @@ export function handleSessions(db: Database, url: URL): Response {
   const tag      = url.searchParams.get("tag")     ?? null;
 
   const whereClauses: string[] = [];
-  const whereParams: unknown[] = [];
+  const whereParams: SQLQueryBindings[] = [];
   if (dateFrom) { whereClauses.push("date >= ?"); whereParams.push(dateFrom); }
   if (dateTo)   { whereClauses.push("date <= ?"); whereParams.push(dateTo); }
   if (project)  { whereClauses.push("LOWER(project) LIKE '%' || LOWER(?) || '%'"); whereParams.push(project); }
