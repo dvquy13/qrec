@@ -8,8 +8,8 @@
       "name": "qrec",
       "source": "./plugin",
       "description": "qrec session recall engine",
-      "version": "0.6.0"
+      "version": "0.6.1"
     }
   ],
-  "version": "0.6.0"
+  "version": "0.6.1"
 }

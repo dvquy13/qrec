@@ -1,3 +1,9 @@
+## [0.6.1](https://github.com/dvquy13/qrec/compare/v0.6.0...v0.6.1) (2026-03-15)
+
+
+### Bug Fixes
+
+* type dynamic SQL params arrays as SQLQueryBindings[] ([5c89beb](https://github.com/dvquy13/qrec/commit/5c89beb1b604e03834f42a2fb19a6be33d3bb9e2))
 # [0.6.0](https://github.com/dvquy13/qrec/compare/v0.5.1...v0.6.0) (2026-03-15)
 
 
