@@ -1,3 +1,14 @@
+# [0.6.0](https://github.com/dvquy13/qrec/compare/v0.5.1...v0.6.0) (2026-03-15)
+
+
+### Bug Fixes
+
+* prevent tests from polluting production archive and activity log ([83c4ee4](https://github.com/dvquy13/qrec/commit/83c4ee4c99aa20eec2f990d2c10b0419648b241d))
+
+
+### Features
+
+* server-side search filters + flexible date range picker ([b5338c9](https://github.com/dvquy13/qrec/commit/b5338c95fad01ea16cb041b4245f134de3438fe3)), closes [#date-btn](https://github.com/dvquy13/qrec/issues/date-btn)
 ## [0.5.1](https://github.com/dvquy13/qrec/compare/v0.5.0...v0.5.1) (2026-03-15)
 
 
