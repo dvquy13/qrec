@@ -118,7 +118,7 @@ Test cases:
 
 ---
 
-## Phase 4: server.ts Route Extraction
+## Phase 4: server.ts Route Extraction ✅ DONE (2026-03-15)
 
 ### 4a. Create `src/routes.ts`
 Extract each route handler as a standalone function:
