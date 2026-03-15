@@ -56,7 +56,7 @@ export function handleStatus(db: Database): Response {
     pendingCount,
     enrichEnabled: readConfig().enrichEnabled,
     enrichProgress: (() => {
-      try { return JSON.parse(readFileSync(ENRICH_PROGRESS_FILE, "utf-8")); } catch { return null; }
+      try { return JSON.parse(readFileSync(ENRICH_PROGRESS_FILE, "utf-8")); } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") console.warn("[server] Failed to read enrich progress:", e); return null; }
     })(),
   });
 }
@@ -93,7 +93,7 @@ export async function handleSearch(db: Database, state: ServerState, req: Reques
   try {
     const results = await search(db, state.embedder, query, k);
     const durationMs = performance.now() - t0;
-    try { logQuery(db, query, k, results, durationMs); } catch {}
+    try { logQuery(db, query, k, results, durationMs); } catch (e) { console.warn("[server] Failed to write audit query:", e); }
     const latencyMs = results[0]?.latency.totalMs ?? 0;
     return Response.json({ results, latencyMs });
   } catch (err) {

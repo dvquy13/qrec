@@ -102,7 +102,8 @@ async function buildJsonlCandidate(
       last_message_at: session.last_message_at,
       chunkText,
     };
-  } catch {
+  } catch (e) {
+    console.warn("[indexer] Failed to parse JSONL:", filePath, e);
     return null;
   }
 }

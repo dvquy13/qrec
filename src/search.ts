@@ -166,8 +166,8 @@ export async function search(
         )
         .all(ftsQuery, k * 5) as BM25Row[];
     }
-  } catch {
-    // FTS5 query may fail — fallback to empty
+  } catch (e) {
+    console.warn("[search] FTS5 query failed, falling back to KNN only:", e);
     bm25Rows = [];
     ftsQuery = "";
   }
@@ -284,8 +284,8 @@ export async function search(
             )
             .get(ftsQuery, rowid) as { hl: string } | undefined;
           if (row?.hl) highlightMap.set(bestChunkId, row.hl);
-        } catch {
-          // ignore — highlight is best-effort
+        } catch (e) {
+          console.warn("[search] Highlight extraction failed:", e);
         }
       }
     }
