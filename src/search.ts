@@ -6,7 +6,7 @@ import type { Database } from "bun:sqlite";
 import type { EmbedProvider } from "./embed/provider.ts";
 
 /** Extract ±`window` char snippets around each <mark> in highlighted HTML, merged and joined with " … ". */
-function extractHighlightSnippets(html: string, window = 150): string {
+export function extractHighlightSnippets(html: string, window = 150): string {
   // Find all <mark>…</mark> positions in the plain text (strip tags to get offsets)
   // We work on the raw HTML string to preserve mark tags, but measure offsets in display text.
   // Strategy: scan the HTML for <mark> positions, extract surrounding raw HTML slices.
@@ -189,68 +189,42 @@ export async function search(
   // === RRF Fusion ===
   const fusionStart = performance.now();
 
-  // Build rank maps
-  const bm25Ranks = new Map<string, number>(); // chunk_id -> rank (1-based)
-  for (let i = 0; i < bm25Rows.length; i++) {
-    // BM25 returns rowid — need to get chunk id
-    // chunks_fts is a content table — rowid maps to chunks.rowid
-    const row = bm25Rows[i];
-    // We'll use rowid to join later
-    bm25Ranks.set(String(row.rowid), i + 1);
-  }
+  // Single rank map: chunk_id → { bm25Rank?, vecRank?, rowid? }
+  // rowid retained for FTS5 highlight() lookup after fusion.
+  interface RankEntry { bm25Rank?: number; vecRank?: number; rowid?: number; }
+  const rankMap = new Map<string, RankEntry>();
 
-  const vecRanks = new Map<string, number>(); // chunk_id -> rank (1-based)
-  for (let i = 0; i < vecRows.length; i++) {
-    vecRanks.set(vecRows[i].chunk_id, i + 1);
-  }
-
-  // Get chunk_id for BM25 rowids
-  const allRowids = bm25Rows.map(r => r.rowid);
-  const rowidToChunkId = new Map<number, string>();
-  const chunkIdToRowid = new Map<string, number>(); // reverse map for highlight lookup
-  if (allRowids.length > 0) {
+  // Resolve BM25 rowids → chunk_ids immediately (one DB round-trip)
+  if (bm25Rows.length > 0) {
+    const allRowids = bm25Rows.map(r => r.rowid);
     const placeholders = allRowids.map(() => "?").join(",");
     const chunkRows = db
       .prepare(`SELECT rowid, id FROM chunks WHERE rowid IN (${placeholders})`)
       .all(...allRowids) as Array<{ rowid: number; id: string }>;
-    for (const row of chunkRows) {
-      rowidToChunkId.set(row.rowid, row.id);
-      chunkIdToRowid.set(row.id, row.rowid);
+    const rowidToChunkId = new Map(chunkRows.map(r => [r.rowid, r.id]));
+    for (let i = 0; i < bm25Rows.length; i++) {
+      const chunkId = rowidToChunkId.get(bm25Rows[i].rowid);
+      if (chunkId) rankMap.set(chunkId, { bm25Rank: i + 1, rowid: bm25Rows[i].rowid });
     }
   }
 
-  // Collect all chunk IDs from both lists
-  const allChunkIds = new Set<string>();
-  for (const row of bm25Rows) {
-    const chunkId = rowidToChunkId.get(row.rowid);
-    if (chunkId) allChunkIds.add(chunkId);
-  }
-  for (const row of vecRows) {
-    allChunkIds.add(row.chunk_id);
+  // Populate KNN ranks directly by chunk_id
+  for (let i = 0; i < vecRows.length; i++) {
+    const chunkId = vecRows[i].chunk_id;
+    const entry = rankMap.get(chunkId);
+    if (entry) {
+      entry.vecRank = i + 1;
+    } else {
+      rankMap.set(chunkId, { vecRank: i + 1 });
+    }
   }
 
-  // Compute RRF scores per chunk
+  // Single-pass RRF: score = Σ 1/(K + rank) for each signal present
   const chunkScores = new Map<string, number>();
-  for (const chunkId of allChunkIds) {
-    let score = 0;
-
-    // Find BM25 rank by chunk_id
-    // We need to reverse-map: chunkId -> rowid -> rank
-    for (const [rowid, cid] of rowidToChunkId) {
-      if (cid === chunkId) {
-        const rank = bm25Ranks.get(String(rowid));
-        if (rank !== undefined) {
-          score += 1 / (RRF_K + rank);
-        }
-        break;
-      }
-    }
-
-    const vecRank = vecRanks.get(chunkId);
-    if (vecRank !== undefined) {
-      score += 1 / (RRF_K + vecRank);
-    }
-
+  for (const [chunkId, entry] of rankMap) {
+    const score =
+      (entry.bm25Rank !== undefined ? 1 / (RRF_K + entry.bm25Rank) : 0) +
+      (entry.vecRank !== undefined ? 1 / (RRF_K + entry.vecRank) : 0);
     chunkScores.set(chunkId, score);
   }
 
@@ -301,7 +275,7 @@ export async function search(
   const highlightMap = new Map<string, string>(); // chunkId → highlighted text
   if (ftsQuery.length > 0) {
     for (const [, { bestChunkId }] of sortedSessions) {
-      const rowid = chunkIdToRowid.get(bestChunkId);
+      const rowid = rankMap.get(bestChunkId)?.rowid;
       if (rowid !== undefined) {
         try {
           const row = db

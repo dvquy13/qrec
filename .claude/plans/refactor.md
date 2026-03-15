@@ -44,7 +44,7 @@ Test `parseSession()`, `extractChunkText()`, `renderMarkdown()`:
 
 ---
 
-## Phase 2: Search Tests + RRF Refactor
+## Phase 2: Search Tests + RRF Refactor ✅ DONE (2026-03-15)
 
 ### 2a. `test/search.test.ts`
 Requires temp DB with pre-populated sessions/chunks/embeddings + stub embedder.
