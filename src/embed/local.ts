@@ -8,6 +8,7 @@ import { existsSync, mkdirSync } from "fs";
 import { MODEL_CACHE_DIR } from "../dirs.ts";
 import type { EmbedProvider } from "./provider.ts";
 import { serverProgress } from "../progress.ts";
+import { appendActivity } from "../activity.ts";
 
 // Full HF URI — format: hf:<user>/<repo>/<file> (matches qmd convention)
 const MODEL_URI = "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
@@ -20,8 +21,10 @@ let embeddingContext: LlamaEmbeddingContext | null = null;
 let initPromise: Promise<LlamaEmbeddingContext> | null = null;
 
 async function findOrDownloadModel(): Promise<string> {
-  // Check legacy location (models downloaded by old qrec/qmd versions)
-  if (existsSync(LEGACY_MODEL_PATH)) {
+  // Check legacy location (models downloaded by old qrec/qmd versions).
+  // Skip when QREC_DIR is overridden — isolated test envs should not inherit the
+  // host's model cache; doing so bypasses the download flow under --fresh-models.
+  if (!process.env.QREC_DIR && existsSync(LEGACY_MODEL_PATH)) {
     console.log(`[embed] Found model at legacy path: ${LEGACY_MODEL_PATH}`);
     return LEGACY_MODEL_PATH;
   }
@@ -46,6 +49,10 @@ async function findOrDownloadModel(): Promise<string> {
   });
 
   console.log(`[embed] Model ready at ${modelPath}`);
+  // Emit a permanent activity event only when a download actually occurred (totalMB is set).
+  if (serverProgress.modelDownload.totalMB !== null) {
+    appendActivity({ type: "embed_model_downloaded", data: { totalMB: serverProgress.modelDownload.totalMB } });
+  }
   return modelPath;
 }
 

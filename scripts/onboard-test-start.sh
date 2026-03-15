@@ -1,10 +1,18 @@
 #!/bin/bash
 # Start an isolated onboarding test environment.
 # Uses QREC_DIR to point qrec at a fresh temp dir — the real ~/.qrec is never touched.
-# Models are symlinked from ~/.qrec/models/ to avoid re-downloading.
+# By default, models are symlinked from ~/.qrec/models/ to avoid re-downloading.
+# Pass --fresh-models to skip the symlink and observe the full download flow in the UI.
 #
 # Stop with: bash scripts/onboard-test-stop.sh
 set -euo pipefail
+
+FRESH_MODELS=false
+for arg in "$@"; do
+  case "$arg" in
+    --fresh-models) FRESH_MODELS=true ;;
+  esac
+done
 
 STATE_FILE="$HOME/.qrec/.onboard-test-state"
 
@@ -16,9 +24,11 @@ fi
 # Isolated data dir (fresh DB, logs, config — real ~/.qrec never touched)
 TEST_DIR=$(mktemp -d)
 
-# Symlink models so we don't re-download 300MB
+# Symlink models so we don't re-download 300MB (skip with --fresh-models)
 REAL_MODELS="$HOME/.qrec/models"
-if [ -d "$REAL_MODELS" ]; then
+if [ "$FRESH_MODELS" = true ]; then
+  echo "  --fresh-models: skipping model symlink — daemon will download on first run"
+elif [ -d "$REAL_MODELS" ]; then
   ln -s "$REAL_MODELS" "$TEST_DIR/models"
   echo "✓ Models symlinked from $REAL_MODELS"
 else
@@ -41,9 +51,14 @@ echo "✓ Copied $COUNT sessions → $SESSIONS_DIR"
 # Persist state for restore script
 printf "%s\n%s\n" "$TEST_DIR" "$SESSIONS_DIR" > "$STATE_FILE"
 
+# Use the local worktree source directly so the test always runs the code under development,
+# regardless of what the global `qrec` symlink points to (npm release vs. another worktree).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+QREC_BIN="bun run $SCRIPT_DIR/../src/cli.ts"
+
 # Start daemon in the isolated env (port 25928 to avoid conflicting with real daemon on 25927)
 echo "→ Starting daemon (QREC_DIR=$TEST_DIR, QREC_PROJECTS_DIR=$SESSIONS_DIR, port 25928)..."
-QREC_DIR="$TEST_DIR" QREC_PROJECTS_DIR="$SESSIONS_DIR" QREC_PORT=25928 qrec serve --daemon --no-open
+QREC_DIR="$TEST_DIR" QREC_PROJECTS_DIR="$SESSIONS_DIR" QREC_PORT=25928 $QREC_BIN serve --daemon --no-open
 
 echo ""
 echo "✓ Onboarding test env ready — visit http://localhost:25928"

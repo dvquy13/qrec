@@ -3,7 +3,7 @@
 // Also exports PID helpers so server.ts can check enrichment state without loading a model.
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
-import { QREC_DIR, MODEL_CACHE_DIR, ENRICH_PID_FILE } from "./dirs.ts";
+import { QREC_DIR, MODEL_CACHE_DIR, ENRICH_PID_FILE, ENRICH_PROGRESS_FILE } from "./dirs.ts";
 import type { Database } from "bun:sqlite";
 import { openDb } from "./db.ts";
 import type { SummarizerCtx } from "./summarize.ts";
@@ -62,14 +62,11 @@ export async function loadSummarizer(): Promise<SummarizerCtx> {
       progressCalled = true;
       const pct = totalSize ? Math.round((downloadedSize / totalSize) * 100) : 0;
       process.stdout.write(`\r[enrich] Downloading model... ${pct}%`);
-      if (Math.abs(pct - lastReportedPct) >= 5 || pct === 100) {
+      if (Math.abs(pct - lastReportedPct) >= 5 && pct !== lastReportedPct) {
         lastReportedPct = pct;
         const totalMB = totalSize ? Math.round(totalSize / 1024 / 1024) : null;
         const downloadedMB = Math.round(downloadedSize / 1024 / 1024);
-        appendActivity({
-          type: "enrich_model_downloading",
-          data: { percent: pct, downloadedMB, totalMB },
-        });
+        try { writeFileSync(ENRICH_PROGRESS_FILE, JSON.stringify({ percent: pct, downloadedMB, totalMB }), "utf-8"); } catch {}
       }
     },
   });
@@ -81,6 +78,14 @@ export async function loadSummarizer(): Promise<SummarizerCtx> {
   // sequences: 1 — we process sessions sequentially (dispose sequence before getting next)
   const ctx = await model.createContext({ contextSize: 8192, sequences: 1 });
   console.log("[enrich] Model loaded.");
+  // Capture final size before deleting progress file, then emit a permanent activity event.
+  let downloadedTotalMB: number | null = null;
+  try {
+    const prog = JSON.parse(readFileSync(ENRICH_PROGRESS_FILE, "utf-8"));
+    downloadedTotalMB = prog.totalMB ?? prog.downloadedMB ?? null;
+  } catch {}
+  try { unlinkSync(ENRICH_PROGRESS_FILE); } catch {}
+  appendActivity({ type: "enrich_model_downloaded", data: { totalMB: downloadedTotalMB } });
   appendActivity({ type: "enrich_model_loaded" });
   return { llama, model, ctx };
 }

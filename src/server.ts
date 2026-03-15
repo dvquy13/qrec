@@ -14,7 +14,7 @@ import { appendActivity, getRecentActivity } from "./activity.ts";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
-import { LOG_FILE, MODEL_CACHE_DIR, QREC_PORT } from "./dirs.ts";
+import { LOG_FILE, MODEL_CACHE_DIR, QREC_PORT, ENRICH_PROGRESS_FILE } from "./dirs.ts";
 import { isEnrichAlive, readEnrichPid, isProcessAlive, ENRICHMENT_VERSION } from "./enrich.ts";
 import { readConfig, writeConfig } from "./config.ts";
 
@@ -72,7 +72,10 @@ async function serveStaticFile(pathname: string): Promise<Response> {
     ext === "woff"  ? "font/woff" :
     ext === "ttf"   ? "font/ttf" :
     "application/octet-stream";
-  return new Response(file, { headers: { "Content-Type": contentType } });
+  return new Response(file, { headers: {
+    "Content-Type": contentType,
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+  } });
 }
 
 async function main() {
@@ -124,6 +127,9 @@ async function main() {
           enrichedCount,
           pendingCount,
           enrichEnabled: readConfig().enrichEnabled,
+          enrichProgress: (() => {
+            try { return existsSync(ENRICH_PROGRESS_FILE) ? JSON.parse(readFileSync(ENRICH_PROGRESS_FILE, "utf-8")) : null; } catch { return null; }
+          })(),
         });
       }
 

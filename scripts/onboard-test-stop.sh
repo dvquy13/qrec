@@ -15,8 +15,11 @@ fi
 TEST_DIR=$(sed -n '1p' "$STATE_FILE")
 SESSIONS_DIR=$(sed -n '2p' "$STATE_FILE")
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+QREC_BIN="bun run $SCRIPT_DIR/../src/cli.ts"
+
 echo "→ Stopping test daemon..."
-QREC_DIR="$TEST_DIR" QREC_PORT=25928 qrec stop 2>/dev/null || true
+QREC_DIR="$TEST_DIR" QREC_PORT=25928 $QREC_BIN stop 2>/dev/null || true
 sleep 0.5
 
 # Remove isolated env (nothing in ~/.qrec was touched)

@@ -168,40 +168,67 @@ function buildRunProgressHtml(progress) {
   </div>`;
 }
 
-function buildEnrichModelSyntheticGroup(actEntries) {
-  const entry = (actEntries || []).find(e => e.type === 'enrich_model_downloading');
-  if (!entry) return null;
-  if (Date.now() - entry.ts > 30000) return null;
-  const pct = entry.data?.percent ?? 0;
-  const label = entry.data?.totalMB
-    ? `${entry.data.downloadedMB} / ${entry.data.totalMB} MB`
-    : `${entry.data?.downloadedMB ?? 0} MB downloaded`;
+function buildEnrichModelSyntheticGroup(data, actEntries) {
+  // Phase 1 — downloading: progress comes from data.enrichProgress (written by enrich child,
+  // read by server.ts) rather than activity events, so the log isn't flooded with %-events.
+  if (data.enrichProgress) {
+    const { percent, downloadedMB, totalMB } = data.enrichProgress;
+    const label = totalMB
+      ? `${downloadedMB} / ${totalMB} MB`
+      : `${downloadedMB} MB downloaded`;
+    return {
+      type: 'enrich_model_download', events: [], running: true, ts: Date.now(),
+      syntheticLabel: 'Downloading enrichment model',
+      syntheticProgress: { percent, label },
+    };
+  }
+
+  // Phase 2 — model downloaded: show a permanent completed entry using the
+  // enrich_model_downloaded activity event (written once, persists after enrich finishes).
+  const entries = actEntries || [];
+  const downloadedEntry = entries.find(e => e.type === 'enrich_model_downloaded');
+  if (!downloadedEntry) return null;
+  const totalMB = downloadedEntry.data?.totalMB ?? null;
+  const label = totalMB ? `${totalMB} MB` : null;
   return {
-    type: 'enrich_model_download', events: [], running: true, ts: entry.ts,
-    syntheticLabel: 'Downloading summarization model',
-    syntheticProgress: { percent: pct, label },
+    type: 'enrich_model_download', events: [], running: false, ts: downloadedEntry.ts,
+    syntheticLabel: 'Enrichment model downloaded',
+    syntheticProgress: { percent: 100, label },
   };
 }
 
-function buildModelSyntheticGroup(data) {
+function buildModelSyntheticGroup(data, actEntries) {
   const phase = data.phase ?? 'ready';
-  if (phase !== 'model_download' && phase !== 'model_loading' && phase !== 'starting') return null;
-  const dl = data.modelDownload ?? {};
-  if (phase === 'model_download') {
-    const pct = dl.percent ?? 0;
-    const label = dl.totalMB
-      ? `${dl.downloadedMB} / ${dl.totalMB} MB`
-      : `${dl.downloadedMB ?? 0} MB downloaded`;
+  // Phase 1 — active download or loading: show live progress.
+  if (phase === 'model_download' || phase === 'model_loading' || phase === 'starting') {
+    const dl = data.modelDownload ?? {};
+    if (phase === 'model_download') {
+      const pct = dl.percent ?? 0;
+      const label = dl.totalMB
+        ? `${dl.downloadedMB} / ${dl.totalMB} MB`
+        : `${dl.downloadedMB ?? 0} MB downloaded`;
+      return {
+        type: 'model_download', events: [], running: true, ts: Date.now(),
+        syntheticLabel: 'Downloading embedding model',
+        syntheticProgress: { percent: pct, label },
+      };
+    }
     return {
-      type: 'model_download', events: [], running: true, ts: Date.now(),
-      syntheticLabel: 'Downloading embedding model',
-      syntheticProgress: { percent: pct, label },
+      type: 'model_loading', events: [], running: true, ts: Date.now(),
+      syntheticLabel: 'Loading embedding model',
+      syntheticProgress: { percent: null, label: 'Loading…' },
     };
   }
+  // Phase 2 — download complete: show permanent entry from activity log.
+  const entries = actEntries || [];
+  const downloadedEntry = entries.find(e => e.type === 'embed_model_downloaded');
+  if (!downloadedEntry) return null;
+  const totalMB = downloadedEntry.data?.totalMB ?? null;
+  const label = totalMB ? `${totalMB} MB` : null;
   return {
-    type: 'model_loading', events: [], running: true, ts: Date.now(),
-    syntheticLabel: 'Loading embedding model',
-    syntheticProgress: { percent: null, label: 'Loading…' },
+    type: 'model_download', events: [], running: false, ts: downloadedEntry.ts,
+    syntheticLabel: 'Embedding model downloaded',
+    syntheticProgress: { percent: 100, label },
   };
 }
 
@@ -231,15 +258,31 @@ function showDashboardPanel(data, actEntries) {
       if (aiSubEl) aiSubEl.textContent = `${pct}% enriched`;
     } else {
       aiEl.textContent = enrichDone.toLocaleString();
-      if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} ongoing sessions` : 'enriched';
+      if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
     }
   }
 
   // Activity runs
-  const modelGroup = buildModelSyntheticGroup(data);
-  const enrichModelGroup = buildEnrichModelSyntheticGroup(actEntries);
+  const modelGroup = buildModelSyntheticGroup(data, actEntries);
+  const enrichModelGroup = buildEnrichModelSyntheticGroup(data, actEntries);
   _currentSyntheticGroup = [modelGroup, enrichModelGroup].filter(Boolean);
   _allRunGroups = groupActivityEvents(actEntries || []);
+  // If enrich process is known dead, close any open enrich run after a short grace period
+  // (instead of waiting the 10-min stale threshold) so the spinner resolves promptly.
+  if (!data.enriching) {
+    const GRACE_MS = 30 * 1000;
+    for (const g of _allRunGroups) {
+      if (g.running && g.type === 'enrich' && (Date.now() - g.ts) > GRACE_MS) g.running = false;
+    }
+  }
+  // While downloading (enrichModelGroup is the live download entry), suppress any "Enriching... 0/N"
+  // real group — it adds no info since no sessions have been enriched yet.
+  if (data.enrichProgress) {
+    _allRunGroups = _allRunGroups.filter(g =>
+      g.type !== 'enrich' || !g.running ||
+      g.events.some(e => e.type === 'session_enriched')
+    );
+  }
   renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
 
   if (data.sessions !== _lastRenderedSessionCount) loadRecentSessions(data.sessions);
@@ -301,31 +344,45 @@ function groupActivityEvents(events) {
   // events are newest-first; reverse to process chronologically
   const chron = [...events].reverse();
   const groups = [];
-  let current = null;
+  // Index and enrich run concurrently (different processes) so their events interleave.
+  // Track separate cursors per type so an index_started mid-enrich doesn't close the enrich group.
+  let curIndex = null;
+  let curEnrich = null;
 
   for (const e of chron) {
     if (e.type === 'daemon_started') {
-      if (current) { groups.push(current); current = null; }
+      if (curIndex) { groups.push(curIndex); curIndex = null; }
+      if (curEnrich) { groups.push(curEnrich); curEnrich = null; }
       groups.push({ type: 'daemon', events: [e], running: false, ts: e.ts });
     } else if (e.type === 'index_started') {
-      if (current) { groups.push(current); }
-      current = { type: 'index', events: [e], running: true, ts: e.ts };
+      if (curIndex) { groups.push(curIndex); }
+      curIndex = { type: 'index', events: [e], running: true, ts: e.ts };
     } else if (e.type === 'enrich_started') {
-      if (current) { groups.push(current); }
-      current = { type: 'enrich', events: [e], running: true, ts: e.ts };
-    } else if (e.type === 'index_complete' || e.type === 'enrich_complete') {
-      if (current) {
-        current.events.push(e);
-        current.running = false;
-        groups.push(current);
-        current = null;
+      if (curEnrich) { groups.push(curEnrich); }
+      curEnrich = { type: 'enrich', events: [e], running: true, ts: e.ts };
+    } else if (e.type === 'index_complete') {
+      if (curIndex) {
+        curIndex.events.push(e);
+        curIndex.running = false;
+        groups.push(curIndex);
+        curIndex = null;
       }
-    } else if (e.type === 'session_indexed' || e.type === 'session_enriched') {
-      if (current) current.events.push(e);
+    } else if (e.type === 'enrich_complete') {
+      if (curEnrich) {
+        curEnrich.events.push(e);
+        curEnrich.running = false;
+        groups.push(curEnrich);
+        curEnrich = null;
+      }
+    } else if (e.type === 'session_indexed') {
+      if (curIndex) curIndex.events.push(e);
+    } else if (e.type === 'session_enriched') {
+      if (curEnrich) curEnrich.events.push(e);
     }
   }
 
-  if (current) groups.push(current); // ongoing run
+  if (curIndex) groups.push(curIndex);   // ongoing index run
+  if (curEnrich) groups.push(curEnrich); // ongoing enrich run
 
   // Mark stale: if a run is still "running" after 10 minutes, the process crashed without
   // writing a completion event. Treat it as done so the spinner/live-dot don't flash forever.
@@ -414,7 +471,7 @@ function renderRunGroup(group) {
 
   const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
   const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;
-  const progressHtml = group.syntheticProgress ? buildRunProgressHtml(group.syntheticProgress) : '';
+  const progressHtml = group.syntheticProgress && group.running ? buildRunProgressHtml(group.syntheticProgress) : '';
 
   if (subEvents.length === 0) {
     return `<div class="run-group no-expand"><div class="run-header">
@@ -451,7 +508,8 @@ function renderActivityRuns(groups, syntheticGroups = []) {
   if (!runList) return;
 
   const syntheticArr = Array.isArray(syntheticGroups) ? syntheticGroups : (syntheticGroups ? [syntheticGroups] : []);
-  const displayGroups = syntheticArr.length > 0 ? [...syntheticArr, ...groups] : groups;
+  // Merge synthetic and real groups by timestamp (newest first) so ordering is chronological.
+  const displayGroups = [...syntheticArr, ...groups].sort((a, b) => b.ts - a.ts);
 
   // Preserve open state across re-renders
   const openTs = new Set();
@@ -490,7 +548,7 @@ function renderActivityRuns(groups, syntheticGroups = []) {
 }
 
 function showMoreRuns() {
-  _visibleRunCount = _allRunGroups.length;
+  _visibleRunCount = Infinity;
   renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
 }
 

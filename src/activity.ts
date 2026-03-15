@@ -13,8 +13,9 @@ export type ActivityType =
   | "enrich_started"
   | "session_enriched"
   | "enrich_complete"
-  | "enrich_model_downloading"
-  | "enrich_model_loaded";
+  | "enrich_model_loaded"
+  | "enrich_model_downloaded"
+  | "embed_model_downloaded";
 
 export interface ActivityEvent {
   ts: number;
