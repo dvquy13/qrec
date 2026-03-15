@@ -466,7 +466,10 @@ async function main() {
     serverProgress.indexing = { indexed: 0, total: 0, current: "" };
 
     let newSessions = 0;
-    let prevIndexed = 0;
+    // prevIndexed is -1 so the first session (i=0) passes the `indexed > prevIndexed` check.
+    // Reset to -1 again before the archive scan so the archive's 0-based counter isn't
+    // compared against the end-value from the projects scan.
+    let prevIndexed = -1;
     // Cron runs buffer session IDs; flushed to activity only if newSessions > 0.
     const bufferedSessions: string[] = [];
 
@@ -488,6 +491,7 @@ async function main() {
       // ~/.claude/projects/ are recovered. Runs inside the isIndexing guard so cron
       // can't start a concurrent run. Live sessions already indexed above win on conflict.
       if (isInitialRun && existsSync(ARCHIVE_DIR)) {
+        prevIndexed = -1; // reset: archive's onProgress restarts at i=0
         await indexVault(db, ARCHIVE_DIR, {}, (indexed, total, current) => {
           serverProgress.indexing = { indexed, total, current };
           if (current && indexed > prevIndexed) {
