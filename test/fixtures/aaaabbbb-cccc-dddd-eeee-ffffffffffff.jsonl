@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2025-01-15T11:00:00.000Z","cwd":"/tmp/testproject","message":{"role":"user","content":"Implement a sorting algorithm"}}
+{"type":"assistant","timestamp":"2025-01-15T11:00:10.000Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Let me think about the best sorting approach..."},{"type":"text","text":"I will implement a quicksort algorithm."},{"type":"tool_use","id":"tool1","name":"Bash","input":{"command":"ls /foo"}}]}}
+{"type":"user","timestamp":"2025-01-15T11:20:10.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tool1","content":"file1\nfile2"}]}}
+{"type":"assistant","timestamp":"2025-01-15T11:20:40.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Done! Here is the complete implementation."}]}}

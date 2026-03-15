@@ -23,7 +23,8 @@
     "build": "node scripts/build.js",
     "release": "bash scripts/release.sh",
     "smoke-test": "bash scripts/smoke-test.sh",
-    "check-package": "bash scripts/check-package.sh"
+    "check-package": "bash scripts/check-package.sh",
+    "test": "QREC_EMBED_PROVIDER=stub bun test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
