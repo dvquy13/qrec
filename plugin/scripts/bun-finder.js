@@ -22,4 +22,16 @@ function findBun() {
   return null;
 }
 
-module.exports = { findBun };
+function installBun() {
+  process.stderr.write("[qrec] bun not found — installing bun (https://bun.sh)...\n");
+  const result = spawnSync(
+    "sh",
+    ["-c", "curl -fsSL https://bun.sh/install | bash"],
+    { stdio: "inherit", timeout: 120_000 }
+  );
+  if (result.status !== 0) return false;
+  process.stderr.write("[qrec] bun installed.\n");
+  return true;
+}
+
+module.exports = { findBun, installBun };

@@ -5,12 +5,16 @@
 
 const { spawnSync, spawn } = require("child_process");
 const path = require("path");
-const { findBun } = require("./bun-finder.js");
+const { findBun, installBun } = require("./bun-finder.js");
 
-const bunPath = findBun();
+let bunPath = findBun();
 if (!bunPath) {
-  process.stderr.write("[qrec] ERROR: bun not found. Install from https://bun.sh\n");
-  process.exit(1);
+  const ok = installBun();
+  bunPath = ok ? findBun() : null;
+  if (!bunPath) {
+    process.stderr.write("[qrec] ERROR: bun install failed. Install manually from https://bun.sh\n");
+    process.exit(1);
+  }
 }
 
 const qrecCjs = path.join(__dirname, "qrec.cjs");
