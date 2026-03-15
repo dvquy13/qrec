@@ -25,7 +25,9 @@ src/
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts thinking blocks (Turn.thinking: string[]), extracts chunk text
   indexer.ts      # Scan ~/.claude/projects/ (*.jsonl) or legacy *.md → chunk → embed → store; mtime pre-filter skips unchanged files; copies every JSONL to ~/.qrec/archive/<project>/ (archiveJsonl) — durable copy for sessions whose source files were deleted by Claude Code cleanup
   search.ts       # BM25 → KNN → RRF fusion → top-k session results
-  server.ts       # HTTP server (port 25927): /search /query_db /health /status /sessions /sessions/:id /settings /audit/entries /activity/entries /debug/*; serves SPA (ui/index.html) at /; two independent 1-min crons: incremental index (QREC_INDEX_INTERVAL_MS) + enrich spawn; enrich also fires once immediately after startup index; age gate: last_message_at < now - QREC_ENRICH_IDLE_MS (default 300s)
+  routes.ts       # Route handlers as standalone functions (handleSearch, handleSessions, handleSessionDetail, handleQueryDb, etc.); each accepts (db, state, req) explicitly — no module-level state
+  lifecycle.ts    # Daemon lifecycle: runIncrementalIndex(), spawnEnrichIfNeeded(), loadEmbedderWithRetry() — extracted from server.ts; accept deps explicitly
+  server.ts       # Thin router (~139 lines): main() opens DB → Bun.serve() dispatches to routes.ts → calls lifecycle.ts; holds ServerState { embedder, embedderError, isIndexing }; signal handlers
   progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
   activity.ts     # Append-only event log (~/.qrec/activity.jsonl); events: daemon_started|index_started|session_indexed|index_complete|enrich_started|session_enriched|enrich_complete
   mcp.ts          # MCP server (stdio + HTTP on 3031): proxies search/get/status/query_db to daemon at localhost:25927; no model/DB loaded
@@ -41,6 +43,13 @@ src/
     ollama.ts     # Ollama HTTP backend
     openai.ts     # OpenAI-compatible backend
     stub.ts       # Fixed 768-dim unit vector — no model, no network (CI/testing)
+test/
+  helpers.ts      # createTestDb()/cleanupTestDb() — temp-file DB with migrations; insertSession()/insertChunkWithVec() for search test setup
+  fixtures/       # Minimal JSONL files for parser/indexer tests (minimal, with-thinking, single-turn)
+  chunk.test.ts   # chunkMarkdown() unit tests
+  parser.test.ts  # parseSession(), extractChunkText(), renderMarkdown() unit tests
+  search.test.ts  # BM25/KNN/RRF integration tests with stub embedder
+  indexer.test.ts # indexVault() integration tests (skip/force/archive/enrichment preservation)
 eval/
   pipeline.py     # Orchestrator: query gen → index → serve → eval → report
   qrec_eval.py    # qrec HTTP eval loop: index + daemon + metrics + error analysis
@@ -103,6 +112,9 @@ POST /search {query, k}
 ## Commands
 
 ```bash
+# Tests
+QREC_EMBED_PROVIDER=stub bun test          # run all tests (stub required — skips model load)
+
 # Local dev install (one-time)
 bun link                                    # registers qrec globally → ~/.bun/bin/qrec
 
