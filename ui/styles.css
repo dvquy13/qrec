@@ -218,8 +218,10 @@ main {
 .run-label { font-size: 13px; font-weight: 500; color: var(--text); }
 .run-detail { font-size: 12px; color: var(--text-muted); }
 .run-ts { font-size: 11px; color: var(--text-muted); white-space: nowrap; width: 60px; flex-shrink: 0; text-align: center; }
-.run-events { background: var(--bg); padding: 4px 0; }\n.run-model-info { padding: 4px 0 4px 40px; font-size: 11px; font-family: var(--mono); color: var(--text-muted); }
-.run-event { display: flex; align-items: center; gap: 12px; padding: 5px 0 5px 40px; font-size: 12px; }
+.run-events { background: var(--bg); padding: 4px 0; }
+.run-model-info { display: flex; align-items: center; gap: 12px; padding: 3px 0 3px 94px; font-size: 11px; }
+.run-model-name { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+.run-event { display: flex; align-items: center; gap: 12px; padding: 5px 0 5px 94px; font-size: 12px; }
 .run-event:hover { background: transparent; }
 .run-event-ts { font-family: var(--mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .run-event-id { font-family: var(--mono); font-size: 11px; flex: 1; color: var(--text); }

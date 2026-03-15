@@ -494,7 +494,9 @@ function renderRunGroup(group) {
   }).join('');
 
   const modelName = group.type === 'index' ? _embedModel : group.type === 'enrich' ? _enrichModel : null;
-  const modelHtml = modelName ? `<div class="run-model-info">${escHtml(modelName)}</div>` : '';
+  const modelHtml = modelName
+    ? `<div class="run-model-info"><span class="run-model-name">model: ${escHtml(modelName)}</span></div>`
+    : '';
 
   return `<details class="run-group" data-run-ts="${group.ts}" data-session-ids="${escHtml(sessionIds.join(','))}">
     <summary class="run-header">
@@ -611,8 +613,8 @@ document.getElementById('query').addEventListener('keydown', e => {
 
 async function doSearch() {
   const query = document.getElementById('query').value.trim();
-  if (!query) return;
-  const k = parseInt(document.getElementById('k').value, 10) || 10;
+  if (!query) { clearSearch(); return; }
+  const k = 100;
 
   const btn = document.getElementById('search-btn');
   btn.disabled = true;
@@ -914,10 +916,10 @@ function applyFilters() {
   if (_lastSearchResults !== null) {
     const filteredIds = new Set(filteredSessions.map(s => s.id));
     const intersected = _lastSearchResults.filter(r => filteredIds.has(r.session_id));
-    document.getElementById('sessions-count').textContent = String(intersected.length);
+    document.getElementById('sessions-count').textContent = `${intersected.length} results`;
     renderSearchResults(intersected);
   } else {
-    document.getElementById('sessions-count').textContent = String(filteredSessions.length);
+    document.getElementById('sessions-count').textContent = `${filteredSessions.length} results`;
     renderSessionsList(filteredSessions);
   }
 }
@@ -1251,9 +1253,12 @@ function filterByTag(tag) {
 
 function filterByDate(date) {
   _filterDate = date;
+  if (_heatmapProject) {
+    document.getElementById('filter-project').value = _heatmapProject;
+  }
   const chip = document.getElementById('date-chip');
   chip.style.display = '';
-  chip.innerHTML = `📅 ${escHtml(date)} <span class="date-chip-x" onclick="clearDateFilter()">×</span>`;
+  chip.innerHTML = `${escHtml(date)} <span class="date-chip-x" onclick="clearDateFilter()">×</span>`;
   if (document.getElementById('tab-sessions').classList.contains('active')) {
     loadSessions();
   } else {

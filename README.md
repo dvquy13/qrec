@@ -18,8 +18,11 @@ On first run, the daemon downloads the embedding model (~313 MB) and indexes you
 Install the plugin to unlock **in-session recall**: Claude can search your past conversations in real time to answer questions about prior work.
 
 ```bash
-/plugin marketplace add dvquy13/qrec
-/plugin install qrec@dvquy13-qrec
+claude plugin marketplace add dvquy13/qrec
+```
+
+```bash
+claude plugin install qrec@dvquy13-qrec
 ```
 
 Once installed, you can ask Claude things like:
