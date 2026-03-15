@@ -3,7 +3,7 @@
 
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
-import { QREC_DIR, PID_FILE, LOG_FILE, QREC_PORT } from "./dirs.ts";
+import { QREC_DIR, PID_FILE, ENRICH_PID_FILE, LOG_FILE, QREC_PORT } from "./dirs.ts";
 
 function ensureQrecDir(): void {
   mkdirSync(QREC_DIR, { recursive: true });
@@ -125,6 +125,17 @@ export async function stopDaemon(): Promise<void> {
   } catch (err) {
     console.error(`[daemon] Failed to send SIGTERM: ${err}`);
   }
+
+  // Kill enrich child if still running
+  try {
+    const enrichPidStr = existsSync(ENRICH_PID_FILE) ? readFileSync(ENRICH_PID_FILE, "utf8").trim() : null;
+    const enrichPid = enrichPidStr ? parseInt(enrichPidStr, 10) : null;
+    if (enrichPid) {
+      process.kill(enrichPid, "SIGTERM");
+      console.log(`[daemon] Sent SIGTERM to enrich PID ${enrichPid}`);
+    }
+  } catch {}
+  try { unlinkSync(ENRICH_PID_FILE); } catch {}
 
   // Clean up PID file
   try {

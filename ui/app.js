@@ -1,6 +1,9 @@
 // ── Activity state ───────────────────────────────────────────────────────────
 let _allRunGroups = [];
 let _currentSyntheticGroup = null;
+let _liveIndexing = null; // { indexed, total, current } from /status while indexing
+let _embedModel = null;  // model name for indexing runs
+let _enrichModel = null; // model name for enrich runs
 const RUNS_INITIAL = 5;
 let _visibleRunCount = RUNS_INITIAL;
 let _lastRenderedSessionCount = -1;
@@ -226,6 +229,9 @@ function showDashboardPanel(data, actEntries) {
   document.getElementById('dashboard').style.display = 'block';
 
   const phase = data.phase ?? 'ready';
+  _liveIndexing = data.indexing ?? null;
+  if (data.embedModel) _embedModel = data.embedModel;
+  if (data.enrichModel) _enrichModel = data.enrichModel;
 
   // Indexing dot on Sessions stat card
   const sessionsDot = document.getElementById('stat-sessions-dot');
@@ -238,13 +244,15 @@ function showDashboardPanel(data, actEntries) {
   const enrichPending = data.pendingCount ?? 0;
   const aiEl = document.getElementById('info-ai-summaries');
   const aiSubEl = document.getElementById('info-ai-summaries-sub');
+  const enrichDot = document.getElementById('stat-enrich-dot');
+  if (enrichDot) enrichDot.classList.toggle('visible', !!data.enriching);
   if (aiEl) {
     if (!data.enrichEnabled) {
       aiEl.innerHTML = '<span style="color:var(--text-muted)">—</span>';
       if (aiSubEl) aiSubEl.textContent = 'disabled';
     } else if (data.enriching) {
       const pct = enrichTotal > 0 ? Math.round((enrichDone / enrichTotal) * 100) : 0;
-      aiEl.innerHTML = `${enrichDone}<span class="enrich-dot" style="margin-left:6px;vertical-align:middle;"></span>`;
+      aiEl.textContent = enrichDone.toLocaleString();
       if (aiSubEl) aiSubEl.textContent = `${pct}% enriched`;
     } else {
       aiEl.textContent = enrichDone.toLocaleString();
@@ -257,12 +265,19 @@ function showDashboardPanel(data, actEntries) {
   const enrichModelGroup = buildEnrichModelSyntheticGroup(data, actEntries);
   _currentSyntheticGroup = [modelGroup, enrichModelGroup].filter(Boolean);
   _allRunGroups = groupActivityEvents(actEntries || []);
-  // If enrich process is known dead, close any open enrich run after a short grace period
-  // (instead of waiting the 10-min stale threshold) so the spinner resolves promptly.
-  if (!data.enriching) {
-    const GRACE_MS = 30 * 1000;
-    for (const g of _allRunGroups) {
-      if (g.running && g.type === 'enrich' && (Date.now() - g.ts) > GRACE_MS) g.running = false;
+  // Close stale runs — but only if the backing process is actually dead.
+  // Enrich runs: close after 30s grace once data.enriching=false (process dead).
+  //              Never close while data.enriching=true — enrich legitimately takes 30+ min.
+  // Index/other runs: close after 10min stale threshold (no live process signal available).
+  const STALE_MS = 10 * 60 * 1000;
+  const GRACE_MS = 30 * 1000;
+  const now = Date.now();
+  for (const g of _allRunGroups) {
+    if (!g.running) continue;
+    if (g.type === 'enrich') {
+      if (!data.enriching && (now - g.ts) > GRACE_MS) g.running = false;
+    } else {
+      if ((now - g.ts) > STALE_MS) g.running = false;
     }
   }
   // While downloading (enrichModelGroup is the live download entry), suppress any "Enriching... 0/N"
@@ -296,7 +311,7 @@ async function loadRecentSessions(sessionCount) {
     }
     container.innerHTML = recent.map(s => {
       const summary = s.summary ? escHtml(s.summary.slice(0, 180)) : '';
-      const relTime = s.indexed_at ? formatRelative(s.indexed_at) : (s.date || '—');
+      const relTime = s.last_message_at ? formatRelative(s.last_message_at) : (s.date || '—');
       return `<div class="dashboard-session-card" onclick="openSession('${escHtml(s.id)}')">
           <div class="dashboard-session-title">${escHtml(s.title || '(untitled)')}</div>
           <div class="dashboard-session-meta">
@@ -341,8 +356,8 @@ function groupActivityEvents(events) {
 
   for (const e of chron) {
     if (e.type === 'daemon_started') {
-      if (curIndex) { groups.push(curIndex); curIndex = null; }
-      if (curEnrich) { groups.push(curEnrich); curEnrich = null; }
+      if (curIndex) { curIndex.running = false; groups.push(curIndex); curIndex = null; }
+      if (curEnrich) { curEnrich.running = false; groups.push(curEnrich); curEnrich = null; }
       groups.push({ type: 'daemon', events: [e], running: false, ts: e.ts });
     } else if (e.type === 'index_started') {
       if (curIndex) { groups.push(curIndex); }
@@ -374,13 +389,6 @@ function groupActivityEvents(events) {
   if (curIndex) groups.push(curIndex);   // ongoing index run
   if (curEnrich) groups.push(curEnrich); // ongoing enrich run
 
-  // Mark stale: if a run is still "running" after 10 minutes, the process crashed without
-  // writing a completion event. Treat it as done so the spinner/live-dot don't flash forever.
-  const STALE_MS = 10 * 60 * 1000;
-  const now = Date.now();
-  for (const g of groups) {
-    if (g.running && (now - g.ts) > STALE_MS) g.running = false;
-  }
 
   return collapseZeroIndexRuns(groups.reverse()); // newest first
 }
@@ -428,7 +436,9 @@ function groupSummary(group) {
   if (group.type === 'index') {
     if (group.running) {
       const n = group.events.filter(e => e.type === 'session_indexed').length;
-      return { label: 'Indexing…', detail: n > 0 ? `${n} indexed` : null };
+      const total = _liveIndexing?.total;
+      const detail = total > 0 ? `${n} / ${total}` : (n > 0 ? `${n} indexed` : null);
+      return { label: 'Indexing…', detail };
     }
     const n = completeEvent?.data?.newSessions ?? 0;
     const ms = completeEvent?.data?.durationMs;
@@ -439,7 +449,7 @@ function groupSummary(group) {
     if (group.running) {
       const done = group.events.filter(e => e.type === 'session_enriched').length;
       const pending = startEvent?.data?.pending ?? '?';
-      return { label: 'Enriching…', detail: `${done}/${pending} sessions` };
+      return { label: 'Enriching…', detail: `${done} / ${pending}` };
     }
     const n = completeEvent?.data?.enriched ?? group.events.filter(e => e.type === 'session_enriched').length;
     const ms = completeEvent?.data?.durationMs;
@@ -483,11 +493,14 @@ function renderRunGroup(group) {
     </div>`;
   }).join('');
 
+  const modelName = group.type === 'index' ? _embedModel : group.type === 'enrich' ? _enrichModel : null;
+  const modelHtml = modelName ? `<div class="run-model-info">${escHtml(modelName)}</div>` : '';
+
   return `<details class="run-group" data-run-ts="${group.ts}" data-session-ids="${escHtml(sessionIds.join(','))}">
     <summary class="run-header">
       ${tsHtml}${iconHtml}<span class="run-label">${escHtml(label)}</span>${detailHtml}
     </summary>
-    <div class="run-events">${eventsHtml}</div>
+    <div class="run-events">${modelHtml}${eventsHtml}</div>
   </details>`;
 }
 
@@ -671,7 +684,7 @@ function renderSearchResults(results) {
         <div class="session-card-meta">
           <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(r.project || '')}')">${escHtml(r.project || '—')}</span>
           <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(r.date || '')}')">${escHtml(r.date || '—')}</span>
-          ${r.indexed_at ? `<span class="session-ts">${formatRelative(r.indexed_at)}</span>` : ''}
+          ${r.last_message_at ? `<span class="session-ts">${formatRelative(r.last_message_at)}</span>` : ''}
           <span class="session-id">${escHtml(r.session_id)}</span>
           ${tagPills}
         </div>
@@ -1323,7 +1336,7 @@ function sessionCardHtml(s) {
       <div class="session-card-meta">
         <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(s.project || '')}')">${escHtml(s.project || '—')}</span>
         <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(s.date || '')}')">${escHtml(s.date || '—')}</span>
-        ${s.indexed_at ? `<span class="session-ts">${formatRelative(s.indexed_at)}</span>` : ''}
+        ${s.last_message_at ? `<span class="session-ts">${formatRelative(s.last_message_at)}</span>` : ''}
         <span class="session-id">${escHtml(s.id)}</span>
         ${metaTagPills}
       </div>

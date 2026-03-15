@@ -57,6 +57,7 @@ export interface SearchResult {
   project: string;
   date: string;
   indexed_at: number;
+  last_message_at: number | null;
   title: string | null;
   summary: string | null;
   latency: {
@@ -90,6 +91,7 @@ interface SessionRow {
   project: string;
   date: string;
   indexed_at: number;
+  last_message_at: number | null;
   title: string | null;
   summary: string | null;
 }
@@ -281,7 +283,7 @@ export async function search(
   const sessPlaceholders = sessionIds.map(() => "?").join(",");
 
   const sessionMeta = db
-    .prepare(`SELECT id, project, date, indexed_at, title, summary FROM sessions WHERE id IN (${sessPlaceholders})`)
+    .prepare(`SELECT id, project, date, indexed_at, last_message_at, title, summary FROM sessions WHERE id IN (${sessPlaceholders})`)
     .all(...sessionIds) as SessionRow[];
   const sessionMetaMap = new Map(sessionMeta.map(s => [s.id, s]));
 
@@ -334,6 +336,7 @@ export async function search(
       project: meta.project,
       date: meta.date,
       indexed_at: meta.indexed_at,
+      last_message_at: meta.last_message_at ?? null,
       title: meta.title,
       summary: meta.summary ?? null,
       latency: {

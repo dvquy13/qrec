@@ -165,7 +165,7 @@ export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}
     const cutoff = opts.minAgeMs !== undefined ? Date.now() - opts.minAgeMs : null;
     let pending = (cutoff !== null
       ? db.prepare(
-          "SELECT id FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND COALESCE(last_message_at, indexed_at) < ?"
+          "SELECT id FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND last_message_at < ?"
         ).all(ENRICHMENT_VERSION, cutoff)
       : db.prepare(
           "SELECT id FROM sessions WHERE enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?"

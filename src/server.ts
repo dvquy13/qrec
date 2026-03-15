@@ -14,7 +14,7 @@ import { appendActivity, getRecentActivity } from "./activity.ts";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
-import { LOG_FILE, MODEL_CACHE_DIR, QREC_PORT, ENRICH_PROGRESS_FILE } from "./dirs.ts";
+import { LOG_FILE, MODEL_CACHE_DIR, QREC_PORT, ENRICH_PROGRESS_FILE, ARCHIVE_DIR } from "./dirs.ts";
 import { isEnrichAlive, readEnrichPid, isProcessAlive, ENRICHMENT_VERSION } from "./enrich.ts";
 import { readConfig, writeConfig } from "./config.ts";
 
@@ -120,6 +120,8 @@ async function main() {
           lastIndexedAt: lastRow.ts,
           searches,
           embedProvider: process.env.QREC_EMBED_PROVIDER ?? "local",
+          embedModel: process.env.QREC_EMBED_PROVIDER === "ollama" ? (process.env.QREC_OLLAMA_MODEL ?? "nomic-embed-text") : process.env.QREC_EMBED_PROVIDER === "openai" ? (process.env.QREC_OPENAI_MODEL ?? "text-embedding-3-small") : "gemma-300M",
+          enrichModel: "Qwen3-1.7B",
           modelDownload: serverProgress.modelDownload,
           indexing: serverProgress.indexing,
           memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
@@ -206,11 +208,11 @@ async function main() {
         const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
         const dateFilter = url.searchParams.get("date") ?? null;
         const rows = (dateFilter
-          ? db.prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities, learnings, questions FROM sessions WHERE date = ? ORDER BY indexed_at DESC LIMIT ? OFFSET ?")
+          ? db.prepare("SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions WHERE date = ? ORDER BY indexed_at DESC LIMIT ? OFFSET ?")
               .all(dateFilter, limit, offset)
-          : db.prepare("SELECT id, title, project, date, indexed_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
+          : db.prepare("SELECT id, title, project, date, indexed_at, last_message_at, summary, tags, entities, learnings, questions FROM sessions ORDER BY date DESC, indexed_at DESC LIMIT ? OFFSET ?")
               .all(limit, offset)) as Array<{
-            id: string; title: string | null; project: string; date: string; indexed_at: number;
+            id: string; title: string | null; project: string; date: string; indexed_at: number; last_message_at: number | null;
             summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null;
           }>;
         const total = dateFilter
@@ -431,6 +433,11 @@ async function main() {
       console.log("[server] Enrich child already running, skipping spawn.");
       return;
     }
+    const cutoff = Date.now() - ENRICH_IDLE_MS;
+    const pending = (db.prepare(
+      `SELECT COUNT(*) as n FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND last_message_at < ?`
+    ).get(ENRICHMENT_VERSION, cutoff) as { n: number }).n;
+    if (pending === 0) return;
     const logFile = LOG_FILE;
     const baseArgs: string[] =
       typeof (import.meta as { dir?: string }).dir === "string"
@@ -467,6 +474,21 @@ async function main() {
           prevIndexed = indexed;
         }
       });
+
+      // On initial startup: also index the archive so sessions Claude deleted from
+      // ~/.claude/projects/ are recovered. Runs inside the isIndexing guard so cron
+      // can't start a concurrent run. Live sessions already indexed above win on conflict.
+      if (isInitialRun && existsSync(ARCHIVE_DIR)) {
+        await indexVault(db, ARCHIVE_DIR, {}, (indexed, total, current) => {
+          serverProgress.indexing = { indexed, total, current };
+          if (current && indexed > prevIndexed) {
+            appendActivity({ type: "session_indexed", data: { sessionId: current } });
+            newSessions++;
+            prevIndexed = indexed;
+          }
+        });
+      }
+
       appendActivity({ type: "index_complete", data: { newSessions, durationMs: Date.now() - t0 } });
       // Embed any summary chunks (seq=-1) not yet in chunks_vec.
       // Enrich child writes summary chunks then exits; the next cron tick picks them up here.
@@ -488,17 +510,18 @@ async function main() {
         embedderError = null;
         console.log("[server] Model ready");
 
+        // Start enrich cron before indexing so it fires during the initial index run.
+        // Initial call skips if DB is empty; cron picks up sessions as they get indexed.
+        spawnEnrichIfNeeded();
+        setInterval(spawnEnrichIfNeeded, INDEX_INTERVAL_MS);
+
         // Immediate catchup scan on startup (shows indexing progress in onboarding UI)
         await runIncrementalIndex(true);
 
         serverProgress.phase = "ready";
 
-        // Kick off enrich immediately after startup index (old sessions already past the age gate).
-        spawnEnrichIfNeeded();
-
-        // Schedule periodic incremental scans and enrich runs (both every 1 minute).
+        // Index cron starts after initial run completes (no point running concurrently).
         setInterval(runIncrementalIndex, INDEX_INTERVAL_MS);
-        setInterval(spawnEnrichIfNeeded, INDEX_INTERVAL_MS);
 
         return;
       } catch (err) {

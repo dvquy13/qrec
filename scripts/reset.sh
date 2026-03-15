@@ -18,5 +18,8 @@ rm -f "$QREC_DIR/qrec.db" \
 echo "[reset] Removing log..."
 rm -f "$QREC_DIR/qrec.log"
 
+echo "[reset] Removing activity log..."
+rm -f "$QREC_DIR/activity.jsonl"
+
 echo "[reset] Done. State wiped — ready for a clean run."
 echo "  Kept: $HOME/.cache/qmd/models/ (embedding model)"

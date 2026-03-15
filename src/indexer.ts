@@ -114,8 +114,10 @@ async function buildJsonlCandidate(
 
 /** Copy a JSONL session file to ~/.qrec/archive/<project>/<basename>.
  * Called for every session in toIndex so that Claude's 30-day cleanup
- * doesn't permanently lose session transcripts. Non-fatal on error. */
+ * doesn't permanently lose session transcripts. Non-fatal on error.
+ * Skips if source is already inside ARCHIVE_DIR (e.g. when indexing the archive). */
 function archiveJsonl(sourcePath: string, project: string): void {
+  if (sourcePath.startsWith(ARCHIVE_DIR)) return;
   try {
     const destDir = join(ARCHIVE_DIR, project);
     mkdirSync(destDir, { recursive: true });
