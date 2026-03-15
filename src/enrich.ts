@@ -54,20 +54,34 @@ export async function loadSummarizer(): Promise<SummarizerCtx> {
   mkdirSync(MODEL_CACHE_DIR, { recursive: true });
 
   process.stdout.write("[enrich] Resolving model...\n");
+  let lastReportedPct = -1;
+  let progressCalled = false;
   const modelPath = await resolveModelFile(MODEL_URI, {
     directory: MODEL_CACHE_DIR,
     onProgress({ totalSize, downloadedSize }) {
-      const pct = totalSize ? Math.round((downloadedSize / totalSize) * 100) : "?";
+      progressCalled = true;
+      const pct = totalSize ? Math.round((downloadedSize / totalSize) * 100) : 0;
       process.stdout.write(`\r[enrich] Downloading model... ${pct}%`);
+      if (Math.abs(pct - lastReportedPct) >= 5 || pct === 100) {
+        lastReportedPct = pct;
+        const totalMB = totalSize ? Math.round(totalSize / 1024 / 1024) : null;
+        const downloadedMB = Math.round(downloadedSize / 1024 / 1024);
+        appendActivity({
+          type: "enrich_model_downloading",
+          data: { percent: pct, downloadedMB, totalMB },
+        });
+      }
     },
   });
-  process.stdout.write(`\n[enrich] Model ready at ${modelPath}\n`);
+  if (progressCalled) process.stdout.write("\n");
+  process.stdout.write(`[enrich] Model ready at ${modelPath}\n`);
 
   const llama = await getLlama();
   const model = await llama.loadModel({ modelPath });
   // sequences: 1 — we process sessions sequentially (dispose sequence before getting next)
   const ctx = await model.createContext({ contextSize: 8192, sequences: 1 });
   console.log("[enrich] Model loaded.");
+  appendActivity({ type: "enrich_model_loaded" });
   return { llama, model, ctx };
 }
 

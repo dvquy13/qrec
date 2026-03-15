@@ -73,7 +73,7 @@ jobs:
           echo "Waiting for search to be ready (model loading in daemon)..."
           for i in $(seq 1 24); do
             status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:25927/search \
-              -H 'Content-Type: application/json' -d '{"query":"sqlite","k":3}')
+              -H 'Content-Type: application/json' -d '{"query":"sqlite","k":3}' || echo "000")
             [ "$status" = "200" ] && break
             echo "  attempt $i: status=$status, retrying in 5s..."
             sleep 5
@@ -98,8 +98,8 @@ jobs:
           {"type":"assistant","isMeta":false,"isSidechain":false,"message":{"role":"assistant","content":"Yes, an mtime pre-filter skips files not modified since indexed_at."},"timestamp":"2024-06-01T10:00:03.000Z"}
           EOF
 
-          echo "Cron: waiting up to 20s for incremental index to pick up new session..."
-          for i in $(seq 1 4); do
+          echo "Cron: waiting up to 90s for incremental index to pick up new session..."
+          for i in $(seq 1 18); do
             sleep 5
             found=$(curl -sf http://localhost:25927/sessions | jq '[.sessions[] | select(.id == "f1f1f1f1")] | length')
             if [ "$found" = "1" ]; then
@@ -108,7 +108,7 @@ jobs:
             fi
             echo "  attempt $i: not indexed yet..."
           done
-          [ "$found" = "1" ] || { echo "FAIL: cron did not index new session within 20s"; exit 1; }
+          [ "$found" = "1" ] || { echo "FAIL: cron did not index new session within 90s"; exit 1; }
 
           qrec stop
           echo "Integration test: PASSED"

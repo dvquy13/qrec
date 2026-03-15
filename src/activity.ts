@@ -12,7 +12,9 @@ export type ActivityType =
   | "index_complete"
   | "enrich_started"
   | "session_enriched"
-  | "enrich_complete";
+  | "enrich_complete"
+  | "enrich_model_downloading"
+  | "enrich_model_loaded";
 
 export interface ActivityEvent {
   ts: number;

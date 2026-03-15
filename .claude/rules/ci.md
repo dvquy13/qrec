@@ -20,11 +20,13 @@ Set `QREC_EMBED_PROVIDER: stub` on steps that need fast startup (MCP round-trip 
 ```bash
 for i in $(seq 1 24); do
   status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:25927/search \
-    -H 'Content-Type: application/json' -d '{"query":"test","k":3}')
+    -H 'Content-Type: application/json' -d '{"query":"test","k":3}' || echo "000")
   [ "$status" = "200" ] && break
   sleep 5
 done
 ```
+
+**`|| echo "000"` is required** — with `set -e`, `status=$(curl ...)` propagates curl exit code 7 (ECONNREFUSED) when the daemon isn't bound yet, killing the script before any retry. The `|| echo "000"` ensures the subshell always exits 0.
 
 ## CI assertion strength
 
