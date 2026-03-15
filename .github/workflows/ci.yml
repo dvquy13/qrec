@@ -73,7 +73,7 @@ jobs:
           echo "Waiting for search to be ready (model loading in daemon)..."
           for i in $(seq 1 24); do
             status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:25927/search \
-              -H 'Content-Type: application/json' -d '{"query":"sqlite","k":3}')
+              -H 'Content-Type: application/json' -d '{"query":"sqlite","k":3}' || echo "000")
             [ "$status" = "200" ] && break
             echo "  attempt $i: status=$status, retrying in 5s..."
             sleep 5
