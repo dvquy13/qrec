@@ -56,15 +56,17 @@ export async function loadSummarizer(): Promise<SummarizerCtx> {
   process.stdout.write("[enrich] Resolving model...\n");
   let lastReportedPct = -1;
   let progressCalled = false;
+  let capturedTotalMB: number | null = null;
   const modelPath = await resolveModelFile(MODEL_URI, {
     directory: MODEL_CACHE_DIR,
     onProgress({ totalSize, downloadedSize }) {
       progressCalled = true;
       const pct = totalSize ? Math.round((downloadedSize / totalSize) * 100) : 0;
       process.stdout.write(`\r[enrich] Downloading model... ${pct}%`);
-      if (Math.abs(pct - lastReportedPct) >= 5 && pct !== lastReportedPct) {
+      if (Math.abs(pct - lastReportedPct) >= 5) {
         lastReportedPct = pct;
         const totalMB = totalSize ? Math.round(totalSize / 1024 / 1024) : null;
+        capturedTotalMB = totalMB;
         const downloadedMB = Math.round(downloadedSize / 1024 / 1024);
         try { writeFileSync(ENRICH_PROGRESS_FILE, JSON.stringify({ percent: pct, downloadedMB, totalMB }), "utf-8"); } catch {}
       }
@@ -78,14 +80,8 @@ export async function loadSummarizer(): Promise<SummarizerCtx> {
   // sequences: 1 — we process sessions sequentially (dispose sequence before getting next)
   const ctx = await model.createContext({ contextSize: 8192, sequences: 1 });
   console.log("[enrich] Model loaded.");
-  // Capture final size before deleting progress file, then emit a permanent activity event.
-  let downloadedTotalMB: number | null = null;
-  try {
-    const prog = JSON.parse(readFileSync(ENRICH_PROGRESS_FILE, "utf-8"));
-    downloadedTotalMB = prog.totalMB ?? prog.downloadedMB ?? null;
-  } catch {}
   try { unlinkSync(ENRICH_PROGRESS_FILE); } catch {}
-  appendActivity({ type: "enrich_model_downloaded", data: { totalMB: downloadedTotalMB } });
+  appendActivity({ type: "enrich_model_downloaded", data: { totalMB: capturedTotalMB } });
   appendActivity({ type: "enrich_model_loaded" });
   return { llama, model, ctx };
 }

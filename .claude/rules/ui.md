@@ -38,7 +38,7 @@ paths:
 
 - **`_allSessions` is append-only during a session** — `loadSessions()` resets it (called once on tab activation); `loadMoreSessions()` concatenates. Never call `loadSessions()` to "refresh" while the user is browsing — they lose their scroll position and all loaded pages.
 
-- **UI is served fresh** — `index.html`, `app.js`, `styles.css` are served fresh on every request (no cache headers). Browser refresh picks up UI changes without a daemon restart.
+- **UI is served fresh** — `index.html`, `app.js`, `styles.css` are served with `Cache-Control: no-cache, no-store, must-revalidate`. Browser refresh always picks up changes without a daemon restart.
 
 - **Use `data-run-ts` (not `data-session-ids`) as the open-state key for run groups** — Multiple runs can process the same session IDs (e.g. two enrich runs both processed `3f3e7a7a`), so `data-session-ids` is not unique per run. Using it caused all matching groups to restore as open on every 5s poll. `data-run-ts` (the run's start timestamp) is unique per run.
 
@@ -59,3 +59,11 @@ paths:
 - **Page-level headings and section content must share one left alignment line** — `.section-header` uses `padding: 11px 0` (no horizontal indent) so section titles align with `.section-heading` page titles. Session cards use `padding: 14px 0` (no horizontal indent) so card titles align with the heading above. Any horizontal padding on these elements creates a competing vertical line and looks misaligned.
 
 - **Onboarding is integrated into the dashboard — no separate banner** — There is no `onboarding-wrap` or `updateOnboardingBanner()`. Startup state is surfaced via three embedded signals: (1) a pulsing blue dot (`stat-indexing-dot`) on the Sessions stat card label when `phase === 'indexing'`; (2) a synthetic model-loading/downloading activity entry (with progress bar) injected at the top of Recent Activity when `phase` is `model_download`, `model_loading`, or `starting` — built by `buildModelSyntheticGroup()`; (3) a `search-ready-hint` span next to the "Recent Sessions" heading, shown when `sessions > 0 && phase === 'ready' && searches === 0`, that navigates to the Sessions tab on click. Do not reintroduce a banner or onboarding-wrap — the dashboard always shows full content even during startup.
+
+- **Synthetic model download groups have two phases** — Phase 1 (active): live progress from `serverProgress` / `data.enrichProgress` in `/status`. Phase 2 (complete): permanent `running: false` entry read from `embed_model_downloaded` / `enrich_model_downloaded` activity events, written once at download completion. Never hide Phase 2 on any condition — it must persist in Recent Activity permanently. `buildCompletedDownloadGroup()` is the shared helper for Phase 2.
+
+- **`groupActivityEvents` uses dual cursors `curIndex` / `curEnrich`** — index and enrich run in separate processes and their events interleave. A single `current` cursor closed the enrich group prematurely when `index_started` arrived mid-enrich (cron fires every 60s), causing "Enriching... 0/N" to stick forever. Track each independently.
+
+- **Enrich spinner resolves in 30s when process is dead** — `showDashboardPanel` cross-references `data.enriching` from `/status`. If `false` (process dead) and the enrich group is still `running` after 30s grace, mark it closed immediately instead of waiting the 10-minute stale timeout.
+
+- **`showMoreRuns()` sets `_visibleRunCount = Infinity`** — `_allRunGroups` holds real groups only, but `displayGroups` includes synthetic entries too. Setting `_visibleRunCount = _allRunGroups.length` left `hidden = syntheticCount` → clicking the button showed the same count → no change. `Infinity` always reveals everything.

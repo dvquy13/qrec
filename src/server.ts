@@ -128,7 +128,7 @@ async function main() {
           pendingCount,
           enrichEnabled: readConfig().enrichEnabled,
           enrichProgress: (() => {
-            try { return existsSync(ENRICH_PROGRESS_FILE) ? JSON.parse(readFileSync(ENRICH_PROGRESS_FILE, "utf-8")) : null; } catch { return null; }
+            try { return JSON.parse(readFileSync(ENRICH_PROGRESS_FILE, "utf-8")); } catch { return null; }
           })(),
         });
       }

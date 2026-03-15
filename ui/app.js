@@ -168,6 +168,16 @@ function buildRunProgressHtml(progress) {
   </div>`;
 }
 
+// Shared Phase 2 helper: find a *_model_downloaded activity event and return a
+// permanent completed group entry. Returns null if no such event exists yet.
+function buildCompletedDownloadGroup(actEntries, eventType, groupType, syntheticLabel) {
+  const entry = (actEntries || []).find(e => e.type === eventType);
+  if (!entry) return null;
+  const totalMB = entry.data?.totalMB ?? null;
+  const label = totalMB ? `${totalMB} MB` : null;
+  return { type: groupType, events: [], running: false, ts: entry.ts, syntheticLabel, syntheticProgress: { percent: 100, label } };
+}
+
 function buildEnrichModelSyntheticGroup(data, actEntries) {
   // Phase 1 — downloading: progress comes from data.enrichProgress (written by enrich child,
   // read by server.ts) rather than activity events, so the log isn't flooded with %-events.
@@ -182,19 +192,8 @@ function buildEnrichModelSyntheticGroup(data, actEntries) {
       syntheticProgress: { percent, label },
     };
   }
-
-  // Phase 2 — model downloaded: show a permanent completed entry using the
-  // enrich_model_downloaded activity event (written once, persists after enrich finishes).
-  const entries = actEntries || [];
-  const downloadedEntry = entries.find(e => e.type === 'enrich_model_downloaded');
-  if (!downloadedEntry) return null;
-  const totalMB = downloadedEntry.data?.totalMB ?? null;
-  const label = totalMB ? `${totalMB} MB` : null;
-  return {
-    type: 'enrich_model_download', events: [], running: false, ts: downloadedEntry.ts,
-    syntheticLabel: 'Enrichment model downloaded',
-    syntheticProgress: { percent: 100, label },
-  };
+  // Phase 2 — model downloaded: permanent completed entry from activity log.
+  return buildCompletedDownloadGroup(actEntries, 'enrich_model_downloaded', 'enrich_model_download', 'Enrichment model downloaded');
 }
 
 function buildModelSyntheticGroup(data, actEntries) {
@@ -219,17 +218,8 @@ function buildModelSyntheticGroup(data, actEntries) {
       syntheticProgress: { percent: null, label: 'Loading…' },
     };
   }
-  // Phase 2 — download complete: show permanent entry from activity log.
-  const entries = actEntries || [];
-  const downloadedEntry = entries.find(e => e.type === 'embed_model_downloaded');
-  if (!downloadedEntry) return null;
-  const totalMB = downloadedEntry.data?.totalMB ?? null;
-  const label = totalMB ? `${totalMB} MB` : null;
-  return {
-    type: 'model_download', events: [], running: false, ts: downloadedEntry.ts,
-    syntheticLabel: 'Embedding model downloaded',
-    syntheticProgress: { percent: 100, label },
-  };
+  // Phase 2 — download complete: permanent completed entry from activity log.
+  return buildCompletedDownloadGroup(actEntries, 'embed_model_downloaded', 'model_download', 'Embedding model downloaded');
 }
 
 function showDashboardPanel(data, actEntries) {
