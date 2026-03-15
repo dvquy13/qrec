@@ -168,6 +168,21 @@ function buildRunProgressHtml(progress) {
   </div>`;
 }
 
+function buildEnrichModelSyntheticGroup(actEntries) {
+  const entry = (actEntries || []).find(e => e.type === 'enrich_model_downloading');
+  if (!entry) return null;
+  if (Date.now() - entry.ts > 30000) return null;
+  const pct = entry.data?.percent ?? 0;
+  const label = entry.data?.totalMB
+    ? `${entry.data.downloadedMB} / ${entry.data.totalMB} MB`
+    : `${entry.data?.downloadedMB ?? 0} MB downloaded`;
+  return {
+    type: 'enrich_model_download', events: [], running: true, ts: entry.ts,
+    syntheticLabel: 'Downloading summarization model',
+    syntheticProgress: { percent: pct, label },
+  };
+}
+
 function buildModelSyntheticGroup(data) {
   const phase = data.phase ?? 'ready';
   if (phase !== 'model_download' && phase !== 'model_loading' && phase !== 'starting') return null;
@@ -221,7 +236,9 @@ function showDashboardPanel(data, actEntries) {
   }
 
   // Activity runs
-  _currentSyntheticGroup = buildModelSyntheticGroup(data);
+  const modelGroup = buildModelSyntheticGroup(data);
+  const enrichModelGroup = buildEnrichModelSyntheticGroup(actEntries);
+  _currentSyntheticGroup = [modelGroup, enrichModelGroup].filter(Boolean);
   _allRunGroups = groupActivityEvents(actEntries || []);
   renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
 
@@ -276,6 +293,7 @@ function runIcon(type) {
   if (type === 'enrich') return '✦';
   if (type === 'model_download') return '⬇';
   if (type === 'model_loading') return '◎';
+  if (type === 'enrich_model_download') return '⬇';
   return '◉';
 }
 
@@ -426,13 +444,14 @@ function renderRunGroup(group) {
   </details>`;
 }
 
-function renderActivityRuns(groups, syntheticGroup = null) {
+function renderActivityRuns(groups, syntheticGroups = []) {
   const runList = document.getElementById('run-list');
   const showMoreBtn = document.getElementById('activity-show-more');
   const liveDot = document.getElementById('activity-live-dot');
   if (!runList) return;
 
-  const displayGroups = syntheticGroup ? [syntheticGroup, ...groups] : groups;
+  const syntheticArr = Array.isArray(syntheticGroups) ? syntheticGroups : (syntheticGroups ? [syntheticGroups] : []);
+  const displayGroups = syntheticArr.length > 0 ? [...syntheticArr, ...groups] : groups;
 
   // Preserve open state across re-renders
   const openTs = new Set();
