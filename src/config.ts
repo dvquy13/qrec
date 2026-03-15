@@ -17,7 +17,8 @@ export function readConfig(): QrecConfig {
   try {
     const raw = JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
     return { ...DEFAULTS, ...raw };
-  } catch {
+  } catch (e) {
+    console.warn("[config] Failed to parse config.json, using defaults:", e);
     return { ...DEFAULTS };
   }
 }

@@ -28,8 +28,8 @@ export function appendActivity(event: Omit<ActivityEvent, "ts">): void {
   try {
     mkdirSync(QREC_DIR, { recursive: true });
     appendFileSync(ACTIVITY_FILE, JSON.stringify(entry) + "\n", "utf-8");
-  } catch {
-    // Activity log failure must not affect other operations
+  } catch (e) {
+    console.warn("[activity] Failed to write activity log:", e);
   }
 }
 
@@ -47,7 +47,8 @@ export function getRecentActivity(limit: number = 100): ActivityEvent[] {
       .filter((e): e is ActivityEvent => e !== null);
     // Most recent first
     return parsed.slice(-limit).reverse();
-  } catch {
+  } catch (e) {
+    console.warn("[activity] Failed to read activity log:", e);
     return [];
   }
 }

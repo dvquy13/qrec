@@ -9,7 +9,7 @@ paths:
 
 `setup-bun` installs bun. Dependencies via `bun install --frozen-lockfile`. Then `bun link` registers the `qrec` CLI globally.
 
-Integration test uses `qrec serve --daemon --no-open` to start daemon, then polls `/search` for 200 before asserting (`qrec onboard` was removed in v0.5.0).
+Integration test uses `qrec serve --daemon --no-open` to start daemon, then polls `/search` for 200 before asserting.
 
 ## Embed provider in CI
 

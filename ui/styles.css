@@ -384,13 +384,39 @@ main {
 .filter-dropdown-item:hover { background: var(--accent-light); color: var(--accent); }
 .filter-dropdown-item--active { color: var(--accent); font-weight: 500; }
 .heatmap-project-btn { white-space: nowrap; }
-.date-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: var(--accent-light); color: var(--accent);
-  border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 500;
+.date-btn { white-space: nowrap; }
+.date-btn.active {
+  background: var(--accent-light); border-color: var(--accent-border); color: var(--accent);
 }
-.date-chip-x { cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.7; }
-.date-chip-x:hover { opacity: 1; }
+.date-btn-clear { cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.7; margin-left: 4px; }
+.date-btn-clear:hover { opacity: 1; }
+.date-picker-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08); z-index: 100;
+  min-width: 230px; padding: 10px;
+}
+.date-picker-presets { display: flex; gap: 4px; flex-wrap: wrap; }
+.date-preset {
+  font-size: 12px; padding: 3px 8px; border-radius: 6px;
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  cursor: pointer; transition: all 0.15s;
+}
+.date-preset:hover { border-color: var(--accent); color: var(--accent); }
+.date-preset.active {
+  background: var(--accent-light); border-color: var(--accent-border); color: var(--accent);
+}
+.date-picker-sep { height: 1px; background: var(--border); margin: 10px 0; }
+.date-picker-custom { display: flex; flex-direction: column; gap: 8px; }
+.date-picker-row { display: flex; align-items: center; gap: 8px; }
+.date-picker-label { font-size: 12px; color: var(--text-muted); width: 32px; flex-shrink: 0; }
+.date-input {
+  flex: 1; font-size: 12px; padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); outline: none; font-family: inherit;
+}
+.date-input:focus { border-color: var(--accent); }
+.date-apply-btn { align-self: flex-end; font-size: 12px; padding: 4px 12px; }
 .clickable-tag { cursor: pointer; transition: color 0.15s; }
 .clickable-tag:hover { color: var(--accent); }
 .sessions-grid { display: flex; flex-direction: column; gap: 8px; }
