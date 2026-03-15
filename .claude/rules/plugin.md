@@ -47,7 +47,7 @@ The `package.json` `files` array must include both `"ui"` and the individual `pl
 
 ## qrec-cli.js: npm bin entry
 
-`plugin/scripts/qrec-cli.js` is the npm `bin` entry for the `qrec` CLI. It locates bun and spawns `bun run qrec.cjs <args>` directly — bun-runner.js was deleted (Phase E) and its spawn logic is now inlined here.
+`plugin/scripts/qrec-cli.js` is the npm `bin` entry for the `qrec` CLI. It locates bun and spawns `bun run qrec.cjs <args>` directly — bun-runner.js was deleted and its spawn logic is now inlined here.
 
 **`serve --daemon` is fire-and-fork** — qrec-cli.js detects `args.includes("serve") && args.includes("--daemon")` and spawns bun detached + unrefs + exits 0 immediately. The daemon starts in the background.
 
