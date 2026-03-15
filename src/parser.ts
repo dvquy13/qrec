@@ -2,13 +2,32 @@
 // Parse Claude Code JSONL session files into structured data for indexing.
 
 import { createHash } from "crypto";
-import { readFileSync } from "fs";
-import { basename } from "path";
+import { readFileSync, statSync } from "fs";
+import { basename, dirname, join } from "path";
+
+/** Resolve the project name for a cwd.
+ * For a normal repo, returns basename(cwd).
+ * For a git worktree (has a .git FILE, not directory), walks up to find
+ * the main repo root (the ancestor with a .git DIRECTORY) and returns its basename.
+ * This ensures worktree sessions share the same project name as the main repo. */
+function projectNameFromCwd(cwd: string): string {
+  let dir = cwd;
+  while (true) {
+    const gitPath = join(dir, ".git");
+    try {
+      if (statSync(gitPath).isDirectory()) return basename(dir);
+    } catch {}
+    const parent = dirname(dir);
+    if (parent === dir) break; // filesystem root
+    dir = parent;
+  }
+  return basename(cwd);
+}
 
 export interface ParsedSession {
   session_id: string;    // 8-char hex prefix of UUID (from filename)
   path: string;          // absolute path to .jsonl file
-  project: string;       // basename of cwd from first message
+  project: string;       // git root name from cwd (worktree-aware: walks up to main repo)
   date: string;          // YYYY-MM-DD from first message timestamp
   title: string | null;  // first real user message text, truncated to 120 chars
   hash: string;          // SHA-256 of file contents (for change detection)
@@ -167,7 +186,7 @@ export async function parseSession(jsonlPath: string): Promise<ParsedSession> {
 
     // Extract project + date from first message with cwd/timestamp
     if (!project && line.cwd) {
-      project = basename(line.cwd);
+      project = projectNameFromCwd(line.cwd);
     }
     if (!date && line.timestamp) {
       date = line.timestamp.slice(0, 10); // YYYY-MM-DD
