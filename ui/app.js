@@ -1064,7 +1064,7 @@ function renderHeatmap(containerId, days, opts = {}) {
         const friendlyDate = `${HEATMAP_WEEKDAYS[wd]}, ${HEATMAP_MONTHS[cd.getMonth()]} ${cd.getDate()}`;
         const title = `${friendlyDate}: ${heatmapUnitLabel(cell.count, _heatmapMetric)}`;
         const cellProjects = byProject && byProject[cell.date];
-        const tipHtmlAttr = (cellProjects && Object.keys(cellProjects).length > 1)
+        const tipHtmlAttr = cellProjects
           ? ` data-tip-html="${escHtml(buildProjectTooltip(escHtml(title), cellProjects))}"`
           : '';
         html += `<div class="heatmap-cell${isClick ? ' heatmap-cell--clickable' : ''}" style="${cs}background:${bg};" data-tooltip="${escHtml(title)}"${tipHtmlAttr} data-date="${cell.date}" data-count="${cell.count}"></div>`;
@@ -1086,7 +1086,7 @@ function renderHeatmap(containerId, days, opts = {}) {
     const cwFriendly = cwDate ? `${HEATMAP_WEEKDAYS[wd]}, ${HEATMAP_MONTHS[new Date(cwDate + 'T00:00:00').getMonth()]} ${new Date(cwDate + 'T00:00:00').getDate()}` : HEATMAP_WEEKDAYS[wd];
     const cwTitle = cwCount > 0 ? `${cwFriendly}: ${heatmapUnitLabel(cwCount, _heatmapMetric)}` : cwFriendly;
     const cwProjects = byProject && cwDate && byProject[cwDate];
-    const cwTipAttr = (cwProjects && Object.keys(cwProjects).length > 1)
+    const cwTipAttr = cwProjects
       ? `data-tip-html="${escHtml(buildProjectTooltip(escHtml(cwTitle), cwProjects))}"`
       : `data-tooltip="${escHtml(cwTitle)}"`;
     html += `<div style="display:flex;align-items:center;margin-left:${INLINE_GAP}px;min-width:${MAX_INLINE + 24}px;" ${cwTipAttr}>`;
