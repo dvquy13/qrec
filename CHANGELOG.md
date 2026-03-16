@@ -1,3 +1,9 @@
+## [0.6.3](https://github.com/dvquy13/qrec/compare/v0.6.2...v0.6.3) (2026-03-16)
+
+
+### Bug Fixes
+
+* collapse zero-enrich runs, fix crashed index display, stop no-chunk enrich flooding ([7092486](https://github.com/dvquy13/qrec/commit/7092486c761259adf8c4e44c7d526d17ef76f17e))
 ## [0.6.2](https://github.com/dvquy13/qrec/compare/v0.6.1...v0.6.2) (2026-03-16)
 
 
