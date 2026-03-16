@@ -1,21 +1,13 @@
 #!/usr/bin/env node
-// qrec-cli.js — npm bin entry. Locates bun and spawns qrec.cjs with all CLI args.
+// qrec-cli.js — npm bin entry. Spawns qrec.cjs via bun (installed by postinstall).
 
 "use strict";
 
 const { spawnSync, spawn } = require("child_process");
 const path = require("path");
-const { findBun, installBun } = require("./bun-finder.js");
+const { findBun } = require("./bun-finder.js");
 
-let bunPath = findBun();
-if (!bunPath) {
-  const ok = installBun();
-  bunPath = ok ? findBun() : null;
-  if (!bunPath) {
-    process.stderr.write("[qrec] ERROR: bun install failed. Install manually from https://bun.sh\n");
-    process.exit(1);
-  }
-}
+const bunPath = findBun() || "bun";
 
 const qrecCjs = path.join(__dirname, "qrec.cjs");
 const userArgs = process.argv.slice(2);

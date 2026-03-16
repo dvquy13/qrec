@@ -45,6 +45,12 @@ The `package.json` `files` array must include both `"ui"` and the individual `pl
 
 **Plugin marketplace copies only `plugin/`** — `"source": "./plugin"` in `.claude-plugin/marketplace.json` means Claude Code copies only that subdir to `~/.claude/plugins/cache/`. The CLI (`qrec`) comes from `npm install -g`; hooks/skills/MCP come from the plugin cache. They are separate installs.
 
+## Bun install ownership
+
+`plugin/scripts/postinstall.js` runs during `npm install -g` and installs bun if missing (calls `installBun()` from `bun-finder.js`). It exits **1 on failure** so the npm install itself fails — qrec is never left in a half-ready state.
+
+`plugin/scripts/qrec-cli.js` only *locates* bun (`findBun() || "bun"`). It no longer installs bun — that's postinstall's job. If bun disappears after install, spawn fails with a natural OS error.
+
 ## qrec-cli.js: npm bin entry
 
 `plugin/scripts/qrec-cli.js` is the npm `bin` entry for the `qrec` CLI. It locates bun and spawns `bun run qrec.cjs <args>` directly — bun-runner.js was deleted and its spawn logic is now inlined here.
@@ -83,7 +89,7 @@ Or set in `~/.npmrc`: `//registry.npmjs.org/:_authToken=<token>`
 
 **Entry file must call the function** — `src/mcp.ts` only exports `runMcpServer()`. A bundle built directly from `mcp.ts` starts, defines the function, and exits silently. `src/mcp-entry.ts` exists solely to call `runMcpServer()` and is the esbuild entry point for `qrec-mcp.cjs`.
 
-**`bun-finder.js` is shared** — `plugin/scripts/bun-finder.js` provides `findBun()` used by both `qrec-cli.js` and `qrec-mcp.js`. Edit once, not twice.
+**`bun-finder.js` is shared** — `plugin/scripts/bun-finder.js` provides `findBun()` / `installBun()` used by `postinstall.js`, `qrec-cli.js`, and `qrec-mcp.js`. Edit once, not three times.
 
 **Debugging MCP connection failures:**
 - `~/.claude/debug/<session-id>.txt` — grep for `MCP server "plugin:qrec:qrec"` and `Server stderr:`
