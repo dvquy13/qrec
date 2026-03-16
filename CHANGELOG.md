@@ -1,3 +1,9 @@
+## [0.6.2](https://github.com/dvquy13/qrec/compare/v0.6.1...v0.6.2) (2026-03-16)
+
+
+### Bug Fixes
+
+* install bun during npm install -g via postinstall script ([5162828](https://github.com/dvquy13/qrec/commit/5162828b0c34c7c6f2fcac08e41afba5301efd99))
 ## [0.6.1](https://github.com/dvquy13/qrec/compare/v0.6.0...v0.6.1) (2026-03-15)
 
 
