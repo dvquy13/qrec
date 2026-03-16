@@ -203,6 +203,11 @@ export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}
           const { id } = pending[i];
           const chunkText = getChunkText(db, id);
           if (!chunkText.trim()) {
+            // Mark as processed so spawnEnrichIfNeeded doesn't re-queue this session.
+            // Must set enriched_at too — the pending query has (enriched_at IS NULL OR ...)
+            // so setting enrichment_version alone would not remove it from the pending set.
+            db.prepare("UPDATE sessions SET enriched_at=?, enrichment_version=? WHERE id=?")
+              .run(Date.now(), ENRICHMENT_VERSION, id);
             console.log(`[${i + 1}/${pending.length}] ${id} — skip (no chunks)`);
             continue;
           }

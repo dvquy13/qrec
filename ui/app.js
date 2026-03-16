@@ -332,144 +332,28 @@ async function loadRecentSessions(sessionCount) {
 }
 
 // ── Activity grouping ────────────────────────────────────────────────────────
-
-function fmtDuration(ms) {
-  if (ms < 1000) return Math.round(ms) + 'ms';
-  return (ms / 1000).toFixed(1) + 's';
-}
+// Pure grouping logic lives in ui/activity-groups.js (loaded before this script).
+// fmtDuration, groupActivityEvents, isZeroIndexRun, collapseZeroIndexRuns,
+// groupSummary are all defined there as globals.
 
 function runIcon(type) {
   if (type === 'index' || type === 'index_collapsed') return '⊙';
-  if (type === 'enrich') return '✦';
+  if (type === 'enrich' || type === 'enrich_collapsed') return '✦';
   if (type === 'model_download') return '⬇';
   if (type === 'model_loading') return '◎';
   if (type === 'enrich_model_download') return '⬇';
   return '◉';
 }
 
-function groupActivityEvents(events) {
-  // events are newest-first; reverse to process chronologically
-  const chron = [...events].reverse();
-  const groups = [];
-  // Index and enrich run concurrently (different processes) so their events interleave.
-  // Track separate cursors per type so an index_started mid-enrich doesn't close the enrich group.
-  let curIndex = null;
-  let curEnrich = null;
-
-  for (const e of chron) {
-    if (e.type === 'daemon_started') {
-      if (curIndex) { curIndex.running = false; groups.push(curIndex); curIndex = null; }
-      if (curEnrich) { curEnrich.running = false; groups.push(curEnrich); curEnrich = null; }
-      groups.push({ type: 'daemon', events: [e], running: false, ts: e.ts });
-    } else if (e.type === 'index_started') {
-      if (curIndex) { groups.push(curIndex); }
-      curIndex = { type: 'index', events: [e], running: true, ts: e.ts };
-    } else if (e.type === 'enrich_started') {
-      if (curEnrich) { groups.push(curEnrich); }
-      curEnrich = { type: 'enrich', events: [e], running: true, ts: e.ts };
-    } else if (e.type === 'index_complete') {
-      if (curIndex) {
-        curIndex.events.push(e);
-        curIndex.running = false;
-        groups.push(curIndex);
-        curIndex = null;
-      }
-    } else if (e.type === 'enrich_complete') {
-      if (curEnrich) {
-        curEnrich.events.push(e);
-        curEnrich.running = false;
-        groups.push(curEnrich);
-        curEnrich = null;
-      }
-    } else if (e.type === 'session_indexed') {
-      if (curIndex) curIndex.events.push(e);
-    } else if (e.type === 'session_enriched') {
-      if (curEnrich) curEnrich.events.push(e);
-    }
-  }
-
-  if (curIndex) groups.push(curIndex);   // ongoing index run
-  if (curEnrich) groups.push(curEnrich); // ongoing enrich run
-
-
-  return collapseZeroIndexRuns(groups.reverse()); // newest first
-}
-
-function isZeroIndexRun(g) {
-  if (g.type !== 'index' || g.running) return false;
-  const complete = g.events.find(e => e.type === 'index_complete');
-  return (complete?.data?.newSessions ?? 0) === 0;
-}
-
-function collapseZeroIndexRuns(groups) {
-  const result = [];
-  let i = 0;
-  while (i < groups.length) {
-    const g = groups[i];
-    if (isZeroIndexRun(g)) {
-      let count = 1;
-      while (i + count < groups.length && isZeroIndexRun(groups[i + count])) count++;
-      if (count === 1) {
-        result.push(g);
-      } else {
-        result.push({ type: 'index_collapsed', count, ts: g.ts, running: false, events: [] });
-      }
-      i += count;
-    } else {
-      result.push(g);
-      i++;
-    }
-  }
-  return result;
-}
-
-function groupSummary(group) {
-  if (group.syntheticLabel !== undefined) return { label: group.syntheticLabel, detail: null };
-
-  const completeEvent = group.events.find(e => e.type === 'index_complete' || e.type === 'enrich_complete');
-  const startEvent = group.events.find(e => e.type === 'index_started' || e.type === 'enrich_started');
-
-  if (group.type === 'daemon') return { label: 'Daemon started', detail: null };
-
-  if (group.type === 'index_collapsed') {
-    return { label: 'Index scan', detail: `${group.count}× no new sessions` };
-  }
-
-  if (group.type === 'index') {
-    if (group.running) {
-      const n = group.events.filter(e => e.type === 'session_indexed').length;
-      const total = _liveIndexing?.total;
-      const detail = total > 0 ? `${n} / ${total}` : (n > 0 ? `${n} indexed` : null);
-      return { label: 'Indexing…', detail };
-    }
-    const n = completeEvent?.data?.newSessions ?? 0;
-    const ms = completeEvent?.data?.durationMs;
-    return { label: 'Index scan', detail: `${n} new session${n === 1 ? '' : 's'}${ms ? '  ' + fmtDuration(ms) : ''}` };
-  }
-
-  if (group.type === 'enrich') {
-    if (group.running) {
-      const done = group.events.filter(e => e.type === 'session_enriched').length;
-      const pending = startEvent?.data?.pending ?? '?';
-      return { label: 'Enriching…', detail: `${done} / ${pending}` };
-    }
-    const n = completeEvent?.data?.enriched ?? group.events.filter(e => e.type === 'session_enriched').length;
-    const ms = completeEvent?.data?.durationMs;
-    return { label: 'Enrich run', detail: `${n} session${n === 1 ? '' : 's'} enriched${ms ? '  ' + fmtDuration(ms) : ''}` };
-  }
-
-  return { label: group.type, detail: null };
-}
-
 function renderRunGroup(group) {
-  const { label, detail } = groupSummary(group);
+  const { label, detail } = groupSummary(group, _liveIndexing);
   const subEvents = group.events.filter(e =>
     e.type === 'session_indexed' || e.type === 'session_enriched'
   );
 
   const iconHtml = group.running
     ? `<span class="run-spinner-wrap"><span class="spinner run-spinner"></span></span>`
-    : `<span class="run-icon-badge ${group.type === 'index_collapsed' ? 'index' : group.type}">${runIcon(group.type)}</span>`;
+    : `<span class="run-icon-badge ${group.type === 'index_collapsed' ? 'index' : group.type === 'enrich_collapsed' ? 'enrich' : group.type}">${runIcon(group.type)}</span>`;
 
   const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
   const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;

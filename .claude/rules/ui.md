@@ -38,7 +38,7 @@ paths:
 
 - **`_allSessions` is append-only during a session** — `loadSessions()` resets it (called once on tab activation); `loadMoreSessions()` concatenates. Never call `loadSessions()` to "refresh" while the user is browsing — they lose their scroll position and all loaded pages.
 
-- **UI is served fresh** — `index.html`, `app.js`, `styles.css` are served with `Cache-Control: no-cache, no-store, must-revalidate`. Browser refresh always picks up changes without a daemon restart.
+- **UI is served fresh** — `index.html`, `app.js`, `activity-groups.js`, `styles.css` are served with `Cache-Control: no-cache, no-store, must-revalidate`. Browser refresh always picks up changes without a daemon restart.
 
 - **Use `data-run-ts` (not `data-session-ids`) as the open-state key for run groups** — Multiple runs can process the same session IDs (e.g. two enrich runs both processed `3f3e7a7a`), so `data-session-ids` is not unique per run. Using it caused all matching groups to restore as open on every 5s poll. `data-run-ts` (the run's start timestamp) is unique per run.
 
@@ -79,3 +79,11 @@ paths:
 - **Enrich spinner resolves in 30s when process is dead** — `showDashboardPanel` cross-references `data.enriching` from `/status`. If `false` (process dead) and the enrich group is still `running` after 30s grace, mark it closed immediately instead of waiting the 10-minute stale timeout.
 
 - **`showMoreRuns()` sets `_visibleRunCount = Infinity`** — `_allRunGroups` holds real groups only, but `displayGroups` includes synthetic entries too. Setting `_visibleRunCount = _allRunGroups.length` left `hidden = syntheticCount` → clicking the button showed the same count → no change. `Infinity` always reveals everything.
+
+- **`ui/activity-groups.js` is the testable home for pure grouping logic** — `groupActivityEvents`, `collapseZeroIndexRuns`, `collapseZeroEnrichRuns`, `groupSummary`, etc. live here, not inline in `app.js`. Loaded via `<script src="/ui/activity-groups.js">` before `app.js`; also `require()`-able in Bun tests via `if (typeof module !== 'undefined') module.exports = { ... }` at the bottom. `app.js` is served as a plain (non-module) script so it cannot `import` — dual-mode plain JS is the pattern for testing browser globals without bundling.
+
+- **`groupSummary(group, liveIndexing)` — parameterized, not global** — takes `liveIndexing` as an explicit second arg (pass `_liveIndexing` from `app.js`, pass `null` in tests). The old signature read `_liveIndexing` as a global, which made it untestable.
+
+- **Crashed index run displays "0 new sessions" without the fallback** — when the initial index throws before writing `index_complete`, the group's stale timeout fires after 10 min and `groupSummary` reads `completeEvent?.data?.newSessions ?? 0` — 0, because no complete event was written. Fix: `?? group.events.filter(e => e.type === 'session_indexed').length` as fallback shows the actual partial count.
+
+- **`collapseZeroEnrichRuns` mirrors `collapseZeroIndexRuns`** — zero-enrich runs ("Enrich run 0 sessions") flood Recent Activity the same way zero-index runs did before collapse was added. `isZeroEnrichRun` checks `enrich_complete.data.enriched` (falling back to `session_enriched` event count); multiple consecutive zero-enrich runs collapse into one `enrich_collapsed` group. `groupSummary` handles `enrich_collapsed` → `"Enrich run N× nothing to enrich"`.

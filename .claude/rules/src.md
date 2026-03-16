@@ -50,6 +50,7 @@ paths:
 - **Enrich download progress routes to `ENRICH_PROGRESS_FILE`, not `activity.jsonl`** — percent-updates to the activity log caused 362+ events pushing `enrich_started` out of the 500-event window. `enrich.ts` writes `{ percent, downloadedMB, totalMB }` to `~/.qrec/enrich-progress.json` on every 5% step; deleted when model loads. Activity receives only `enrich_model_downloaded` once at load time.
 - **`stopDaemon()` must also SIGTERM the enrich child** — `daemon.ts` reads `~/.qrec/enrich.pid` and kills it alongside the main daemon. Without this, the orphaned enrich process keeps writing to the old (deleted) DB inode after a `reset.sh` + restart.
 - **Enrich cron must be set up BEFORE `runIncrementalIndex(true)`** — `setInterval(spawnEnrichIfNeeded, INDEX_INTERVAL_MS)` and the immediate `spawnEnrichIfNeeded()` call must come before `await runIncrementalIndex(true)`. If set up after, enrich never fires during the initial index (which can take 10+ minutes for large installs).
+- **No-chunk sessions: set BOTH `enriched_at` AND `enrichment_version`** — when the enrich loop skips a session because `getChunkText()` returns empty, it must mark the session with both fields. Setting only `enrichment_version` does NOT remove it from the pending queue: the query has `(enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?)` — the leading `enriched_at IS NULL` OR still matches, causing `spawnEnrichIfNeeded` to respawn every 60s ("Enrich run 0 sessions" flooding).
 
 ## Paths, Dirs & Config
 
