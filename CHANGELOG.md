@@ -1,3 +1,10 @@
+## [0.6.4-next.0](https://github.com/dvquy13/qrec/compare/v0.6.3...v0.6.4-next.0) (2026-03-17)
+
+
+### Bug Fixes
+
+* daemon restart + enrich segfault on Linux (K8s/Tesla T4) ([ec7e7df](https://github.com/dvquy13/qrec/commit/ec7e7dff7ac9ae7fc1f4dbe87d4908eac2a2e1c9))
+* don't stale-close index run while phase=indexing ([5aa4a30](https://github.com/dvquy13/qrec/commit/5aa4a30252e60d19220faf8097d1afdd85c208dc))
 ## [0.6.3](https://github.com/dvquy13/qrec/compare/v0.6.2...v0.6.3) (2026-03-16)
 
 
