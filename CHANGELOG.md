@@ -1,3 +1,9 @@
+## [0.6.4-next.1](https://github.com/dvquy13/qrec/compare/v0.6.4-next.0...v0.6.4-next.1) (2026-03-17)
+
+
+### Features
+
+* GPU/CUDA detection with diagnostics ([16bd724](https://github.com/dvquy13/qrec/commit/16bd7249f3f2ed993d4d9d6756273668f0622722))
 ## [0.6.4-next.0](https://github.com/dvquy13/qrec/compare/v0.6.3...v0.6.4-next.0) (2026-03-17)
 
 
