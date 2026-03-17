@@ -133,3 +133,129 @@ describe('groupSummary — crashed index run', () => {
     expect(detail).toContain('0 new sessions');
   });
 });
+
+// ── stale timeout bug: long initial index (new user) ─────────────────────────
+// Bug: for a new user with 500+ sessions, the initial index legitimately takes
+// >10 min. The app.js stale guard (STALE_MS=10min) fires before index_complete
+// is written and sets running=false. groupSummary then renders the group as
+// "Index scan (N new sessions)" — a completed-looking row — even though the
+// real index is still running. On every subsequent 5s poll, more session_indexed
+// events arrive and the count keeps growing.
+//
+// Fix (app.js): add `phase !== 'indexing'` guard so the stale timeout is
+// suppressed while the daemon reports an active initial index run.
+
+describe('stale timeout bug: long initial index (new-user)', () => {
+  // Mirrors the stale-timeout logic in app.js showDashboardPanel.
+  // phase='indexing' → initial index still running → stale must NOT fire.
+  // phase='ready'    → no active index → stale fires after STALE_MS.
+  function applyStaleTimeout(groups: any[], phase: string) {
+    for (const g of groups) {
+      if (g.type !== 'enrich' && phase !== 'indexing') g.running = false;
+    }
+  }
+
+  // ── bug reproduction (phase='ready' simulates pre-fix behaviour) ───────────
+
+  test('BUG: stale fires when phase=ready → running group appears completed', () => {
+    const sessionEvents = Array.from({ length: 300 }, (_, i) => ({
+      ts: ts(i + 1), type: 'session_indexed', data: { sessionId: `s${i}` },
+    }));
+    const events = toFeed([{ ts: ts(0), type: 'index_started' }, ...sessionEvents]);
+    const groups = groupActivityEvents(events);
+
+    expect(groups[0].running).toBe(true);
+    expect(groupSummary(groups[0], null).label).toBe('Indexing…');
+
+    applyStaleTimeout(groups, 'ready'); // pre-fix: stale fires regardless of phase
+
+    expect(groups[0].running).toBe(false); // incorrectly marked done
+    expect(groupSummary(groups[0], null).label).toBe('Index scan'); // completed look
+  });
+
+  test('BUG: session count grows on each poll after stale-close', () => {
+    const batch1 = Array.from({ length: 300 }, (_, i) => ({
+      ts: ts(i + 1), type: 'session_indexed', data: { sessionId: `s${i}` },
+    }));
+    const events1 = toFeed([{ ts: ts(0), type: 'index_started' }, ...batch1]);
+    const groups1 = groupActivityEvents(events1);
+    applyStaleTimeout(groups1, 'ready');
+    const { detail: detail1 } = groupSummary(groups1[0], null);
+
+    const batch2 = Array.from({ length: 50 }, (_, i) => ({
+      ts: ts(300 + i + 1), type: 'session_indexed', data: { sessionId: `s${300 + i}` },
+    }));
+    const events2 = toFeed([{ ts: ts(0), type: 'index_started' }, ...batch1, ...batch2]);
+    const groups2 = groupActivityEvents(events2);
+    applyStaleTimeout(groups2, 'ready');
+    const { detail: detail2 } = groupSummary(groups2[0], null);
+
+    // Completed-looking row grows on every poll — the visible symptom.
+    expect(detail1).toContain('300 new sessions');
+    expect(detail2).toContain('350 new sessions');
+  });
+
+  // ── fix verification (phase='indexing' blocks stale) ──────────────────────
+
+  test('FIX: stale does NOT fire while phase=indexing', () => {
+    const sessionEvents = Array.from({ length: 300 }, (_, i) => ({
+      ts: ts(i + 1), type: 'session_indexed', data: { sessionId: `s${i}` },
+    }));
+    const events = toFeed([{ ts: ts(0), type: 'index_started' }, ...sessionEvents]);
+    const groups = groupActivityEvents(events);
+
+    applyStaleTimeout(groups, 'indexing'); // fix: suppressed while daemon is indexing
+
+    expect(groups[0].running).toBe(true); // still running — no stale-close
+    expect(groupSummary(groups[0], null).label).toBe('Indexing…'); // progress label preserved
+  });
+
+  test('FIX: session count stable (Indexing… label) across polls while phase=indexing', () => {
+    const batch1 = Array.from({ length: 300 }, (_, i) => ({
+      ts: ts(i + 1), type: 'session_indexed', data: { sessionId: `s${i}` },
+    }));
+    const events1 = toFeed([{ ts: ts(0), type: 'index_started' }, ...batch1]);
+    const groups1 = groupActivityEvents(events1);
+    applyStaleTimeout(groups1, 'indexing');
+
+    const batch2 = Array.from({ length: 50 }, (_, i) => ({
+      ts: ts(300 + i + 1), type: 'session_indexed', data: { sessionId: `s${300 + i}` },
+    }));
+    const events2 = toFeed([{ ts: ts(0), type: 'index_started' }, ...batch1, ...batch2]);
+    const groups2 = groupActivityEvents(events2);
+    applyStaleTimeout(groups2, 'indexing');
+
+    // Both polls show live progress — no completed row, no growing count.
+    expect(groupSummary(groups1[0], null).label).toBe('Indexing…');
+    expect(groupSummary(groups2[0], null).label).toBe('Indexing…');
+  });
+
+  test('normal fast index (<10min): index_complete closes group before stale fires', () => {
+    const events = toFeed([
+      { ts: ts(0), type: 'index_started' },
+      { ts: ts(1), type: 'session_indexed', data: { sessionId: 's0' } },
+      { ts: ts(2), type: 'index_complete', data: { newSessions: 1, durationMs: 500 } },
+    ]);
+    const groups = groupActivityEvents(events);
+    expect(groups[0].running).toBe(false); // closed by index_complete, not stale
+    const { label, detail } = groupSummary(groups[0], null);
+    expect(label).toBe('Index scan');
+    expect(detail).toContain('1 new session');
+  });
+
+  test('stale still fires for crashed cron runs (phase=ready)', () => {
+    // Cron runs with phase=ready that crash (no index_complete) must still be cleaned up.
+    const events = toFeed([
+      { ts: ts(0), type: 'index_started' },
+      { ts: ts(1), type: 'session_indexed', data: { sessionId: 's0' } },
+      // no index_complete — crashed
+    ]);
+    const groups = groupActivityEvents(events);
+    expect(groups[0].running).toBe(true);
+
+    applyStaleTimeout(groups, 'ready'); // stale allowed when phase=ready
+
+    expect(groups[0].running).toBe(false); // correctly cleaned up
+    expect(groupSummary(groups[0], null).label).toBe('Index scan');
+  });
+});
