@@ -271,6 +271,9 @@ function showDashboardPanel(data, actEntries) {
   // Enrich runs: close after 30s grace once data.enriching=false (process dead).
   //              Never close while data.enriching=true — enrich legitimately takes 30+ min.
   // Index/other runs: close after 10min stale threshold (no live process signal available).
+  //              Never close while phase==='indexing' — initial run for new users with 500+
+  //              sessions legitimately takes >10 min; stale-closing it causes the row to show
+  //              "Index scan (N new sessions)" with a growing N on every 5s poll.
   const STALE_MS = 10 * 60 * 1000;
   const GRACE_MS = 30 * 1000;
   const now = Date.now();
@@ -279,7 +282,7 @@ function showDashboardPanel(data, actEntries) {
     if (g.type === 'enrich') {
       if (!data.enriching && (now - g.ts) > GRACE_MS) g.running = false;
     } else {
-      if ((now - g.ts) > STALE_MS) g.running = false;
+      if (phase !== 'indexing' && (now - g.ts) > STALE_MS) g.running = false;
     }
   }
   // While downloading (enrichModelGroup is the live download entry), suppress any "Enriching... 0/N"
