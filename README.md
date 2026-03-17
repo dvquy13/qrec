@@ -1,5 +1,7 @@
 # qrec
 
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/dvquy13?style=flat&logo=github&label=Sponsor)](https://github.com/sponsors/dvquy13)
+
 Purpose-built session recall engine for Claude Code. Indexes your past Claude conversations locally so you can search them instantly — and so Claude itself can answer questions like *"What was I working on last week?"* or *"How did we implement that auth flow?"*
 
 ## Install
