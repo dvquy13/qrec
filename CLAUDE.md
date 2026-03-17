@@ -161,7 +161,16 @@ CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed9
 # QREC_PROJECTS_DIR=<path>      override ~/.claude/projects/ source dir
 # QREC_INDEX_INTERVAL_MS=<ms>   cron index interval (default 60000)
 # QREC_ENRICH_IDLE_MS=<ms>      min session age (indexed_at) before enrich picks it up (default 300000)
+# QREC_DAEMON_TIMEOUT_MS=<ms>   health-check timeout for startDaemon() (default 120000; CPU-only Linux needs more time)
 ```
+
+## Release
+
+```bash
+bash scripts/release.sh 0.7.0              # stable  → npm tag: latest  (npm install -g @dvquys/qrec)
+bash scripts/release.sh 0.7.0-next.0 next  # pre-release → npm tag: next (npm install -g @dvquys/qrec@next)
+```
+Use pre-release to test on non-macOS environments (Linux K8s, etc.) before promoting to stable.
 
 ## Conventions
 

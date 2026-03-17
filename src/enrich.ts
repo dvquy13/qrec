@@ -185,77 +185,97 @@ export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}
     const t0 = Date.now();
     appendActivity({ type: "enrich_started", data: { pending: pending.length } });
     let enrichedCount = 0;
+    let committed = false; // guards against duplicate enrich_complete on error paths
+    let summCtx: Awaited<ReturnType<typeof loadSummarizer>> | null = null;
 
     try {
-      const summCtx = await loadSummarizer();
-      try {
-        const updateSession = db.prepare(
-          "UPDATE sessions SET summary=?, tags=?, entities=?, learnings=?, questions=?, enriched_at=?, enrichment_version=? WHERE id=?"
-        );
-        // Summary chunks go into the chunks table (FTS5 trigger auto-indexes them for BM25 search).
-        // Chunk id format: "{session_id}_summary" — distinct from real chunks "{session_id}_{seq}".
-        const deleteSummaryChunk = db.prepare("DELETE FROM chunks WHERE id = ?");
-        const insertSummaryChunk = db.prepare(
-          "INSERT OR REPLACE INTO chunks (id, session_id, seq, pos, text, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-        );
+      summCtx = await loadSummarizer();
+      const updateSession = db.prepare(
+        "UPDATE sessions SET summary=?, tags=?, entities=?, learnings=?, questions=?, enriched_at=?, enrichment_version=? WHERE id=?"
+      );
+      // Summary chunks go into the chunks table (FTS5 trigger auto-indexes them for BM25 search).
+      // Chunk id format: "{session_id}_summary" — distinct from real chunks "{session_id}_{seq}".
+      const deleteSummaryChunk = db.prepare("DELETE FROM chunks WHERE id = ?");
+      const insertSummaryChunk = db.prepare(
+        "INSERT OR REPLACE INTO chunks (id, session_id, seq, pos, text, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+      );
 
-        for (let i = 0; i < pending.length; i++) {
-          const { id } = pending[i];
-          const chunkText = getChunkText(db, id);
-          if (!chunkText.trim()) {
-            // Mark as processed so spawnEnrichIfNeeded doesn't re-queue this session.
-            // Must set enriched_at too — the pending query has (enriched_at IS NULL OR ...)
-            // so setting enrichment_version alone would not remove it from the pending set.
-            db.prepare("UPDATE sessions SET enriched_at=?, enrichment_version=? WHERE id=?")
-              .run(Date.now(), ENRICHMENT_VERSION, id);
-            console.log(`[${i + 1}/${pending.length}] ${id} — skip (no chunks)`);
-            continue;
-          }
-
-          const t1 = Date.now();
-          const result = await summarizeSession(summCtx, chunkText);
-          const latencyMs = Date.now() - t1;
-
-          // Checkpoint to DB immediately after each session
-          const now = Date.now();
-          updateSession.run(
-            result.summary,
-            JSON.stringify(result.tags),
-            JSON.stringify(result.entities),
-            JSON.stringify(result.learnings),
-            JSON.stringify(result.questions),
-            now,
-            ENRICHMENT_VERSION,
-            id
-          );
-
-          // Insert summary chunk so BM25 (FTS5) search covers summary/tags/entities text.
-          // seq=-1 marks it as synthetic; pos=-1 means before all real content.
-          if (result.summary || result.tags.length > 0 || result.entities.length > 0 || result.learnings.length > 0 || result.questions.length > 0) {
-            const summaryChunkText = buildSummaryChunkText(result.summary, result.tags, result.entities, result.learnings, result.questions);
-            deleteSummaryChunk.run(`${id}_summary`);
-            insertSummaryChunk.run(`${id}_summary`, id, -1, -1, summaryChunkText, now);
-          }
-
-          appendActivity({ type: "session_enriched", data: { sessionId: id, latencyMs } });
-          enrichedCount++;
-          console.log(`[${i + 1}/${pending.length}] ${id} — ${latencyMs}ms`);
-          if (result.summary) console.log(`  Summary: ${result.summary.slice(0, 100)}`);
-          if (result.tags.length > 0) console.log(`  Tags: ${result.tags.join(", ")}`);
-          if (result.learnings.length > 0) console.log(`  Learnings: ${result.learnings.length}`);
-          if (result.questions.length > 0) console.log(`  Questions: ${result.questions.length}`);
+      for (let i = 0; i < pending.length; i++) {
+        const { id } = pending[i];
+        const chunkText = getChunkText(db, id);
+        if (!chunkText.trim()) {
+          // Mark as processed so spawnEnrichIfNeeded doesn't re-queue this session.
+          // Must set enriched_at too — the pending query has (enriched_at IS NULL OR ...)
+          // so setting enrichment_version alone would not remove it from the pending set.
+          db.prepare("UPDATE sessions SET enriched_at=?, enrichment_version=? WHERE id=?")
+            .run(Date.now(), ENRICHMENT_VERSION, id);
+          console.log(`[${i + 1}/${pending.length}] ${id} — skip (no chunks)`);
+          continue;
         }
-      } finally {
-        await disposeSummarizer(summCtx);
+
+        const t1 = Date.now();
+        const result = await summarizeSession(summCtx, chunkText);
+        const latencyMs = Date.now() - t1;
+
+        // Checkpoint to DB immediately after each session
+        const now = Date.now();
+        updateSession.run(
+          result.summary,
+          JSON.stringify(result.tags),
+          JSON.stringify(result.entities),
+          JSON.stringify(result.learnings),
+          JSON.stringify(result.questions),
+          now,
+          ENRICHMENT_VERSION,
+          id
+        );
+
+        // Insert summary chunk so BM25 (FTS5) search covers summary/tags/entities text.
+        // seq=-1 marks it as synthetic; pos=-1 means before all real content.
+        if (result.summary || result.tags.length > 0 || result.entities.length > 0 || result.learnings.length > 0 || result.questions.length > 0) {
+          const summaryChunkText = buildSummaryChunkText(result.summary, result.tags, result.entities, result.learnings, result.questions);
+          deleteSummaryChunk.run(`${id}_summary`);
+          insertSummaryChunk.run(`${id}_summary`, id, -1, -1, summaryChunkText, now);
+        }
+
+        appendActivity({ type: "session_enriched", data: { sessionId: id, latencyMs } });
+        enrichedCount++;
+        console.log(`[${i + 1}/${pending.length}] ${id} — ${latencyMs}ms`);
+        if (result.summary) console.log(`  Summary: ${result.summary.slice(0, 100)}`);
+        if (result.tags.length > 0) console.log(`  Tags: ${result.tags.join(", ")}`);
+        if (result.learnings.length > 0) console.log(`  Learnings: ${result.learnings.length}`);
+        if (result.questions.length > 0) console.log(`  Questions: ${result.questions.length}`);
       }
-    } finally {
-      // Always write enrich_complete — even on crash/error — so the activity log is never
-      // left with an unclosed enrich_started that makes the UI show a stale spinner forever.
+
+      // Commit all persistent state BEFORE disposing the model.
+      // disposeSummarizer() can segfault on Linux during GGML/CUDA worker thread teardown
+      // (node-llama-cpp exit-segfault fix in 3.17.0 was verified on macOS only — Linux may
+      // still have the race). All DB writes are flushed above; writing enrich_complete and
+      // deleting the PID here ensures the activity log and PID file are clean even if the
+      // subsequent dispose crashes the process.
       appendActivity({ type: "enrich_complete", data: { enriched: enrichedCount, durationMs: Date.now() - t0 } });
       console.log("[enrich] Done.");
+      db.close();
+      deleteEnrichPid();
+      committed = true;
+
+      // Best-effort GPU memory release. If this segfaults, all state is already persisted above.
+      await disposeSummarizer(summCtx);
+    } finally {
+      if (!committed) {
+        // Error occurred during loadSummarizer() or inference — still close out cleanly.
+        appendActivity({ type: "enrich_complete", data: { enriched: enrichedCount, durationMs: Date.now() - t0 } });
+        try { db.close(); } catch {}
+        deleteEnrichPid();
+        // summCtx may be null if loadSummarizer() threw — only dispose if it loaded.
+        if (summCtx) {
+          try { await disposeSummarizer(summCtx); } catch {}
+        }
+      }
     }
   } finally {
-    db.close();
+    // Outer safety net for errors before enrich_started (e.g. backfillSummaryChunks throws).
+    try { db.close(); } catch {}
     deleteEnrichPid();
   }
 }

@@ -7,7 +7,7 @@ paths:
 
 ## Embedder & Model
 
-- **node-llama-cpp 3.17.1** — Bun exit segfault fixed in 3.17.0; 3.17.1 confirmed clean under Bun 1.3.10.
+- **node-llama-cpp 3.17.1** — Bun exit segfault fixed in 3.17.0; 3.17.1 confirmed clean under Bun 1.3.10 **on macOS only**. On Linux (K8s/Ubuntu/Tesla T4), GGML/CUDA worker threads can still race during `disposeSummarizer()` and segfault with "multiple threads are crashing". Fix: commit all DB writes + `enrich_complete` + `deleteEnrichPid()` BEFORE calling `disposeSummarizer()` so a crash there is harmless. Do NOT disable GPU on Linux — T4/CUDA is valid and intentional.
 - **`disposeEmbedder()` before `process.exit()`** — always, in every CLI command that loads the model. Without: Bun hangs forever. With exit but no dispose: Bun crashes with NAPI fatal error.
 - **`createEmbeddingContext({ contextSize: 8192 })`** — required, not optional. Default causes "Input too long" on session transcripts; dense code chunks hit 2000+ tokens at ~2 chars/token.
 - **Embed factory**: use `getEmbedProvider()` from `embed/factory.ts` — never import `local.ts`/`ollama.ts`/`stub.ts` directly. Direct imports silently ignore `QREC_EMBED_PROVIDER`.
@@ -55,7 +55,8 @@ paths:
 ## Paths, Dirs & Config
 
 - **`src/dirs.ts` is the single source of truth for paths and port** — all `~/.qrec/*` paths and `QREC_PORT` are exported from `dirs.ts`. Never hardcode `join(homedir(), ".qrec", ...)` or `25927` directly. `QREC_DIR` env var overrides the root and all derived paths update automatically — enables isolated test environments.
-- **`startDaemon()` kills orphan processes on port 25927** — after `isDaemonRunning()` returns false, `daemon.ts` runs `lsof -ti :25927`, SIGKILLs any process found, and waits 300ms before spawning. Handles zombie daemons left when the PID file goes stale. Do not route around this.
+- **`startDaemon()` kills orphan processes on port 25927** — after `isDaemonRunning()` returns false, `daemon.ts` runs `lsof -ti :25927` (falls back to `ss -tlnp` on minimal Linux images where `lsof` isn't installed), SIGKILLs any process found, and waits 300ms before spawning. Handles zombie daemons left when the PID file goes stale. Do not route around this.
+- **`startDaemon()` health-check timeout is 120s by default** (was 30s). CPU-only Linux model loading can take 60–120s. Override with `QREC_DAEMON_TIMEOUT_MS=<ms>`.
 
 ## API & Protocol
 
