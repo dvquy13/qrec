@@ -13,6 +13,7 @@ import { join } from "path";
 import { LOG_FILE, ARCHIVE_DIR } from "./dirs.ts";
 import { isProcessAlive, readEnrichPid, ENRICHMENT_VERSION } from "./enrich.ts";
 import { readConfig } from "./config.ts";
+import { probeGpu } from "./gpu-probe.ts";
 
 export const DEFAULT_VAULT_PATH = process.env.QREC_PROJECTS_DIR ?? join(homedir(), ".claude", "projects");
 export const INDEX_INTERVAL_MS = parseInt(process.env.QREC_INDEX_INTERVAL_MS ?? "60000", 10);
@@ -123,6 +124,14 @@ export async function runIncrementalIndex(db: Database, state: ServerState, isIn
 
 // Load embedder in background; /search returns 503 until ready.
 export async function loadEmbedderWithRetry(db: Database, state: ServerState, maxAttempts = 10, delayMs = 30_000): Promise<void> {
+  // Log GPU/compute backend info once at startup.
+  const gpuInfo = probeGpu();
+  if (process.platform === "linux") {
+    console.log(`[server] GPU: ${gpuInfo.gpuDetected ? `${gpuInfo.gpuName} (driver ${gpuInfo.driverVersion}, CUDA ${gpuInfo.cudaDriverVersion})` : "none detected"}`);
+    console.log(`[server] Compute backend: ${gpuInfo.selectedBackend}`);
+    if (gpuInfo.advice) console.warn(`[server] WARNING: ${gpuInfo.advice}`);
+  }
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       serverProgress.phase = "model_loading";

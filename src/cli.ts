@@ -10,6 +10,7 @@ import { startDaemon, stopDaemon, getDaemonPid } from "./daemon.ts";
 import { existsSync, readFileSync, rmSync } from "fs";
 import { homedir } from "os";
 import { QREC_DIR, LOG_FILE } from "./dirs.ts";
+import { probeGpu } from "./gpu-probe.ts";
 
 const [, , command, ...args] = process.argv;
 
@@ -166,6 +167,25 @@ async function main() {
         console.log(`Sessions:       ${sessionRow.count}`);
         console.log(`Chunks:         ${chunkRow.count}`);
         console.log(`Last indexed:   ${lastIndexed}`);
+        if (process.platform === "linux") {
+          const probe = probeGpu();
+          console.log("");
+          console.log("--- Compute ---");
+          console.log(`Backend:        ${probe.selectedBackend}`);
+          if (probe.gpuDetected) {
+            console.log(`GPU:            ${probe.gpuName} (driver ${probe.driverVersion}, CUDA ${probe.cudaDriverVersion})`);
+            console.log(`CUDA runtime:   ${probe.cudaRuntimeAvailable ? "available" : "NOT AVAILABLE"}`);
+            if (probe.missingLibs.length > 0) {
+              console.log(`  Missing libs: ${probe.missingLibs.join(", ")}`);
+              const ver = probe.cudaDriverVersion !== "unknown" ? probe.cudaDriverVersion!.split(".").slice(0, 2).join("-") : "12";
+              console.log(`  Fix:          apt install -y cuda-toolkit-${ver}`);
+            }
+          } else {
+            console.log("GPU:            none detected");
+          }
+          if (probe.vulkanAvailable) console.log("Vulkan:         available");
+        }
+
         console.log("");
         console.log("--- Log tail (last 20 lines) ---");
         const tail = getLogTail(20);
@@ -190,6 +210,68 @@ async function main() {
       process.exit(0);
     }
 
+    case "doctor": {
+      const probe = probeGpu();
+      console.log("=== qrec doctor ===");
+      console.log("");
+
+      if (process.platform !== "linux") {
+        console.log(`Platform: ${process.platform}`);
+        console.log("Metal/GPU acceleration is handled automatically by node-llama-cpp on macOS.");
+        console.log("No CUDA probe needed.");
+        process.exit(0);
+      }
+
+      console.log("GPU Hardware");
+      if (probe.gpuDetected) {
+        console.log(`  Device:         ${probe.gpuName}`);
+        console.log(`  Driver:         ${probe.driverVersion}`);
+        console.log(`  CUDA (driver):  ${probe.cudaDriverVersion}`);
+      } else {
+        console.log("  No NVIDIA GPU detected (nvidia-smi not found or returned no output)");
+      }
+
+      console.log("");
+      console.log("CUDA Runtime Libraries");
+
+      if (probe.gpuDetected) {
+        const allLibs = ["libcudart", "libcublas", "libcublasLt"];
+        for (const lib of allLibs) {
+          const missing = probe.missingLibs.includes(lib);
+          console.log(`  ${lib.padEnd(14)}  ${missing ? "NOT FOUND" : "found"}`);
+        }
+        console.log("");
+        if (probe.cudaRuntimeAvailable) {
+          console.log("  Status: CUDA runtime available ✓");
+        } else {
+          console.log("  Status: CUDA runtime not available");
+          const ver = probe.cudaDriverVersion !== "unknown" ? probe.cudaDriverVersion!.split(".").slice(0, 2).join("-") : "12";
+          console.log("");
+          console.log("  To fix:");
+          console.log(`    sudo apt install -y cuda-toolkit-${ver}`);
+          console.log("    # or for runtime-only:");
+          console.log("    sudo apt install -y libcudart12 libcublas12");
+        }
+      } else {
+        console.log("  (skipped — no NVIDIA GPU detected)");
+      }
+
+      console.log("");
+      console.log("Vulkan");
+      console.log(`  libvulkan:      ${probe.vulkanAvailable ? "found" : "NOT FOUND"}`);
+
+      console.log("");
+      console.log(`Active Backend: ${probe.selectedBackend.toUpperCase()}${probe.selectedBackend === "cpu" && probe.gpuDetected ? " (fallback)" : ""}`);
+
+      if (!probe.cudaRuntimeAvailable && probe.gpuDetected) {
+        console.log("");
+        console.log("After installing CUDA libs, restart qrec:");
+        console.log("  qrec teardown && qrec serve --daemon");
+      }
+
+      process.exit(0);
+    }
+
     default: {
       console.error(`Unknown command: ${command}`);
       console.error("Usage:");
@@ -201,6 +283,7 @@ async function main() {
       console.error("  qrec mcp [--http]");
       console.error("  qrec status");
       console.error("  qrec enrich [--limit N]           # summarize unenriched sessions");
+      console.error("  qrec doctor                       # diagnose GPU/CUDA setup");
       process.exit(1);
     }
   }
