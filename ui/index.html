@@ -180,13 +180,23 @@
     <div class="section">
       <div class="section-header">
         <span class="section-title">Live stats</span>
-        <span class="meta-line" id="dbg-stats-meta">Loading…</span>
+        <span class="meta-line"><span id="dbg-version" style="font-family:var(--mono)">—</span> · <span id="dbg-stats-meta">Loading…</span></span>
       </div>
       <div class="stats-strip">
         <div class="stat-item"><div class="label">Sessions</div><div class="value" id="dbg-sessions">—</div></div>
         <div class="stat-item"><div class="label">Chunks</div><div class="value" id="dbg-chunks">—</div></div>
         <div class="stat-item"><div class="label">Searches</div><div class="value" id="dbg-searches">—</div></div>
         <div class="stat-item"><div class="label">Provider</div><div class="value" id="dbg-provider" style="font-size:13px;font-family:'Menlo',monospace;">—</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="dbg-compute-section">
+      <div class="section-header">
+        <span class="section-title">Compute</span>
+        <span class="meta-line" id="dbg-compute-meta"></span>
+      </div>
+      <div id="dbg-compute-body">
+        <table class="config-table"><tr><td colspan="2" style="padding:16px;color:var(--text-muted);font-size:13px;"><span class="spinner"></span> Loading…</td></tr></table>
       </div>
     </div>
 

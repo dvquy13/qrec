@@ -161,7 +161,9 @@ async function main() {
           ? new Date(lastIndexedRow.last).toISOString()
           : "never";
 
+        const version = typeof __QREC_VERSION__ !== "undefined" ? __QREC_VERSION__ : "(dev)";
         console.log("=== qrec status ===");
+        console.log(`Version:        ${version}`);
         console.log(`Daemon PID:     ${daemonPid ?? "not running"}`);
         console.log(`HTTP health:    ${httpHealth}`);
         console.log(`Sessions:       ${sessionRow.count}`);
@@ -171,14 +173,19 @@ async function main() {
           const probe = probeGpu();
           console.log("");
           console.log("--- Compute ---");
-          console.log(`Backend:        ${probe.selectedBackend}`);
+          const backendSuffix = probe.selectedBackend === "cpu" && probe.gpuDetected ? " (fallback — CUDA libs missing)" : "";
+          console.log(`Backend:        ${probe.selectedBackend}${backendSuffix}`);
           if (probe.gpuDetected) {
             console.log(`GPU:            ${probe.gpuName} (driver ${probe.driverVersion}, CUDA ${probe.cudaDriverVersion})`);
             console.log(`CUDA runtime:   ${probe.cudaRuntimeAvailable ? "available" : "NOT AVAILABLE"}`);
-            if (probe.missingLibs.length > 0) {
+            if (probe.cudaRuntimeAvailable) {
+              console.log(`Binary:         ${probe.activeBinaryName}`);
+            } else {
               console.log(`  Missing libs: ${probe.missingLibs.join(", ")}`);
-              const ver = probe.cudaDriverVersion !== "unknown" ? probe.cudaDriverVersion!.split(".").slice(0, 2).join("-") : "12";
-              console.log(`  Fix:          apt install -y cuda-toolkit-${ver}`);
+              if (probe.installSteps) {
+                console.log(`  Fix:`);
+                probe.installSteps.forEach((s, i) => console.log(`    ${i + 1}. ${s}`));
+              }
             }
           } else {
             console.log("GPU:            none detected");
@@ -222,51 +229,58 @@ async function main() {
         process.exit(0);
       }
 
-      console.log("GPU Hardware");
+      // Checklist helpers
+      const OK   = (msg: string) => `[check] ${msg}`;
+      const FAIL = (msg: string) => `[FAIL]  ${msg}`;
+      const INFO = (msg: string) => `        ${msg}`;
+
+      // GPU
       if (probe.gpuDetected) {
-        console.log(`  Device:         ${probe.gpuName}`);
-        console.log(`  Driver:         ${probe.driverVersion}`);
-        console.log(`  CUDA (driver):  ${probe.cudaDriverVersion}`);
+        console.log(OK(`NVIDIA GPU ............ ${probe.gpuName} (driver ${probe.driverVersion}, CUDA ${probe.cudaDriverVersion})`));
       } else {
-        console.log("  No NVIDIA GPU detected (nvidia-smi not found or returned no output)");
+        console.log(FAIL("NVIDIA GPU ............ not detected (nvidia-smi not found or no output)"));
       }
 
-      console.log("");
-      console.log("CUDA Runtime Libraries");
-
-      if (probe.gpuDetected) {
-        const allLibs = ["libcudart", "libcublas", "libcublasLt"];
-        for (const lib of allLibs) {
-          const missing = probe.missingLibs.includes(lib);
-          console.log(`  ${lib.padEnd(14)}  ${missing ? "NOT FOUND" : "found"}`);
-        }
-        console.log("");
-        if (probe.cudaRuntimeAvailable) {
-          console.log("  Status: CUDA runtime available ✓");
+      // CUDA libs
+      for (const [name, lib] of Object.entries(probe.libProbes)) {
+        if (lib.found) {
+          console.log(OK(`${name.padEnd(14)} .... .so.${lib.soVersion} at ${lib.path}`));
         } else {
-          console.log("  Status: CUDA runtime not available");
-          const ver = probe.cudaDriverVersion !== "unknown" ? probe.cudaDriverVersion!.split(".").slice(0, 2).join("-") : "12";
-          console.log("");
-          console.log("  To fix:");
-          console.log(`    sudo apt install -y cuda-toolkit-${ver}`);
-          console.log("    # or for runtime-only:");
-          console.log("    sudo apt install -y libcudart12 libcublas12");
+          console.log(FAIL(`${name.padEnd(14)} .... NOT FOUND`));
         }
+      }
+
+      // Vulkan
+      if (probe.vulkanAvailable) {
+        console.log(OK("Vulkan ................ available"));
       } else {
-        console.log("  (skipped — no NVIDIA GPU detected)");
+        console.log(OK("Vulkan ................ not found (optional)"));
+      }
+
+      // Binary
+      if (probe.activeBinaryName) {
+        console.log(OK(`node-llama-cpp binary . ${probe.activeBinaryName}`));
       }
 
       console.log("");
-      console.log("Vulkan");
-      console.log(`  libvulkan:      ${probe.vulkanAvailable ? "found" : "NOT FOUND"}`);
 
-      console.log("");
-      console.log(`Active Backend: ${probe.selectedBackend.toUpperCase()}${probe.selectedBackend === "cpu" && probe.gpuDetected ? " (fallback)" : ""}`);
-
-      if (!probe.cudaRuntimeAvailable && probe.gpuDetected) {
+      // Summary
+      if (probe.cudaRuntimeAvailable) {
+        console.log(`Result: CUDA backend ready (${probe.activeBinaryName})`);
+      } else if (probe.gpuDetected) {
+        console.log("Result: CUDA libs missing — running on CPU (fallback)");
         console.log("");
-        console.log("After installing CUDA libs, restart qrec:");
-        console.log("  qrec teardown && qrec serve --daemon");
+        console.log("Fix:");
+        if (probe.installSteps) {
+          probe.installSteps.forEach((s, i) => console.log(`  ${i + 1}. ${s}`));
+        }
+        if (probe.cudaRepoConfigured === false) {
+          console.log("");
+          console.log(INFO("Note: NVIDIA apt repo not found in /etc/apt/sources.list.d/"));
+          console.log(INFO("      The wget step above adds it. Run apt-get update after."));
+        }
+      } else {
+        console.log("Result: No NVIDIA GPU detected — running on CPU");
       }
 
       process.exit(0);

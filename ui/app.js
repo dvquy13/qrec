@@ -1532,9 +1532,97 @@ async function fetchStats() {
     document.getElementById('dbg-chunks').textContent = d.chunks.toLocaleString();
     document.getElementById('dbg-searches').textContent = d.searches.toLocaleString();
     document.getElementById('dbg-provider').textContent = d.embedProvider;
+    document.getElementById('dbg-version').textContent = d.version ?? '—';
     document.getElementById('dbg-stats-meta').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    renderComputeSection(d.compute);
   } catch (err) {
     document.getElementById('dbg-stats-meta').textContent = 'Error: ' + err.message;
+  }
+}
+
+function renderComputeSection(c) {
+  const body = document.getElementById('dbg-compute-body');
+  const meta = document.getElementById('dbg-compute-meta');
+  if (!c) {
+    body.innerHTML = '<div style="padding:14px 16px;color:var(--text-muted);font-size:13px;">No compute info available.</div>';
+    return;
+  }
+
+  // macOS / non-Linux: libProbes is {} and activeBinaryName is null
+  if (!c.gpuDetected && c.activeBinaryName === null && Object.keys(c.libProbes || {}).length === 0) {
+    body.innerHTML = '<table class="config-table"><tr><td>Backend</td><td>Metal (handled automatically by node-llama-cpp)</td></tr></table>';
+    meta.textContent = 'macOS';
+    return;
+  }
+
+  const rows = [];
+
+  // Backend
+  let backendVal = escHtml(c.selectedBackend);
+  if (c.selectedBackend === 'cpu' && c.gpuDetected) {
+    backendVal += ' <span style="color:var(--red);font-size:11px;font-weight:600">⚠ fallback</span>';
+  }
+  if (c.activeBinaryName) {
+    backendVal += ` <span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--bg2);border:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text-muted)">${escHtml(c.activeBinaryName)}</span>`;
+  }
+  rows.push(`<tr><td>Backend</td><td>${backendVal}</td></tr>`);
+
+  // GPU
+  if (c.gpuDetected) {
+    rows.push(`<tr><td>GPU</td><td>${escHtml(c.gpuName)} <span style="color:var(--text-muted)">· driver ${escHtml(c.driverVersion)} · CUDA ${escHtml(c.cudaDriverVersion)}</span></td></tr>`);
+  } else {
+    rows.push(`<tr><td>GPU</td><td style="color:var(--text-muted)">none detected</td></tr>`);
+  }
+
+  // CUDA lib rows
+  if (c.libProbes) {
+    for (const [name, probe] of Object.entries(c.libProbes)) {
+      if (probe.found) {
+        const detail = `<span style="color:var(--text-muted);font-size:11.5px;font-family:var(--mono)">.so.${escHtml(probe.soVersion)} &nbsp;${escHtml(probe.path)}</span>`;
+        rows.push(`<tr><td><span style="color:var(--green)">✓</span> ${escHtml(name)}</td><td>${detail}</td></tr>`);
+      } else {
+        rows.push(`<tr><td><span style="color:var(--red)">✗</span> ${escHtml(name)}</td><td style="color:var(--red);font-size:12px">not found</td></tr>`);
+      }
+    }
+  }
+
+  // Vulkan
+  if (c.gpuDetected !== undefined) {
+    const vDot = c.vulkanAvailable
+      ? '<span style="color:var(--green)">✓</span>'
+      : '<span style="color:var(--text-muted)">–</span>';
+    const vVal = c.vulkanAvailable
+      ? 'available'
+      : '<span style="color:var(--text-muted)">not found (optional)</span>';
+    rows.push(`<tr><td>${vDot} Vulkan</td><td>${vVal}</td></tr>`);
+  }
+
+  let html = `<table class="config-table">${rows.join('')}</table>`;
+
+  // Fix steps block
+  if (c.installSteps && c.installSteps.length) {
+    const stepLines = c.installSteps.map((s, i) =>
+      `<span class="log-line">${escHtml(`${i + 1}. ${s}`)}</span>`
+    ).join('\n');
+    html += `
+      <div style="border-top:1px solid var(--border);padding:12px 16px 14px">
+        <div style="font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Fix</div>
+        <div style="font-family:var(--mono);font-size:11.5px;line-height:1.7;color:var(--text);white-space:pre-wrap">${stepLines}</div>
+      </div>`;
+  }
+
+  body.innerHTML = html;
+
+  // Update section meta badge
+  if (c.cudaRuntimeAvailable) {
+    meta.textContent = 'cuda ready';
+    meta.style.color = 'var(--green)';
+  } else if (c.gpuDetected) {
+    meta.textContent = 'cuda libs missing';
+    meta.style.color = 'var(--red)';
+  } else {
+    meta.textContent = '';
+    meta.style.color = '';
   }
 }
 

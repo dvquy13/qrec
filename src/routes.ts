@@ -42,6 +42,7 @@ export function handleStatus(db: Database): Response {
   const pendingCount = sessions - enrichedCount;
   return Response.json({
     status: "ok",
+    version: typeof __QREC_VERSION__ !== "undefined" ? __QREC_VERSION__ : "(dev)",
     phase: serverProgress.phase,
     sessions,
     chunks,
@@ -71,6 +72,9 @@ export function handleStatus(db: Database): Response {
         cudaRuntimeAvailable: p.cudaRuntimeAvailable,
         vulkanAvailable: p.vulkanAvailable,
         missingLibs: p.missingLibs,
+        libProbes: p.libProbes,
+        activeBinaryName: p.activeBinaryName,
+        installSteps: p.installSteps,
         advice: p.advice,
       };
     })(),
