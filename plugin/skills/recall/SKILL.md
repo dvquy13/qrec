@@ -36,16 +36,13 @@ ORDER BY date DESC LIMIT 5
 2. Return the results directly — no need to call `search` or `get`.
 
 ### Content/topic queries
-1. **Search** — call `mcp__qrec__search` with a focused query (concrete nouns: function names, error messages, feature names, file paths). Avoid stop words.
-2. **Review results** — each result has `session_id`, `score`, `preview`, `project`, `date`, `title`. Higher score = better match.
-3. **Get full session** — for the top 1–2 results, call `mcp__qrec__get` with the `session_id` to read the full conversation.
+1. **Search** — call `mcp__qrec__search` with `k=10`. Use concrete nouns from the topic (function names, error messages, feature names).
+2. **Review results** — check titles, dates, and previews. If the top results don't match what the user is asking about, run up to 2 more searches with different phrasings before giving up.
+3. **Get full session** — for the top 1–2 matching results, call `mcp__qrec__get` to read the full conversation.
 4. **Synthesize** — answer the user's question based on what you found.
 
 ## Search tips
 
-- Use `k=5` for focused recall, `k=10` for broad exploration
-- Concrete queries work best: `"FTS5 sanitization"`, `"node-llama-cpp dispose"`, `"MCP stdio shim"`, `"ECONNREFUSED"`, `"embedder cold start"`
-- If the first search returns nothing useful, try alternate terminology
 - If search returns an error about the daemon not running, tell the user to run `qrec serve --daemon`
 
 ## Tool reference
