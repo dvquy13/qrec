@@ -24,34 +24,38 @@ For specific actions, load and follow the matching sub-file.
 
 ## What qrec does
 
-qrec is a persistent session recall engine for Claude Code. It indexes every Claude Code conversation into a local SQLite database and provides hybrid BM25 + vector search. Sessions are indexed automatically as they close; the daemon starts automatically when Claude Code opens.
+qrec is a persistent session recall engine for Claude Code. It indexes every Claude Code conversation into a local SQLite database and provides hybrid BM25 + vector search. Sessions are indexed automatically via a cron loop inside the daemon; the daemon starts automatically when Claude Code opens.
 
 ## Architecture
 
 ```
-SessionStart hook → smart-install.js  (first-run: background bun install + model download)
-                  → qrec serve --daemon  (HTTP server, port 25927)
+SessionStart hook → qrec serve --daemon --no-open  (starts daemon if not running; exits immediately if already up)
 
-SessionEnd hook   → qrec index-session  (indexes the just-closed session)
+Daemon (port 25927)  → loads embedding model in background
+                     → cron auto-index every 60s (picks up new/changed sessions)
+                     → HTTP server always up; search returns 503 until model ready
 
 HTTP server       → http://localhost:25927   (search UI + REST API)
-MCP server        → stdio  or  http://localhost:3031
 SQLite DB         → ~/.qrec/qrec.db
 Embedding model   → ~/.qrec/models/embeddinggemma-300M-Q8_0.gguf  (~300MB, local)
 Server log        → ~/.qrec/qrec.log
-Install log       → ~/.qrec/install.log
 PID file          → ~/.qrec/qrec.pid
-Install marker    → $CLAUDE_PLUGIN_ROOT/.install-version
+Activity log      → ~/.qrec/activity.jsonl
 ```
 
 ## CLI commands
 
 ```bash
 qrec status                          # health + session/chunk counts + log tail
-qrec serve --daemon                  # start HTTP server in background
+qrec serve --daemon                  # first-time setup + all subsequent starts; auto-downloads model, indexes, opens browser
+qrec serve --daemon --no-open        # start without opening browser (used by SessionStart hook)
 qrec stop                            # stop daemon
 qrec index [path]                    # index path (default: ~/.claude/projects/)
-qrec mcp [--http]                    # MCP server (stdio or port 3031)
+qrec index --force                   # force re-index all sessions from scratch
+qrec search "<query>" [--k N]        # search indexed sessions (prints JSON)
+qrec get <session_id>                # print full session markdown
+qrec enrich [--limit N]              # enrich sessions with summary/tags/entities
+qrec teardown [--yes]                # stop daemon + remove ~/.qrec/
 qrec --version
 ```
 
@@ -67,17 +71,24 @@ node $CLAUDE_PLUGIN_ROOT/scripts/qrec-cli.js <command>
 | GET | `/health` | Always 200; `{status, model, indexedSessions}` |
 | GET | `/` | Search UI |
 | GET | `/audit` | Audit log UI |
+| GET | `/debug` | Debug UI |
 | POST | `/search` | `{query, k}` → results; 503 until model ready |
-| GET | `/sessions` | List session IDs |
-| GET | `/audit/entries?limit=N` | Audit log |
-
-## MCP tools: `search(query, k)` · `get(session_id)` · `status()`
+| GET | `/sessions` | List sessions |
+| GET | `/sessions/:id` | Session detail JSON |
+| GET | `/sessions/:id/markdown` | Session full markdown |
+| GET | `/audit/entries?limit=N` | Audit log entries |
+| GET | `/activity/entries` | Activity log entries |
+| GET | `/settings` | Current config |
+| POST | `/settings` | Update config |
 
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `QREC_EMBED_PROVIDER` | `local` | `local` / `ollama` / `openai` / `stub` |
+| `QREC_PORT` | `25927` | Daemon port |
+| `QREC_DIR` | `~/.qrec` | Override data root |
+| `QREC_PROJECTS_DIR` | `~/.claude/projects/` | Source sessions directory |
 | `QREC_OLLAMA_HOST` | `http://localhost:11434` | Ollama URL |
 | `QREC_OLLAMA_MODEL` | `nomic-embed-text` | Ollama model |
 | `QREC_OPENAI_KEY` | — | OpenAI-compatible key |
@@ -86,15 +97,10 @@ node $CLAUDE_PLUGIN_ROOT/scripts/qrec-cli.js <command>
 
 ## First-run flow
 
-1. SessionStart fires → `smart-install.js` checks `.install-version` marker
-2. If first run: spawns **background process** (detached, non-blocking) that does:
-   - `bun install` in plugin dir (node-llama-cpp, sqlite-vec)
-   - Downloads embedding model from HuggingFace (~300MB)
-   - Initial index of `~/.claude/projects/`
-   - Writes `.install-version` marker when complete
-3. Hook exits immediately — Claude Code is responsive right away
-4. Daemon starts — HTTP server up instantly, model loads in background
-5. Server retries model loading every 30s (up to 10×) — self-heals once install finishes
-6. Subsequent sessions: marker matches → fast path, exits in <1s
-
-Track progress: `tail -f ~/.qrec/install.log`
+1. SessionStart fires → hook runs `qrec serve --daemon --no-open`
+2. If daemon not running: starts server immediately (Bun.serve binds before model loads)
+3. Model downloads from HuggingFace if not cached (~300MB to `~/.qrec/models/`)
+4. Initial index of `~/.claude/projects/` runs automatically
+5. Hook exits immediately — Claude Code is responsive right away
+6. Search returns 503 while model loads; once ready, all searches work
+7. Subsequent sessions: daemon already running → hook is a no-op

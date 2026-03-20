@@ -4,18 +4,18 @@
    ```bash
    qrec status
    ```
-   If `qrec` not in PATH: `node $CLAUDE_PLUGIN_ROOT/scripts/bun-runner.js $CLAUDE_PLUGIN_ROOT/scripts/qrec.cjs status`
+   If `qrec` not in PATH: `node $CLAUDE_PLUGIN_ROOT/scripts/qrec-cli.js status`
 
 2. Show the output to the user, then interpret:
    - **Daemon PID**: process is running
    - **HTTP health: ok** → server up; anything else → daemon crashed or not started
-   - **Sessions / Chunks = 0** → not indexed yet (first-run install may still be in progress)
+   - **Sessions / Chunks = 0** → not indexed yet (model may still be loading on first run)
    - **Last indexed: never** → no sessions indexed; suggest `qrec index`
-   - **Model state in /health response** → `loading` = background install in progress, `error` = load failed
+   - **Model state in /health response** → `loading` = model loading in background, `error` = load failed
 
-3. Check install progress if first-run may be ongoing:
+3. If daemon seems unresponsive, check the server log:
    ```bash
-   tail -20 ~/.qrec/install.log
+   tail -20 ~/.qrec/qrec.log
    ```
 
 4. Report a clear summary: what's working, what isn't, and the next step if anything needs fixing.

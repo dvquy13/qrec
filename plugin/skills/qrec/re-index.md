@@ -22,17 +22,14 @@ Use when: sessions aren't showing up in search, DB was reset, or you want to re-
    qrec index --force
    ```
 
-4. To index a single session file:
-   ```bash
-   qrec index-session ~/.claude/projects/<project>/<session>.jsonl
-   ```
-
-5. After indexing, verify:
+4. After indexing, verify:
    ```bash
    qrec status
    curl -s -X POST http://localhost:25927/search \
      -H 'Content-Type: application/json' \
      -d '{"query":"test","k":3}' | jq '.results | length'
    ```
+
+Note: the daemon also auto-indexes every 60 seconds. New sessions from the current Claude Code session will appear automatically without manual re-indexing.
 
 Report the before/after session count to the user.
