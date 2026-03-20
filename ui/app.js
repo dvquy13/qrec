@@ -1403,10 +1403,11 @@ async function loadSessionDetail(id) {
     document.getElementById('detail-loading').style.display = 'none';
 
     document.getElementById('detail-title').textContent = session.title || '(untitled)';
+    const fullUuid = session.path ? session.path.replace(/.*\//, '').replace(/\.jsonl$/, '') : session.id;
     document.getElementById('detail-meta').innerHTML = `
       <span class="tag clickable-tag" onclick="filterByProject('${escHtml(session.project || '')}')">${escHtml(session.project || '—')}</span>
       <span class="tag clickable-tag" onclick="filterByDate('${escHtml(session.date || '')}')">${escHtml(session.date || '—')}</span>
-      <span class="tag" style="font-family:var(--mono);font-size:11px;">${escHtml(session.id)}</span>
+      <span class="tag session-id">${escHtml(fullUuid)}<button class="copy-btn" title="Copy session UUID" onclick="navigator.clipboard.writeText('${escHtml(fullUuid)}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='⎘',1200)})">⎘</button></span>
       <span class="tag">${session.turns ? session.turns.length + ' turns' : ''}</span>
     `;
 

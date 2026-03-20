@@ -209,6 +209,7 @@ export async function handleSessionDetail(db: Database, sessionId: string): Prom
       title: row.title,
       project: row.project,
       date: row.date,
+      path: row.path,
       summary: row.summary ?? null,
       tags: row.tags ? JSON.parse(row.tags) as string[] : null,
       entities: row.entities ? JSON.parse(row.entities) as string[] : null,
