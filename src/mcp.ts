@@ -7,15 +7,14 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-const getPort = () => parseInt(process.env.QREC_PORT ?? "25927", 10);
-const DAEMON_BASE = `http://localhost:${getPort()}`;
+const getDaemonBase = () => `http://localhost:${parseInt(process.env.QREC_PORT ?? "25927", 10)}`;
 const MCP_HTTP_PORT = 3031;
 const DAEMON_DOWN_MSG = "qrec daemon is not running. Start it with: qrec serve --daemon";
 
 interface SearchFilters { dateFrom?: string; dateTo?: string; project?: string; tag?: string; }
 
 async function daemonSearch(query: string, k: number, filters?: SearchFilters): Promise<unknown> {
-  const res = await fetch(`${DAEMON_BASE}/search`, {
+  const res = await fetch(`${getDaemonBase()}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, k, ...filters }),
@@ -29,7 +28,7 @@ async function daemonSearch(query: string, k: number, filters?: SearchFilters): 
 }
 
 async function daemonGetMarkdown(sessionId: string): Promise<string> {
-  const res = await fetch(`${DAEMON_BASE}/sessions/${sessionId}/markdown`);
+  const res = await fetch(`${getDaemonBase()}/sessions/${sessionId}/markdown`);
   if (res.status === 404) {
     throw new Error(`Session not found: ${sessionId}`);
   }
@@ -40,7 +39,7 @@ async function daemonGetMarkdown(sessionId: string): Promise<string> {
 }
 
 async function daemonHealth(): Promise<unknown> {
-  const res = await fetch(`${DAEMON_BASE}/health`);
+  const res = await fetch(`${getDaemonBase()}/health`);
   if (!res.ok) {
     throw new Error(`Daemon returned ${res.status}`);
   }
@@ -48,7 +47,7 @@ async function daemonHealth(): Promise<unknown> {
 }
 
 async function daemonQueryDb(sql: string): Promise<unknown> {
-  const res = await fetch(`${DAEMON_BASE}/query_db`, {
+  const res = await fetch(`${getDaemonBase()}/query_db`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sql }),
@@ -152,7 +151,7 @@ async function callDaemon(fn: () => Promise<unknown>, format: (r: unknown) => st
   }
 }
 
-async function handleToolCall(name: string, args: Record<string, unknown>): Promise<MCPResult> {
+export async function handleToolCall(name: string, args: Record<string, unknown>): Promise<MCPResult> {
   if (name === "search") {
     const query = String(args?.query ?? "").trim();
     if (!query) return mcpError("Missing required field: query");
@@ -244,6 +243,6 @@ export async function runMcpServer(useHttp: boolean = false): Promise<void> {
   } else {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error("[mcp] qrec MCP server running on stdio (proxying to daemon at localhost:25927)");
+    console.error(`[mcp] qrec MCP server running on stdio (proxying to daemon at ${getDaemonBase()})`);
   }
 }
