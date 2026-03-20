@@ -1,3 +1,9 @@
+## [0.6.4](https://github.com/dvquy13/qrec/compare/v0.6.4-next.2...v0.6.4) (2026-03-20)
+
+
+### Features
+
+* add --port flag to CLI commands ([6427d75](https://github.com/dvquy13/qrec/commit/6427d755cb390d7ef1846337487d66ccfc64e7c6))
 ## [0.6.4-next.2](https://github.com/dvquy13/qrec/compare/v0.6.4-next.1...v0.6.4-next.2) (2026-03-20)
 
 
