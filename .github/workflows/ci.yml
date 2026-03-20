@@ -60,7 +60,6 @@ jobs:
 
       # Integration test: serve --daemon (model + index + daemon) → search → activity → cron auto-index
       - name: Integration test
-        env:
         run: |
           # Disable enrich — Qwen3-1.7B is not cached in CI and enrich is not under test here
           # indexIntervalMs=5000 speeds up the cron pickup test (default 60s is too slow for CI)
