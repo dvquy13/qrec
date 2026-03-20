@@ -78,7 +78,9 @@ export async function loadSummarizer(): Promise<SummarizerCtx> {
   const llama = await getLlama();
   const model = await llama.loadModel({ modelPath });
   // sequences: 1 — we process sessions sequentially (dispose sequence before getting next)
-  const ctx = await model.createContext({ contextSize: 8192, sequences: 1 });
+  // flashAttention: fixes Qwen CUDA gibberish output on Tesla T4 (node-llama-cpp issue #261);
+  // also supported on Apple Metal — no regression on macOS.
+  const ctx = await model.createContext({ contextSize: 8192, sequences: 1, flashAttention: true });
   console.log("[enrich] Model loaded.");
   try { unlinkSync(ENRICH_PROGRESS_FILE); } catch {}
   if (progressCalled) appendActivity({ type: "enrich_model_downloaded", data: { totalMB: capturedTotalMB } });
