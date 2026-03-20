@@ -11,7 +11,7 @@ import { summarizeSession } from "./summarize.ts";
 import { appendActivity } from "./activity.ts";
 
 // Bump to re-enrich all sessions (sessions with enrichment_version < this get re-queued).
-export const ENRICHMENT_VERSION = 2;
+export const ENRICHMENT_VERSION = 3;
 
 const MODEL_URI = "hf:bartowski/Qwen_Qwen3-1.7B-GGUF/Qwen_Qwen3-1.7B-Q4_K_M.gguf";
 export { ENRICH_PID_FILE };
@@ -193,7 +193,7 @@ export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}
     try {
       summCtx = await loadSummarizer();
       const updateSession = db.prepare(
-        "UPDATE sessions SET summary=?, tags=?, entities=?, learnings=?, questions=?, enriched_at=?, enrichment_version=? WHERE id=?"
+        "UPDATE sessions SET summary=?, tags=?, entities=?, learnings=?, questions=?, title = CASE WHEN ? != '' THEN ? ELSE title END, enriched_at=?, enrichment_version=? WHERE id=?"
       );
       // Summary chunks go into the chunks table (FTS5 trigger auto-indexes them for BM25 search).
       // Chunk id format: "{session_id}_summary" — distinct from real chunks "{session_id}_{seq}".
@@ -227,6 +227,8 @@ export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}
           JSON.stringify(result.entities),
           JSON.stringify(result.learnings),
           JSON.stringify(result.questions),
+          result.title,  // CASE WHEN ? != '' check
+          result.title,  // actual value
           now,
           ENRICHMENT_VERSION,
           id

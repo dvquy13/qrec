@@ -304,7 +304,8 @@ async function loadRecentSessions(sessionCount) {
   const container = document.getElementById('dashboard-recent-list');
   if (!container) return;
   try {
-    const res = await fetch('/sessions?offset=0');
+    const projectParam = _heatmapProject ? `&project=${encodeURIComponent(_heatmapProject)}` : '';
+    const res = await fetch(`/sessions?offset=0${projectParam}`);
     if (!res.ok) return;
     const data = await res.json();
     const sessions = data.sessions;
@@ -941,6 +942,8 @@ function selectHeatmapProject(project) {
   }
   document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
   fetchAndRenderHeatmap();
+  _lastRenderedSessionCount = -1; // force recent sessions to reload with new project filter
+  loadRecentSessions();
 }
 
 function toggleHeatmapProjectDropdown() {

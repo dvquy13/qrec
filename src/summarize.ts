@@ -6,6 +6,7 @@ import type { Llama, LlamaModel, LlamaContext } from "node-llama-cpp";
 import { SYSTEM_PROMPT } from "./prompts/session-extract-v1.ts";
 
 export interface SessionSummary {
+  title: string;
   summary: string;
   tags: string[];
   entities: string[];
@@ -46,10 +47,11 @@ function parseResponse(text: string): SessionSummary {
   // Strip <think> blocks if Qwen3 emits them despite /no_think
   const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return { summary: cleaned.slice(0, 500) || "", tags: [], entities: [], learnings: [], questions: [] };
+  if (!jsonMatch) return { title: "", summary: cleaned.slice(0, 500) || "", tags: [], entities: [], learnings: [], questions: [] };
   try {
     const parsed = JSON.parse(jsonMatch[0]);
     return {
+      title: typeof parsed.title === "string" ? parsed.title : "",
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
       tags: parseStringArray(parsed.tags),
       entities: parseStringArray(parsed.entities),
@@ -57,7 +59,7 @@ function parseResponse(text: string): SessionSummary {
       questions: parseStringArray(parsed.questions),
     };
   } catch {
-    return { summary: "", tags: [], entities: [], learnings: [], questions: [] };
+    return { title: "", summary: "", tags: [], entities: [], learnings: [], questions: [] };
   }
 }
 
@@ -80,12 +82,12 @@ export async function summarizeSession(
   const userPrompt = `/no_think\n\nTranscript:\n\n${digest}\n\nJSON summary:`;
   try {
     const response = await chatSession.prompt(userPrompt, {
-      maxTokens: 500,
+      maxTokens: 600,
       temperature: 0.1,
     });
     return parseResponse(response);
   } catch {
-    return { summary: "", tags: [], entities: [], learnings: [], questions: [] };
+    return { title: "", summary: "", tags: [], entities: [], learnings: [], questions: [] };
   } finally {
     sequence.dispose();
   }
