@@ -2,7 +2,7 @@
 // HTTP server: thin router dispatching to routes.ts; lifecycle via lifecycle.ts.
 
 import { openDb } from "./db.ts";
-import { QREC_PORT } from "./dirs.ts";
+import { getQrecPort } from "./dirs.ts";
 import { appendActivity } from "./activity.ts";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -15,7 +15,7 @@ import {
   handleAuditEntries, handleActivityEntries, handleDebugLog, handleDebugConfig,
 } from "./routes.ts";
 
-const PORT = QREC_PORT;
+const PORT = getQrecPort();
 
 // In the compiled CJS bundle, __UI_HTML__ is injected by esbuild at build time.
 // In Bun dev mode the constant is undefined, so we fall back to reading from disk (live reload).

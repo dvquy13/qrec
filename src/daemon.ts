@@ -3,7 +3,7 @@
 
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
-import { QREC_DIR, PID_FILE, ENRICH_PID_FILE, LOG_FILE, QREC_PORT } from "./dirs.ts";
+import { QREC_DIR, PID_FILE, ENRICH_PID_FILE, LOG_FILE, getQrecPort } from "./dirs.ts";
 
 function ensureQrecDir(): void {
   mkdirSync(QREC_DIR, { recursive: true });
@@ -45,12 +45,12 @@ export async function startDaemon(): Promise<void> {
   // Try lsof first (macOS + most Linux), fall back to ss (Debian/Ubuntu minimal images).
   try {
     let pids: string[] = [];
-    const lsof = Bun.spawnSync(["lsof", "-ti", `:${QREC_PORT}`], { stdio: ["ignore", "pipe", "ignore"] });
+    const lsof = Bun.spawnSync(["lsof", "-ti", `:${getQrecPort()}`], { stdio: ["ignore", "pipe", "ignore"] });
     if (lsof.exitCode === 0) {
       pids = new TextDecoder().decode(lsof.stdout).trim().split("\n").filter(Boolean);
     } else {
       // lsof not available — use ss (iproute2, standard on Ubuntu/Debian/Alpine)
-      const ss = Bun.spawnSync(["ss", "-tlnp", `sport = :${QREC_PORT}`], { stdio: ["ignore", "pipe", "ignore"] });
+      const ss = Bun.spawnSync(["ss", "-tlnp", `sport = :${getQrecPort()}`], { stdio: ["ignore", "pipe", "ignore"] });
       const ssOut = new TextDecoder().decode(ss.stdout);
       // ss output: "LISTEN  0  128  *:25927  *:*  users:(("bun",pid=1234,fd=5))"
       const m = ssOut.match(/pid=(\d+)/g);
@@ -95,7 +95,7 @@ export async function startDaemon(): Promise<void> {
   while (Date.now() < deadline) {
     await Bun.sleep(500);
     try {
-      const res = await fetch(`http://localhost:${QREC_PORT}/health`);
+      const res = await fetch(`http://localhost:${getQrecPort()}/health`);
       if (res.ok) {
         ready = true;
         break;
@@ -106,7 +106,7 @@ export async function startDaemon(): Promise<void> {
   }
 
   if (ready) {
-    console.log(`[daemon] Server ready at http://localhost:${QREC_PORT}`);
+    console.log(`[daemon] Server ready at http://localhost:${getQrecPort()}`);
   } else {
     console.error(`[daemon] Server failed to start within 30 seconds. Check logs: ${logFile}`);
     process.exit(1);

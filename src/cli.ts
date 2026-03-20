@@ -9,10 +9,25 @@ import { disposeEmbedder } from "./embed/local.ts";
 import { startDaemon, stopDaemon, getDaemonPid } from "./daemon.ts";
 import { existsSync, readFileSync, rmSync } from "fs";
 import { homedir } from "os";
-import { QREC_DIR, LOG_FILE } from "./dirs.ts";
+import { QREC_DIR, LOG_FILE, getQrecPort } from "./dirs.ts";
 import { probeGpu } from "./gpu-probe.ts";
 
 const [, , command, ...args] = process.argv;
+
+// Parse --port early so it's available before any module reads process.env.QREC_PORT.
+// (dirs.ts exports getQrecPort() which reads process.env at call time, not module load time.)
+{
+  const portIdx = args.indexOf("--port");
+  if (portIdx !== -1) {
+    const portVal = args[portIdx + 1];
+    if (!portVal || isNaN(parseInt(portVal, 10))) {
+      console.error("[cli] --port requires a numeric value");
+      process.exit(1);
+    }
+    process.env.QREC_PORT = portVal;
+    args.splice(portIdx, 2); // remove --port <n> from args
+  }
+}
 
 function getLogTail(lines: number = 20): string[] {
   if (!existsSync(LOG_FILE)) return [];
@@ -27,7 +42,7 @@ function getLogTail(lines: number = 20): string[] {
 
 function openBrowser() {
   const cmd = process.platform === "darwin" ? "open" : "xdg-open";
-  try { Bun.spawnSync([cmd, "http://localhost:25927"]); } catch {}
+  try { Bun.spawnSync([cmd, `http://localhost:${getQrecPort()}`]); } catch {}
 }
 
 async function main() {
@@ -145,7 +160,7 @@ async function main() {
         let httpHealth = "not checked";
         if (daemonRunning) {
           try {
-            const res = await fetch("http://localhost:25927/health");
+            const res = await fetch(`http://localhost:${getQrecPort()}/health`);
             if (res.ok) {
               const data = await res.json() as { status?: string };
               httpHealth = data.status ?? "unknown";
@@ -292,7 +307,7 @@ async function main() {
       console.error("  qrec teardown [--yes]             # remove all qrec data");
       console.error("  qrec index [path] [--force]       # default: ~/.claude/projects/");
       console.error("  qrec index                        # stdin JSON {transcript_path} (hook mode)");
-      console.error("  qrec serve [--daemon] [--no-open]");
+      console.error("  qrec serve [--daemon] [--no-open] [--port N]");
       console.error("  qrec stop");
       console.error("  qrec mcp [--http]");
       console.error("  qrec status");

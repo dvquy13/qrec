@@ -7,8 +7,8 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-const QREC_PORT = parseInt(process.env.QREC_PORT ?? "25927", 10);
-const DAEMON_BASE = `http://localhost:${QREC_PORT}`;
+const getPort = () => parseInt(process.env.QREC_PORT ?? "25927", 10);
+const DAEMON_BASE = `http://localhost:${getPort()}`;
 const MCP_HTTP_PORT = 3031;
 const DAEMON_DOWN_MSG = "qrec daemon is not running. Start it with: qrec serve --daemon";
 

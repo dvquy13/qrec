@@ -13,7 +13,7 @@ import { serverProgress } from "./progress.ts";
 import { getRecentActivity } from "./activity.ts";
 import { readConfig, writeConfig } from "./config.ts";
 import { isEnrichAlive, ENRICHMENT_VERSION } from "./enrich.ts";
-import { LOG_FILE, MODEL_CACHE_DIR, QREC_PORT, ENRICH_PROGRESS_FILE } from "./dirs.ts";
+import { LOG_FILE, MODEL_CACHE_DIR, getQrecPort, ENRICH_PROGRESS_FILE } from "./dirs.ts";
 import { DEFAULT_DB_PATH } from "./db.ts";
 import { readFileSync } from "fs";
 import { probeGpu } from "./gpu-probe.ts";
@@ -356,7 +356,7 @@ export function handleDebugConfig(): Response {
     ollamaModel: process.env.QREC_OLLAMA_MODEL ?? null,
     openaiBaseUrl: process.env.QREC_OPENAI_BASE_URL ?? null,
     indexIntervalMs: INDEX_INTERVAL_MS,
-    port: QREC_PORT,
+    port: getQrecPort(),
     platform: process.platform,
     bunVersion: process.versions.bun ?? null,
     nodeVersion: process.version,
