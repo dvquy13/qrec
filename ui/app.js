@@ -60,7 +60,7 @@ function showTab(name, push = true) {
 
 function onTabActivated(name) {
   if (name === 'dashboard') { _visibleRunCount = RUNS_INITIAL; loadDashboard(); }
-  if (name === 'sessions') {
+  if (name === 'search') {
     document.getElementById('query')?.focus();
     loadSessions();
   }
