@@ -1,3 +1,16 @@
+# [0.7.0](https://github.com/dvquy13/qrec/compare/v0.6.8...v0.7.0) (2026-03-20)
+
+
+### Bug Fixes
+
+* replace frozen DAEMON_BASE constant with getDaemonBase() in mcp.ts ([ba22158](https://github.com/dvquy13/qrec/commit/ba221588d58ba798dce1b1970548be78e3516d7d))
+
+
+### Features
+
+* add title generation, uncap learnings, cap questions at 3, sync dashboard project filter to recent sessions ([6c74be6](https://github.com/dvquy13/qrec/commit/6c74be67741dca38f6594947eeaac6b5664ccae8))
+* anchor project name to nearest .claude/ dir for monorepo support ([26ab438](https://github.com/dvquy13/qrec/commit/26ab4384fb5d7aa497543258217b54c42b30a483))
+* replace MCP proxy with qrec search/get CLI commands ([8518a8d](https://github.com/dvquy13/qrec/commit/8518a8da1261c9ac73e2e6ec984698b344866a4e))
 ## [0.6.8](https://github.com/dvquy13/qrec/compare/v0.6.7...v0.6.8) (2026-03-20)
 
 
