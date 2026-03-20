@@ -107,3 +107,7 @@ qrec serve --daemon
 | Search DB | SQLite (FTS5 + sqlite-vec) |
 | Embeddings | node-llama-cpp (`embeddinggemma-300M-Q8_0`) |
 | MCP | `@modelcontextprotocol/sdk` |
+
+---
+
+If you find this work useful and want to buy me a coffee, [GitHub Sponsors](https://github.com/sponsors/dvquy13) is the place. Thank you!
