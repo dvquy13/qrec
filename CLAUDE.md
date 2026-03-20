@@ -19,7 +19,8 @@ Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/
 ```
 src/
   cli.ts          # Entry: `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`, `qrec enrich [--limit N] [--min-age-ms N]`
-  dirs.ts         # Single source of truth for all ~/.qrec paths + QREC_PORT. Import from here; never hardcode paths elsewhere.
+  dirs.ts         # Single source of truth for all ~/.qrec paths. Exports getQrecPort() (reads env at call time) and QREC_PORT (frozen at import). Use getQrecPort() everywhere; --port sets env after module load.
+  gpu-probe.ts    # probeGpu() — memoized GPU/CUDA/Vulkan detection (Linux only; macOS returns cpu/false immediately). Used by routes.ts /status for Debug UI Compute section.
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
   chunk.ts        # Heading-aware markdown chunker (~900 tokens/chunk, 15% overlap)
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts thinking blocks (Turn.thinking: string[]), extracts chunk text
@@ -135,6 +136,7 @@ qrec index                                  # index ~/.claude/projects/ (default
 qrec index <path>                           # index specific path (.jsonl or dir)
 qrec index                                  # stdin JSON {transcript_path} mode (hook compat, piped)
 qrec serve                                  # start server (foreground, port 25927); auto-opens browser
+qrec serve --daemon --port 25930            # override port (sets QREC_PORT; all subcommands accept --port)
 qrec stop                                   # stop daemon
 qrec mcp                                    # MCP server (stdio)
 qrec mcp --http                             # MCP server (HTTP, port 3031)
