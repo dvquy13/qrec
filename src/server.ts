@@ -2,6 +2,7 @@
 // HTTP server: thin router dispatching to routes.ts; lifecycle via lifecycle.ts.
 
 import { openDb } from "./db.ts";
+import { ensureConfig } from "./config.ts";
 import { getQrecPort } from "./dirs.ts";
 import { appendActivity } from "./activity.ts";
 import { existsSync } from "fs";
@@ -66,6 +67,7 @@ async function serveStaticFile(pathname: string): Promise<Response> {
 async function main() {
   console.log("[server] Starting qrec server...");
 
+  ensureConfig();
   const db = openDb();
   const state: ServerState = { embedder: null, embedderError: null, isIndexing: false };
 

@@ -62,7 +62,10 @@ export async function startDaemon(): Promise<void> {
 
   ensureQrecDir();
 
+  // Truncate log on each daemon start — daemon output is buffered and not useful for live tailing;
+  // activity.jsonl is the durable audit trail. Prevents megabyte log files from accumulating across restarts.
   const logFile = LOG_FILE;
+  try { writeFileSync(logFile, ""); } catch {}
 
   // In Bun ESM (dev): spawn server.ts directly.
   // In compiled CJS bundle: spawn self (process.argv[1]) with "serve" — import.meta.dir is unavailable.

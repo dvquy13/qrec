@@ -2,7 +2,7 @@
 // Persistent daemon config at ~/.qrec/config.json.
 // Written by POST /settings, read by server.ts on each decision point.
 
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { QREC_DIR, CONFIG_FILE } from "./dirs.ts";
 
 export interface QrecConfig {
@@ -26,6 +26,14 @@ export function readConfig(configPath = CONFIG_FILE): QrecConfig {
       console.warn("[config] Failed to parse config.json, using defaults:", e);
     }
     return { ...DEFAULTS };
+  }
+}
+
+// Write defaults if config.json doesn't exist yet (first daemon start).
+// Prevents ENOENT spam in the log before the user ever visits /settings.
+export function ensureConfig(configPath = CONFIG_FILE): void {
+  if (!existsSync(configPath)) {
+    writeConfig({}, configPath);
   }
 }
 

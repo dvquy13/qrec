@@ -2,7 +2,8 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { readConfig, writeConfig } from "../src/config.ts";
+import { existsSync } from "fs";
+import { readConfig, writeConfig, ensureConfig } from "../src/config.ts";
 
 let tmpDir: string;
 let cfgPath: string;
@@ -58,6 +59,26 @@ describe("readConfig", () => {
     // New fields get defaults
     expect(cfg.enrichIdleMs).toBe(5 * 60 * 1000);
     expect(cfg.indexIntervalMs).toBe(60_000);
+  });
+});
+
+describe("ensureConfig", () => {
+  test("creates file with defaults when absent", () => {
+    expect(existsSync(cfgPath)).toBe(false);
+    ensureConfig(cfgPath);
+    expect(existsSync(cfgPath)).toBe(true);
+    const cfg = readConfig(cfgPath);
+    expect(cfg.enrichEnabled).toBe(true);
+    expect(cfg.enrichIdleMs).toBe(5 * 60 * 1000);
+    expect(cfg.indexIntervalMs).toBe(60_000);
+  });
+
+  test("does not overwrite existing config", () => {
+    writeConfig({ enrichEnabled: false, enrichIdleMs: 999 }, cfgPath);
+    ensureConfig(cfgPath);
+    const cfg = readConfig(cfgPath);
+    expect(cfg.enrichEnabled).toBe(false);
+    expect(cfg.enrichIdleMs).toBe(999);
   });
 });
 
