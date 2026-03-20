@@ -1,6 +1,6 @@
 // test/parser.test.ts
 import { test, expect, describe, afterAll } from "bun:test";
-import { writeFileSync, unlinkSync } from "fs";
+import { writeFileSync, unlinkSync, mkdirSync, rmdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
@@ -17,9 +17,13 @@ const SINGLE_TURN = join(FIXTURES, "deadbeef-0000-0000-0000-000000000000.jsonl")
 
 // Temp files created by tests that need custom JSONL
 const tempFiles: string[] = [];
+const tempDirs: string[] = [];
 afterAll(() => {
   for (const f of tempFiles) {
     try { unlinkSync(f); } catch { /* may not exist */ }
+  }
+  for (const d of tempDirs) {
+    try { rmSync(d, { recursive: true, force: true }); } catch { /* may not exist */ }
   }
 });
 
@@ -128,6 +132,73 @@ describe("parseSession", () => {
     const parsed = await parseSession(path);
     expect(parsed.title).toBe("Real message");
     expect(parsed.turns).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// projectNameFromCwd (tested via parseSession with custom cwd)
+// ---------------------------------------------------------------------------
+
+describe("projectNameFromCwd — .claude anchoring", () => {
+  function makeSession(cwd: string): string {
+    const path = join(tmpdir(), `cccccccc-test-0000-0000-000000000000.jsonl`);
+    writeFileSync(
+      path,
+      JSON.stringify({
+        type: "user",
+        timestamp: "2025-01-15T10:00:00.000Z",
+        cwd,
+        message: { role: "user", content: "hi" },
+      }) + "\n"
+    );
+    tempFiles.push(path);
+    return path;
+  }
+
+  test("monorepo subproject: nearest .claude/ wins over git root", async () => {
+    // Structure: /tmp/<root>/services/my-app/.claude/  (closest .claude)
+    //            /tmp/<root>/.git/                     (git root, farther)
+    const root = join(tmpdir(), "qrec-test-monorepo-" + Date.now());
+    tempDirs.push(root);
+    mkdirSync(join(root, ".git"), { recursive: true });
+    mkdirSync(join(root, "services", "my-app", ".claude"), { recursive: true });
+    mkdirSync(join(root, "services", "my-app", "src"), { recursive: true });
+
+    const cwd = join(root, "services", "my-app", "src");
+    const parsed = await parseSession(makeSession(cwd));
+    expect(parsed.project).toBe("my-app");
+  });
+
+  test("normal repo: .claude at repo root returns repo name", async () => {
+    const root = join(tmpdir(), "qrec-test-normal-" + Date.now());
+    tempDirs.push(root);
+    mkdirSync(join(root, ".claude"), { recursive: true });
+
+    const parsed = await parseSession(makeSession(root));
+    expect(parsed.project).toBe(root.split("/").at(-1)!);
+  });
+
+  test("nested worktree: no .claude, .git FILE → walks up to .git DIR in parent", async () => {
+    // Main repo: /tmp/<root>/.git/            (directory — git root)
+    // Worktree:  /tmp/<root>/.worktrees/feat/ (has .git FILE, nested inside main repo)
+    const root = join(tmpdir(), "qrec-test-worktree-" + Date.now());
+    tempDirs.push(root);
+    mkdirSync(join(root, ".git"), { recursive: true });
+    mkdirSync(join(root, ".worktrees", "feat"), { recursive: true });
+    writeFileSync(join(root, ".worktrees", "feat", ".git"), "gitdir: ../../.git/worktrees/feat\n");
+
+    const cwd = join(root, ".worktrees", "feat");
+    const parsed = await parseSession(makeSession(cwd));
+    expect(parsed.project).toBe(root.split("/").at(-1)!); // main repo name
+  });
+
+  test("no .claude, no git: falls back to basename(cwd)", async () => {
+    const cwd = join(tmpdir(), "qrec-test-plain-dir-" + Date.now());
+    mkdirSync(cwd, { recursive: true });
+    tempDirs.push(cwd);
+
+    const parsed = await parseSession(makeSession(cwd));
+    expect(parsed.project).toBe(cwd.split("/").at(-1)!);
   });
 });
 

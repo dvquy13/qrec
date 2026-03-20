@@ -71,6 +71,11 @@ paths:
 - **CUDA lib lookup covers `LD_LIBRARY_PATH` and `CUDA_PATH`** — non-standard installs (e.g. `/usr/local/cuda/lib64`) are found if those env vars are set. Don't add new hardcoded paths; add to the env var instead.
 - **`advice` + `installSteps` are set only when GPU is detected but CUDA runtime libs are missing** — the UI surfaces these as actionable copy-paste commands. Keep them in sync with the node-llama-cpp prebuilt version requirements (`.so.12`/`.so.13`).
 
+## Parser
+
+- **`projectNameFromCwd` uses two-pass anchoring** — (1) walks up from `cwd` looking for a `.claude/` subdir; (2) falls back to walking up for a `.git/` directory (skipping `.git` files, which are worktree pointers). `.claude` beats `.git` because Claude Code creates `.claude/` exactly where the user opens a project — in a monorepo this is the subproject root, not the repo root. Without pass 1, all subprojects in a monorepo collapse to the git root name.
+- **Worktree git-walk is nested-only** — pass 2 (git walk) only coalesces a worktree to its main repo if the worktree is nested *inside* the main repo tree (e.g. `main-repo/.worktrees/feat/`). Sibling worktrees (`../feature-branch/`) share no common ancestor with the main repo's `.git/` dir, so they fall back to `basename(cwd)` — they are NOT grouped with the main repo. This is expected; users who open Claude in a sibling worktree will get a `.claude/` there, which pass 1 will correctly resolve.
+
 ## API & Protocol
 
 - **`GET /sessions` response format** — returns `{ sessions, total, offset, limit }` (full metadata, sorted date DESC). Supports `?offset=N` for pagination (page size 100). Filter params: `?dateFrom=YYYY-MM-DD`, `?dateTo=YYYY-MM-DD`, `?project=<substring>`, `?tag=<substring>` — all server-side via dynamic WHERE clause. `?date=X` shorthand sets both `dateFrom` and `dateTo`. `tags`/`entities` are parsed arrays (null when unenriched). `/sessions/:id` also includes `summary`, `tags`, `entities`.

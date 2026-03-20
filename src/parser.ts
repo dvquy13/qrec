@@ -6,21 +6,39 @@ import { readFileSync, statSync } from "fs";
 import { basename, dirname, join } from "path";
 
 /** Resolve the project name for a cwd.
- * For a normal repo, returns basename(cwd).
- * For a git worktree (has a .git FILE, not directory), walks up to find
- * the main repo root (the ancestor with a .git DIRECTORY) and returns its basename.
- * This ensures worktree sessions share the same project name as the main repo. */
+ *
+ * Priority:
+ *  1. Nearest ancestor (inclusive) containing a .claude/ subdir — the directory
+ *     where Claude was opened. In a monorepo this is the subproject root, not
+ *     the git root.
+ *  2. Nearest ancestor containing a .git/ DIRECTORY — git root anchoring.
+ *     Also handles worktrees: .git FILE is skipped; walk continues to the main
+ *     repo whose .git is a directory.
+ *  3. basename(cwd) — no markers found (plain directory or filesystem root).
+ */
 function projectNameFromCwd(cwd: string): string {
+  // Pass 1: .claude anchoring
   let dir = cwd;
   while (true) {
-    const gitPath = join(dir, ".git");
     try {
-      if (statSync(gitPath).isDirectory()) return basename(dir);
+      if (statSync(join(dir, ".claude")).isDirectory()) return basename(dir);
     } catch {}
     const parent = dirname(dir);
-    if (parent === dir) break; // filesystem root
+    if (parent === dir) break;
     dir = parent;
   }
+
+  // Pass 2: git root (worktree-aware)
+  dir = cwd;
+  while (true) {
+    try {
+      if (statSync(join(dir, ".git")).isDirectory()) return basename(dir);
+    } catch {}
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
   return basename(cwd);
 }
 
