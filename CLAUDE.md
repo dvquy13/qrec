@@ -18,7 +18,7 @@ Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/
 
 ```
 src/
-  cli.ts          # Entry: `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec search`, `qrec get`, `qrec status`, `qrec enrich [--limit N] [--min-age-ms N]`
+  cli.ts          # Entry: `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec search`, `qrec get`, `qrec status`, `qrec enrich [--limit N] [--min-age-ms N] [--force]`
   dirs.ts         # Single source of truth for all ~/.qrec paths. Exports getQrecPort() (reads env at call time) and QREC_PORT (frozen at import). Use getQrecPort() everywhere; --port sets env after module load.
   gpu-probe.ts    # probeGpu() — memoized GPU/CUDA/Vulkan detection (Linux only; macOS returns cpu/false immediately). Used by routes.ts /status for Debug UI Compute section.
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
@@ -141,6 +141,7 @@ qrec get <session-id>                       # print full session markdown
 qrec status                                 # print status + log tail
 qrec enrich                                 # enrich unenriched sessions with summary/tags/entities (also spawned automatically by daemon)
 qrec enrich --limit N                       # process at most N sessions
+qrec enrich --force                         # re-enrich all sessions regardless of enriched_at (use to recover titles after accidental re-index)
 
 # Onboarding test (isolated env — real ~/.qrec never touched)
 bash scripts/onboard-test-start.sh              # creates temp QREC_DIR, symlinks models, starts daemon on port 25928

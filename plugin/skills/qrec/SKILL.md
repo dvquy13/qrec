@@ -55,6 +55,7 @@ qrec index --force                   # force re-index all sessions from scratch
 qrec search "<query>" [--k N]        # search indexed sessions (prints JSON)
 qrec get <session_id>                # print full session markdown
 qrec enrich [--limit N]              # enrich sessions with summary/tags/entities
+qrec enrich --force                  # re-enrich all sessions (use after accidental re-index to recover titles)
 qrec teardown [--yes]                # stop daemon + remove ~/.qrec/
 qrec --version
 ```

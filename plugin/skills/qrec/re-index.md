@@ -21,6 +21,11 @@ Use when: sessions aren't showing up in search, DB was reset, or you want to re-
    ```bash
    qrec index --force
    ```
+   Note: `--force` preserves enriched titles/summaries for sessions whose content hasn't changed.
+   If enriched titles were lost (e.g. after a re-index on an older version), recover them with:
+   ```bash
+   qrec enrich --force
+   ```
 
 4. After indexing, verify:
    ```bash
