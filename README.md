@@ -4,6 +4,19 @@
 
 Purpose-built session recall engine for Claude Code. Indexes your past Claude conversations locally so you can search them instantly — and so Claude itself can answer questions like *"What was I working on last week?"* or *"How did we implement that auth flow?"*
 
+## Prerequisites
+
+| Requirement | Details |
+|---|---|
+| **macOS** | Fully supported on Apple Silicon (tested on M2). |
+| **Linux** | Supported. NVIDIA GPU strongly recommended for enrichment (tested on Tesla T4 with CUDA 12). |
+| **Windows** | Not supported. |
+| **[Bun](https://bun.sh)** | v1.1.0+ — auto-installed by the npm postinstall script if not present. |
+| **Node.js** | v18+ — only needed to bootstrap the CLI wrapper; Bun handles everything else. |
+| **Disk space** | ~500 MB for the embedding model (`embeddinggemma-300M-Q8_0`, ~313 MB) + enrichment model (`Qwen3-1.7B`, ~1.7 GB, downloaded on first `qrec enrich`). |
+
+> **Linux CUDA note:** qrec auto-detects CUDA at startup via `libcuda.so` / `nvidia-smi`. No manual configuration needed — just have the NVIDIA driver installed.
+
 ## Install
 
 ### Step 1 — Install the CLI
@@ -88,6 +101,10 @@ qrec get <session-id>                     # print full session markdown
 | `qrec get <session-id>` | Print full session markdown |
 | `qrec status` | Status summary + log tail |
 | `qrec enrich [--limit N]` | Backfill session summaries, tags, and entities |
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, testing, and PR guidelines.
 
 ## Local dev
 
