@@ -1,3 +1,9 @@
+## [0.7.1](https://github.com/dvquy13/qrec/compare/v0.7.0...v0.7.1) (2026-03-20)
+
+
+### Bug Fixes
+
+* prevent config ENOENT log spam and truncate log on daemon restart ([cbde669](https://github.com/dvquy13/qrec/commit/cbde6695109936a644eaa59a73522db0bab7004f))
 # [0.7.0](https://github.com/dvquy13/qrec/compare/v0.6.8...v0.7.0) (2026-03-20)
 
 
