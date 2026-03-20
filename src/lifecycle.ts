@@ -142,8 +142,11 @@ export async function loadEmbedderWithRetry(db: Database, state: ServerState, ma
 
       // Start enrich cron before indexing so it fires during the initial index run.
       // Initial call skips if DB is empty; cron picks up sessions as they get indexed.
-      const cfg = readConfig();
-      const indexInterval = cfg.indexIntervalMs;
+      // Env var takes precedence (CI uses QREC_INDEX_INTERVAL_MS=5000 for fast cron tests).
+      // Falls back to config so the Settings UI takes effect on next restart.
+      const indexInterval = process.env.QREC_INDEX_INTERVAL_MS
+        ? INDEX_INTERVAL_MS
+        : readConfig().indexIntervalMs;
       spawnEnrichIfNeeded(db);
       setInterval(() => spawnEnrichIfNeeded(db), indexInterval);
 
