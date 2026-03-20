@@ -69,14 +69,12 @@ curl -s -X POST http://localhost:25927/search \
 }
 ```
 
-### MCP server
+### CLI recall
 
 ```bash
-qrec mcp          # stdio (Claude Code MCP config)
-qrec mcp --http   # HTTP on port 3031
+qrec search "embedding pipeline" --k 5   # search indexed sessions (JSON output)
+qrec get <session-id>                     # print full session markdown
 ```
-
-Tools: `search(query, k?)`, `get(session_id)`, `status()`, `query_db(sql)`
 
 ## Commands
 
@@ -86,7 +84,8 @@ Tools: `search(query, k?)`, `get(session_id)`, `status()`, `query_db(sql)`
 | `qrec stop` | Stop daemon |
 | `qrec teardown` | Stop daemon and remove all qrec data (`~/.qrec/`) |
 | `qrec index [path]` | Re-index sessions (default: `~/.claude/projects/`) |
-| `qrec mcp [--http]` | Start MCP server (stdio or HTTP) |
+| `qrec search "<query>" [--k N]` | Search indexed sessions (prints JSON) |
+| `qrec get <session-id>` | Print full session markdown |
 | `qrec status` | Status summary + log tail |
 | `qrec enrich [--limit N]` | Backfill session summaries, tags, and entities |
 
@@ -106,7 +105,6 @@ qrec serve --daemon
 | Language | TypeScript |
 | Search DB | SQLite (FTS5 + sqlite-vec) |
 | Embeddings | node-llama-cpp (`embeddinggemma-300M-Q8_0`) |
-| MCP | `@modelcontextprotocol/sdk` |
 
 ---
 
