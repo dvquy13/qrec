@@ -61,11 +61,11 @@ jobs:
       # Integration test: serve --daemon (model + index + daemon) → search → activity → cron auto-index
       - name: Integration test
         env:
-          QREC_INDEX_INTERVAL_MS: 5000
         run: |
           # Disable enrich — Qwen3-1.7B is not cached in CI and enrich is not under test here
+          # indexIntervalMs=5000 speeds up the cron pickup test (default 60s is too slow for CI)
           mkdir -p ~/.qrec
-          echo '{"enrichEnabled":false}' > ~/.qrec/config.json
+          echo '{"enrichEnabled":false,"indexIntervalMs":5000}' > ~/.qrec/config.json
 
           # First-time setup: loads model, indexes fixtures, starts daemon
           qrec serve --daemon --no-open
