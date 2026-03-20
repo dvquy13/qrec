@@ -1,3 +1,14 @@
+## [0.6.4-next.2](https://github.com/dvquy13/qrec/compare/v0.6.4-next.1...v0.6.4-next.2) (2026-03-20)
+
+
+### Bug Fixes
+
+* enable flash attention for Qwen3 enricher on CUDA (Tesla T4) ([39adb92](https://github.com/dvquy13/qrec/commit/39adb92f4538d8df66897fdcf604b37eb61e6eb8)), closes [#261](https://github.com/dvquy13/qrec/issues/261)
+
+
+### Features
+
+* improve GPU diagnostics and Debug UI ([efab9e5](https://github.com/dvquy13/qrec/commit/efab9e509c25ef1c04309ec0835a036027c852b8))
 ## [0.6.4-next.1](https://github.com/dvquy13/qrec/compare/v0.6.4-next.0...v0.6.4-next.1) (2026-03-17)
 
 
