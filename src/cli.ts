@@ -99,7 +99,7 @@ async function main() {
           process.exit(1);
         }
       } else {
-        const vaultPath = args[0] ?? `${homedir()}/.claude/projects/`;
+        const vaultPath = args.find(a => !a.startsWith("--")) ?? `${homedir()}/.claude/projects/`;
         force = args.includes("--force");
         const sessionsIdx = args.indexOf("--sessions");
         sessions = sessionsIdx !== -1 ? parseInt(args[sessionsIdx + 1], 10) : undefined;

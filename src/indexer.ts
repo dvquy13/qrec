@@ -165,7 +165,7 @@ export async function indexVault(
   } else if (isDirectory) {
     const jsonlFiles = collectJsonlFiles(sourcePath);
     // Mtime pre-filter: skip files not modified since last index
-    const filesToCheck = jsonlFiles.filter(f => {
+    const filesToCheck = options.force ? jsonlFiles : jsonlFiles.filter(f => {
       const indexedAt = indexedAtByPath.get(f);
       if (!indexedAt) return true;
       return statSync(f).mtimeMs >= indexedAt;

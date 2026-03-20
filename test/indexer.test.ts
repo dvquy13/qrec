@@ -157,6 +157,30 @@ describe("indexVault", () => {
     }
   });
 
+  test("force bypasses mtime filter in directory mode", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "qrec-idx-test-"));
+    tempDirs.push(tmpDir);
+    const tmpFile = join(tmpDir, "ffff2222-0000-0000-0000-000000000000.jsonl");
+    writeFileSync(tmpFile, MINIMAL_CONTENT);
+
+    const { db, path } = createTestDb();
+    const embedder = makeStubEmbedder();
+    try {
+      // First index (directory mode)
+      await indexVault(db, tmpDir, { archiveDir: null }, undefined, embedder);
+      const firstCallCount = embedder.callCount;
+      expect(firstCallCount).toBeGreaterThan(0);
+
+      // File is not modified — mtime < indexed_at, so mtime filter would skip it
+      // --force must bypass the mtime filter and re-index
+      await indexVault(db, tmpDir, { force: true, archiveDir: null }, undefined, embedder);
+
+      expect(embedder.callCount).toBeGreaterThan(firstCallCount);
+    } finally {
+      cleanupTestDb(db, path);
+    }
+  });
+
   test("ON CONFLICT: clears enrichment when hash changes", async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "qrec-idx-test-"));
     tempDirs.push(tmpDir);
