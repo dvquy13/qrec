@@ -1,6 +1,6 @@
 {
   "name": "qrec",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "qrec session recall engine",
   "skills": [
     "./skills/qrec",

@@ -1,3 +1,10 @@
+## [0.6.5](https://github.com/dvquy13/qrec/compare/v0.6.4...v0.6.5) (2026-03-20)
+
+
+### Features
+
+* settings UI + centralized config (enrichIdleMs, indexIntervalMs) ([d8bcacb](https://github.com/dvquy13/qrec/commit/d8bcacb52877e01c6705306255a148b925d25e0d))
+* show full session UUID in detail view with copy button ([67457b5](https://github.com/dvquy13/qrec/commit/67457b5460ac7a71f83eca4a7056bdadc8fb62b4))
 ## [0.6.4](https://github.com/dvquy13/qrec/compare/v0.6.4-next.2...v0.6.4) (2026-03-20)
 
 
