@@ -1,3 +1,9 @@
+## [0.6.6](https://github.com/dvquy13/qrec/compare/v0.6.5...v0.6.6) (2026-03-20)
+
+
+### Bug Fixes
+
+* respect QREC_INDEX_INTERVAL_MS env var over config at daemon startup ([50c4be8](https://github.com/dvquy13/qrec/commit/50c4be8f3b7354a28455c8effe5fee357f4ff81f))
 ## [0.6.5](https://github.com/dvquy13/qrec/compare/v0.6.4...v0.6.5) (2026-03-20)
 
 
