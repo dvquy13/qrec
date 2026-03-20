@@ -1,3 +1,9 @@
+## [0.7.3](https://github.com/dvquy13/qrec/compare/v0.7.2...v0.7.3) (2026-03-20)
+
+
+### Bug Fixes
+
+* **index:** --force bypasses mtime filter and parses correctly without explicit path ([947a290](https://github.com/dvquy13/qrec/commit/947a29060854c1df9a1b75e1b28ba1affb2614dd))
 ## [0.7.2](https://github.com/dvquy13/qrec/compare/v0.7.1...v0.7.2) (2026-03-20)
 ## [0.7.1](https://github.com/dvquy13/qrec/compare/v0.7.0...v0.7.1) (2026-03-20)
 
