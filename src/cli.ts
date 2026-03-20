@@ -9,9 +9,25 @@ import { disposeEmbedder } from "./embed/local.ts";
 import { startDaemon, stopDaemon, getDaemonPid } from "./daemon.ts";
 import { existsSync, readFileSync, rmSync } from "fs";
 import { homedir } from "os";
-import { QREC_DIR, LOG_FILE } from "./dirs.ts";
+import { QREC_DIR, LOG_FILE, getQrecPort } from "./dirs.ts";
+import { probeGpu } from "./gpu-probe.ts";
 
 const [, , command, ...args] = process.argv;
+
+// Parse --port early so it's available before any module reads process.env.QREC_PORT.
+// (dirs.ts exports getQrecPort() which reads process.env at call time, not module load time.)
+{
+  const portIdx = args.indexOf("--port");
+  if (portIdx !== -1) {
+    const portVal = args[portIdx + 1];
+    if (!portVal || isNaN(parseInt(portVal, 10))) {
+      console.error("[cli] --port requires a numeric value");
+      process.exit(1);
+    }
+    process.env.QREC_PORT = portVal;
+    args.splice(portIdx, 2); // remove --port <n> from args
+  }
+}
 
 function getLogTail(lines: number = 20): string[] {
   if (!existsSync(LOG_FILE)) return [];
@@ -26,7 +42,7 @@ function getLogTail(lines: number = 20): string[] {
 
 function openBrowser() {
   const cmd = process.platform === "darwin" ? "open" : "xdg-open";
-  try { Bun.spawnSync([cmd, "http://localhost:25927"]); } catch {}
+  try { Bun.spawnSync([cmd, `http://localhost:${getQrecPort()}`]); } catch {}
 }
 
 async function main() {
@@ -144,7 +160,7 @@ async function main() {
         let httpHealth = "not checked";
         if (daemonRunning) {
           try {
-            const res = await fetch("http://localhost:25927/health");
+            const res = await fetch(`http://localhost:${getQrecPort()}/health`);
             if (res.ok) {
               const data = await res.json() as { status?: string };
               httpHealth = data.status ?? "unknown";
@@ -160,12 +176,38 @@ async function main() {
           ? new Date(lastIndexedRow.last).toISOString()
           : "never";
 
+        const version = typeof __QREC_VERSION__ !== "undefined" ? __QREC_VERSION__ : "(dev)";
         console.log("=== qrec status ===");
+        console.log(`Version:        ${version}`);
         console.log(`Daemon PID:     ${daemonPid ?? "not running"}`);
         console.log(`HTTP health:    ${httpHealth}`);
         console.log(`Sessions:       ${sessionRow.count}`);
         console.log(`Chunks:         ${chunkRow.count}`);
         console.log(`Last indexed:   ${lastIndexed}`);
+        if (process.platform === "linux") {
+          const probe = probeGpu();
+          console.log("");
+          console.log("--- Compute ---");
+          const backendSuffix = probe.selectedBackend === "cpu" && probe.gpuDetected ? " (fallback — CUDA libs missing)" : "";
+          console.log(`Backend:        ${probe.selectedBackend}${backendSuffix}`);
+          if (probe.gpuDetected) {
+            console.log(`GPU:            ${probe.gpuName} (driver ${probe.driverVersion}, CUDA ${probe.cudaDriverVersion})`);
+            console.log(`CUDA runtime:   ${probe.cudaRuntimeAvailable ? "available" : "NOT AVAILABLE"}`);
+            if (probe.cudaRuntimeAvailable) {
+              console.log(`Binary:         ${probe.activeBinaryName}`);
+            } else {
+              console.log(`  Missing libs: ${probe.missingLibs.join(", ")}`);
+              if (probe.installSteps) {
+                console.log(`  Fix:`);
+                probe.installSteps.forEach((s, i) => console.log(`    ${i + 1}. ${s}`));
+              }
+            }
+          } else {
+            console.log("GPU:            none detected");
+          }
+          if (probe.vulkanAvailable) console.log("Vulkan:         available");
+        }
+
         console.log("");
         console.log("--- Log tail (last 20 lines) ---");
         const tail = getLogTail(20);
@@ -190,17 +232,87 @@ async function main() {
       process.exit(0);
     }
 
+    case "doctor": {
+      const probe = probeGpu();
+      console.log("=== qrec doctor ===");
+      console.log("");
+
+      if (process.platform !== "linux") {
+        console.log(`Platform: ${process.platform}`);
+        console.log("Metal/GPU acceleration is handled automatically by node-llama-cpp on macOS.");
+        console.log("No CUDA probe needed.");
+        process.exit(0);
+      }
+
+      // Checklist helpers
+      const OK   = (msg: string) => `[check] ${msg}`;
+      const FAIL = (msg: string) => `[FAIL]  ${msg}`;
+      const INFO = (msg: string) => `        ${msg}`;
+
+      // GPU
+      if (probe.gpuDetected) {
+        console.log(OK(`NVIDIA GPU ............ ${probe.gpuName} (driver ${probe.driverVersion}, CUDA ${probe.cudaDriverVersion})`));
+      } else {
+        console.log(FAIL("NVIDIA GPU ............ not detected (nvidia-smi not found or no output)"));
+      }
+
+      // CUDA libs
+      for (const [name, lib] of Object.entries(probe.libProbes)) {
+        if (lib.found) {
+          console.log(OK(`${name.padEnd(14)} .... .so.${lib.soVersion} at ${lib.path}`));
+        } else {
+          console.log(FAIL(`${name.padEnd(14)} .... NOT FOUND`));
+        }
+      }
+
+      // Vulkan
+      if (probe.vulkanAvailable) {
+        console.log(OK("Vulkan ................ available"));
+      } else {
+        console.log(OK("Vulkan ................ not found (optional)"));
+      }
+
+      // Binary
+      if (probe.activeBinaryName) {
+        console.log(OK(`node-llama-cpp binary . ${probe.activeBinaryName}`));
+      }
+
+      console.log("");
+
+      // Summary
+      if (probe.cudaRuntimeAvailable) {
+        console.log(`Result: CUDA backend ready (${probe.activeBinaryName})`);
+      } else if (probe.gpuDetected) {
+        console.log("Result: CUDA libs missing — running on CPU (fallback)");
+        console.log("");
+        console.log("Fix:");
+        if (probe.installSteps) {
+          probe.installSteps.forEach((s, i) => console.log(`  ${i + 1}. ${s}`));
+        }
+        if (probe.cudaRepoConfigured === false) {
+          console.log("");
+          console.log(INFO("Note: NVIDIA apt repo not found in /etc/apt/sources.list.d/"));
+          console.log(INFO("      The wget step above adds it. Run apt-get update after."));
+        }
+      } else {
+        console.log("Result: No NVIDIA GPU detected — running on CPU");
+      }
+
+      process.exit(0);
+    }
+
     default: {
       console.error(`Unknown command: ${command}`);
       console.error("Usage:");
       console.error("  qrec teardown [--yes]             # remove all qrec data");
       console.error("  qrec index [path] [--force]       # default: ~/.claude/projects/");
       console.error("  qrec index                        # stdin JSON {transcript_path} (hook mode)");
-      console.error("  qrec serve [--daemon] [--no-open]");
+      console.error("  qrec serve [--daemon] [--no-open] [--port N]");
       console.error("  qrec stop");
       console.error("  qrec mcp [--http]");
       console.error("  qrec status");
       console.error("  qrec enrich [--limit N]           # summarize unenriched sessions");
+      console.error("  qrec doctor                       # diagnose GPU/CUDA setup");
       process.exit(1);
     }
   }

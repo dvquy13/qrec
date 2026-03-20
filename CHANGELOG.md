@@ -1,3 +1,27 @@
+## [0.6.4-next.2](https://github.com/dvquy13/qrec/compare/v0.6.4-next.1...v0.6.4-next.2) (2026-03-20)
+
+
+### Bug Fixes
+
+* enable flash attention for Qwen3 enricher on CUDA (Tesla T4) ([39adb92](https://github.com/dvquy13/qrec/commit/39adb92f4538d8df66897fdcf604b37eb61e6eb8)), closes [#261](https://github.com/dvquy13/qrec/issues/261)
+
+
+### Features
+
+* improve GPU diagnostics and Debug UI ([efab9e5](https://github.com/dvquy13/qrec/commit/efab9e509c25ef1c04309ec0835a036027c852b8))
+## [0.6.4-next.1](https://github.com/dvquy13/qrec/compare/v0.6.4-next.0...v0.6.4-next.1) (2026-03-17)
+
+
+### Features
+
+* GPU/CUDA detection with diagnostics ([16bd724](https://github.com/dvquy13/qrec/commit/16bd7249f3f2ed993d4d9d6756273668f0622722))
+## [0.6.4-next.0](https://github.com/dvquy13/qrec/compare/v0.6.3...v0.6.4-next.0) (2026-03-17)
+
+
+### Bug Fixes
+
+* daemon restart + enrich segfault on Linux (K8s/Tesla T4) ([ec7e7df](https://github.com/dvquy13/qrec/commit/ec7e7dff7ac9ae7fc1f4dbe87d4908eac2a2e1c9))
+* don't stale-close index run while phase=indexing ([5aa4a30](https://github.com/dvquy13/qrec/commit/5aa4a30252e60d19220faf8097d1afdd85c208dc))
 ## [0.6.3](https://github.com/dvquy13/qrec/compare/v0.6.2...v0.6.3) (2026-03-16)
 
 

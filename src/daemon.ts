@@ -3,7 +3,7 @@
 
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "fs";
-import { QREC_DIR, PID_FILE, ENRICH_PID_FILE, LOG_FILE, QREC_PORT } from "./dirs.ts";
+import { QREC_DIR, PID_FILE, ENRICH_PID_FILE, LOG_FILE, getQrecPort } from "./dirs.ts";
 
 function ensureQrecDir(): void {
   mkdirSync(QREC_DIR, { recursive: true });
@@ -41,10 +41,21 @@ export async function startDaemon(): Promise<void> {
     return;
   }
 
-  // Kill any orphaned process still holding the port (escaped pid-file tracking)
+  // Kill any orphaned process still holding the port (escaped pid-file tracking).
+  // Try lsof first (macOS + most Linux), fall back to ss (Debian/Ubuntu minimal images).
   try {
-    const r = Bun.spawnSync(["lsof", "-ti", `:${QREC_PORT}`], { stdio: ["ignore", "pipe", "ignore"] });
-    const pids = new TextDecoder().decode(r.stdout).trim().split("\n").filter(Boolean);
+    let pids: string[] = [];
+    const lsof = Bun.spawnSync(["lsof", "-ti", `:${getQrecPort()}`], { stdio: ["ignore", "pipe", "ignore"] });
+    if (lsof.exitCode === 0) {
+      pids = new TextDecoder().decode(lsof.stdout).trim().split("\n").filter(Boolean);
+    } else {
+      // lsof not available — use ss (iproute2, standard on Ubuntu/Debian/Alpine)
+      const ss = Bun.spawnSync(["ss", "-tlnp", `sport = :${getQrecPort()}`], { stdio: ["ignore", "pipe", "ignore"] });
+      const ssOut = new TextDecoder().decode(ss.stdout);
+      // ss output: "LISTEN  0  128  *:25927  *:*  users:(("bun",pid=1234,fd=5))"
+      const m = ssOut.match(/pid=(\d+)/g);
+      if (m) pids = m.map(s => s.replace("pid=", ""));
+    }
     for (const p of pids) { try { process.kill(parseInt(p), "SIGKILL"); } catch {} }
     if (pids.length > 0) await Bun.sleep(300);
   } catch {}
@@ -74,14 +85,17 @@ export async function startDaemon(): Promise<void> {
   console.log(`[daemon] Logs: ${logFile}`);
   console.log(`[daemon] Waiting for server to be ready...`);
 
-  // Wait for server to be ready (poll health endpoint)
-  const deadline = Date.now() + 30_000; // 30 second timeout (model load time)
+  // Wait for server to be ready (poll health endpoint).
+  // Default 120s — model loading on CPU-only Linux is much slower than M2 Metal.
+  // Override with QREC_DAEMON_TIMEOUT_MS env var.
+  const timeoutMs = parseInt(process.env.QREC_DAEMON_TIMEOUT_MS ?? "120000", 10);
+  const deadline = Date.now() + timeoutMs;
   let ready = false;
 
   while (Date.now() < deadline) {
     await Bun.sleep(500);
     try {
-      const res = await fetch(`http://localhost:${QREC_PORT}/health`);
+      const res = await fetch(`http://localhost:${getQrecPort()}/health`);
       if (res.ok) {
         ready = true;
         break;
@@ -92,7 +106,7 @@ export async function startDaemon(): Promise<void> {
   }
 
   if (ready) {
-    console.log(`[daemon] Server ready at http://localhost:${QREC_PORT}`);
+    console.log(`[daemon] Server ready at http://localhost:${getQrecPort()}`);
   } else {
     console.error(`[daemon] Server failed to start within 30 seconds. Check logs: ${logFile}`);
     process.exit(1);

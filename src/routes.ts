@@ -13,9 +13,10 @@ import { serverProgress } from "./progress.ts";
 import { getRecentActivity } from "./activity.ts";
 import { readConfig, writeConfig } from "./config.ts";
 import { isEnrichAlive, ENRICHMENT_VERSION } from "./enrich.ts";
-import { LOG_FILE, MODEL_CACHE_DIR, QREC_PORT, ENRICH_PROGRESS_FILE } from "./dirs.ts";
+import { LOG_FILE, MODEL_CACHE_DIR, getQrecPort, ENRICH_PROGRESS_FILE } from "./dirs.ts";
 import { DEFAULT_DB_PATH } from "./db.ts";
 import { readFileSync } from "fs";
+import { probeGpu } from "./gpu-probe.ts";
 
 function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -41,6 +42,7 @@ export function handleStatus(db: Database): Response {
   const pendingCount = sessions - enrichedCount;
   return Response.json({
     status: "ok",
+    version: typeof __QREC_VERSION__ !== "undefined" ? __QREC_VERSION__ : "(dev)",
     phase: serverProgress.phase,
     sessions,
     chunks,
@@ -58,6 +60,23 @@ export function handleStatus(db: Database): Response {
     enrichEnabled: readConfig().enrichEnabled,
     enrichProgress: (() => {
       try { return JSON.parse(readFileSync(ENRICH_PROGRESS_FILE, "utf-8")); } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") console.warn("[server] Failed to read enrich progress:", e); return null; }
+    })(),
+    compute: (() => {
+      const p = probeGpu();
+      return {
+        selectedBackend: p.selectedBackend,
+        gpuDetected: p.gpuDetected,
+        gpuName: p.gpuName,
+        driverVersion: p.driverVersion,
+        cudaDriverVersion: p.cudaDriverVersion,
+        cudaRuntimeAvailable: p.cudaRuntimeAvailable,
+        vulkanAvailable: p.vulkanAvailable,
+        missingLibs: p.missingLibs,
+        libProbes: p.libProbes,
+        activeBinaryName: p.activeBinaryName,
+        installSteps: p.installSteps,
+        advice: p.advice,
+      };
     })(),
   });
 }
@@ -337,7 +356,7 @@ export function handleDebugConfig(): Response {
     ollamaModel: process.env.QREC_OLLAMA_MODEL ?? null,
     openaiBaseUrl: process.env.QREC_OPENAI_BASE_URL ?? null,
     indexIntervalMs: INDEX_INTERVAL_MS,
-    port: QREC_PORT,
+    port: getQrecPort(),
     platform: process.platform,
     bunVersion: process.versions.bun ?? null,
     nodeVersion: process.version,

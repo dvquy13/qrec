@@ -7,7 +7,7 @@ paths:
 
 ## Embedder & Model
 
-- **node-llama-cpp 3.17.1** — Bun exit segfault fixed in 3.17.0; 3.17.1 confirmed clean under Bun 1.3.10.
+- **node-llama-cpp 3.17.1** — Bun exit segfault fixed in 3.17.0; 3.17.1 confirmed clean under Bun 1.3.10 **on macOS only**. On Linux (K8s/Ubuntu/Tesla T4), GGML/CUDA worker threads can still race during `disposeSummarizer()` and segfault with "multiple threads are crashing". Fix: commit all DB writes + `enrich_complete` + `deleteEnrichPid()` BEFORE calling `disposeSummarizer()` so a crash there is harmless. Do NOT disable GPU on Linux — T4/CUDA is valid and intentional.
 - **`disposeEmbedder()` before `process.exit()`** — always, in every CLI command that loads the model. Without: Bun hangs forever. With exit but no dispose: Bun crashes with NAPI fatal error.
 - **`createEmbeddingContext({ contextSize: 8192 })`** — required, not optional. Default causes "Input too long" on session transcripts; dense code chunks hit 2000+ tokens at ~2 chars/token.
 - **Embed factory**: use `getEmbedProvider()` from `embed/factory.ts` — never import `local.ts`/`ollama.ts`/`stub.ts` directly. Direct imports silently ignore `QREC_EMBED_PROVIDER`.
@@ -44,6 +44,7 @@ paths:
 ## Enricher & Summarizer
 
 - **Summarizer must be a separate child process** — never load the Qwen3-1.7B summarizer in the same process as the embedding daemon. Co-resident: 300MB (embedder) + 1.28GB (summarizer) = 1.6GB indefinitely. `qrec enrich` is transient: loads model → batch-processes → disposes → exits. OS fully reclaims GPU memory on exit.
+- **`flashAttention: true` required for Qwen3 CUDA (Tesla T4)** — without it, the model produces gibberish output on CUDA (node-llama-cpp issue #261). Safe on macOS Metal — no regression. Always pass `flashAttention: true` when creating the summarizer context in `enrich.ts`.
 - **Qwen3 `/no_think` prefix** — Qwen3 models default to chain-of-thought mode. Prefix the user prompt with `/no_think` to disable it and halve latency. Required in `summarize.ts`.
 - **`contextSize: 8192` applies to summarizer too** — same lesson as embedder. Default context causes truncation on long session transcripts fed to Qwen3-1.7B.
 - **Enrich idle gate uses `last_message_at < now - QREC_ENRICH_IDLE_MS`** (default 300s) — `last_message_at` is the max timestamp across all JSONL messages; active sessions have a fresh value → skipped. Sessions with NULL `last_message_at` are excluded — they need re-indexing. **`spawnEnrichIfNeeded()` in server.ts and the query in `enrich.ts` must use the exact same filter.** If they diverge, the server spawns the child but the child exits with "no pending sessions", causing a phantom `enriching=true` with no `enrich_started` event.
@@ -55,7 +56,16 @@ paths:
 ## Paths, Dirs & Config
 
 - **`src/dirs.ts` is the single source of truth for paths and port** — all `~/.qrec/*` paths and `QREC_PORT` are exported from `dirs.ts`. Never hardcode `join(homedir(), ".qrec", ...)` or `25927` directly. `QREC_DIR` env var overrides the root and all derived paths update automatically — enables isolated test environments.
-- **`startDaemon()` kills orphan processes on port 25927** — after `isDaemonRunning()` returns false, `daemon.ts` runs `lsof -ti :25927`, SIGKILLs any process found, and waits 300ms before spawning. Handles zombie daemons left when the PID file goes stale. Do not route around this.
+- **Use `getQrecPort()`, not the `QREC_PORT` constant, for any code that must respect `--port`** — `QREC_PORT` is a module-level constant frozen at import time. The `--port` CLI flag sets `process.env.QREC_PORT` *after* module load; only `getQrecPort()` (reads env at call time) sees it. Any code that captures the constant at module scope will silently use the wrong port when `--port` is passed.
+- **`startDaemon()` kills orphan processes on port 25927** — after `isDaemonRunning()` returns false, `daemon.ts` runs `lsof -ti :25927` (falls back to `ss -tlnp` on minimal Linux images where `lsof` isn't installed), SIGKILLs any process found, and waits 300ms before spawning. Handles zombie daemons left when the PID file goes stale. Do not route around this.
+- **`startDaemon()` health-check timeout is 120s by default** (was 30s). CPU-only Linux model loading can take 60–120s. Override with `QREC_DAEMON_TIMEOUT_MS=<ms>`.
+
+## GPU Probe
+
+- **`probeGpu()` in `src/gpu-probe.ts` is memoized and Linux-only** — on macOS it returns immediately with `selectedBackend:"cpu"` and all nulls (Metal is selected automatically by node-llama-cpp; no probe needed). On Linux it runs `nvidia-smi`, scans CUDA lib paths, and checks Vulkan.
+- **`selectedBackend` mirrors node-llama-cpp's detection**: `cuda` when GPU + CUDA runtime libs present; `vulkan` when Vulkan found; `cpu` otherwise. `activeBinaryName` is the exact node-llama-cpp prebuilt that would be loaded (`linux-x64`, `linux-x64-cuda-ext`, or `linux-x64-cuda`).
+- **CUDA lib lookup covers `LD_LIBRARY_PATH` and `CUDA_PATH`** — non-standard installs (e.g. `/usr/local/cuda/lib64`) are found if those env vars are set. Don't add new hardcoded paths; add to the env var instead.
+- **`advice` + `installSteps` are set only when GPU is detected but CUDA runtime libs are missing** — the UI surfaces these as actionable copy-paste commands. Keep them in sync with the node-llama-cpp prebuilt version requirements (`.so.12`/`.so.13`).
 
 ## API & Protocol
 

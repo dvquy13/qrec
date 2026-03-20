@@ -19,7 +19,8 @@ Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/
 ```
 src/
   cli.ts          # Entry: `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`, `qrec enrich [--limit N] [--min-age-ms N]`
-  dirs.ts         # Single source of truth for all ~/.qrec paths + QREC_PORT. Import from here; never hardcode paths elsewhere.
+  dirs.ts         # Single source of truth for all ~/.qrec paths. Exports getQrecPort() (reads env at call time) and QREC_PORT (frozen at import). Use getQrecPort() everywhere; --port sets env after module load.
+  gpu-probe.ts    # probeGpu() — memoized GPU/CUDA/Vulkan detection (Linux only; macOS returns cpu/false immediately). Used by routes.ts /status for Debug UI Compute section.
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
   chunk.ts        # Heading-aware markdown chunker (~900 tokens/chunk, 15% overlap)
   parser.ts       # JSONL → ParsedSession: strips XML tags, summarizes tool_use, extracts thinking blocks (Turn.thinking: string[]), extracts chunk text
@@ -135,6 +136,7 @@ qrec index                                  # index ~/.claude/projects/ (default
 qrec index <path>                           # index specific path (.jsonl or dir)
 qrec index                                  # stdin JSON {transcript_path} mode (hook compat, piped)
 qrec serve                                  # start server (foreground, port 25927); auto-opens browser
+qrec serve --daemon --port 25930            # override port (sets QREC_PORT; all subcommands accept --port)
 qrec stop                                   # stop daemon
 qrec mcp                                    # MCP server (stdio)
 qrec mcp --http                             # MCP server (HTTP, port 3031)
@@ -161,7 +163,16 @@ CLAUDECODE="" uv run eval/pipeline.py --config eval/configs/phase1_raw_s30_seed9
 # QREC_PROJECTS_DIR=<path>      override ~/.claude/projects/ source dir
 # QREC_INDEX_INTERVAL_MS=<ms>   cron index interval (default 60000)
 # QREC_ENRICH_IDLE_MS=<ms>      min session age (indexed_at) before enrich picks it up (default 300000)
+# QREC_DAEMON_TIMEOUT_MS=<ms>   health-check timeout for startDaemon() (default 120000; CPU-only Linux needs more time)
 ```
+
+## Release
+
+```bash
+bash scripts/release.sh 0.7.0              # stable  → npm tag: latest  (npm install -g @dvquys/qrec)
+bash scripts/release.sh 0.7.0-next.0 next  # pre-release → npm tag: next (npm install -g @dvquys/qrec@next)
+```
+Use pre-release to test on non-macOS environments (Linux K8s, etc.) before promoting to stable.
 
 ## Conventions
 

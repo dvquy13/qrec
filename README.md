@@ -24,7 +24,7 @@ claude plugin marketplace add dvquy13/qrec
 ```
 
 ```bash
-claude plugin install qrec@dvquy13-qrec
+claude plugin install qrec@qrec
 ```
 
 Once installed, you can ask Claude things like:
