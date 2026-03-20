@@ -19,7 +19,7 @@ let _filterDateRange = null; // { from: string, to: string, label: string } | nu
 let _filterOptions = { project: [], tag: [] };
 let _filterDebounceTimer = null;
 let _datepickerOutsideHandler = null;
-const CARD_FIELD_DEFAULTS = { summary: true, tags: true, entities: false, learnings: false, questions: false };
+const CARD_FIELD_DEFAULTS = { summary: true, tags: true, entities: false, learnings: true, questions: false };
 let _cardFields = (() => {
   try { return { ...CARD_FIELD_DEFAULTS, ...JSON.parse(localStorage.getItem('qrec_card_fields') || '{}') }; }
   catch { return { ...CARD_FIELD_DEFAULTS }; }
@@ -331,7 +331,7 @@ async function loadRecentSessions(sessionCount) {
           ${summary ? `<div class="dashboard-session-summary">${summary}</div>` : ''}
       </div>`;
     }).join('');
-    container.insertAdjacentHTML('beforeend', `<button class="dashboard-recent-footer" onclick="showTab('sessions')">All ${total.toLocaleString()} sessions →</button>`);
+    container.insertAdjacentHTML('beforeend', `<button class="dashboard-recent-footer" onclick="showTab('search')">All ${total.toLocaleString()} sessions →</button>`);
     _lastRenderedSessionCount = sessionCount ?? total;
   } catch (_) { /* silently skip — not critical */ }
 }
@@ -528,7 +528,7 @@ async function doSearch() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      document.getElementById('sessions-content').innerHTML =
+      document.getElementById('search-content').innerHTML =
         `<div class="error-state">Error: ${escHtml(err.error ?? 'Search failed')}</div>`;
       return;
     }
@@ -549,12 +549,12 @@ async function doSearch() {
       `;
     }
     document.getElementById('clear-search-btn').style.display = '';
-    document.getElementById('sessions-count').textContent = `${_lastSearchResults.length} results`;
+    document.getElementById('search-count').textContent = `${_lastSearchResults.length} results`;
     renderSearchResults(_lastSearchResults);
     const hasFilter = _filterDateRange || fp || ft;
     document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
   } catch (err) {
-    document.getElementById('sessions-content').innerHTML =
+    document.getElementById('search-content').innerHTML =
       `<div class="error-state">Error: ${escHtml(String(err))}</div>`;
   } finally {
     btn.disabled = false;
@@ -563,12 +563,12 @@ async function doSearch() {
 }
 
 function renderSearchResults(results) {
-  const content = document.getElementById('sessions-content');
+  const content = document.getElementById('search-content');
   if (!results || results.length === 0) {
     content.innerHTML = '<div class="empty-state">No results found.</div>';
     return;
   }
-  content.innerHTML = `<div class="sessions-grid">${results.map(r => {
+  content.innerHTML = `<div class="search-grid">${results.map(r => {
     const tagPills = (r.tags ?? []).map(t =>
       `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
     ).join('');
@@ -668,7 +668,7 @@ document.addEventListener('click', e => {
 
 function setupScrollObserver() {
   if (_scrollObserver) _scrollObserver.disconnect();
-  const sentinel = document.getElementById('sessions-sentinel');
+  const sentinel = document.getElementById('search-sentinel');
   if (!sentinel) return;
   _scrollObserver = new IntersectionObserver(entries => {
     if (entries[0].isIntersecting && _sessionsOffset < _sessionsTotal && !_sessionsLoading) {
@@ -683,7 +683,7 @@ async function loadSessions() {
   _sessionsLoading = true;
   _allSessions = [];
   _sessionsOffset = 0;
-  const content = document.getElementById('sessions-content');
+  const content = document.getElementById('search-content');
   content.innerHTML = '<div class="loading-state"><span class="spinner"></span></div>';
   try {
     const params = new URLSearchParams({ offset: '0' });
@@ -707,7 +707,7 @@ async function loadSessions() {
 
     const hasFilter = _filterDateRange || fp || ft;
     document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
-    document.getElementById('sessions-count').textContent = `${total} results`;
+    document.getElementById('search-count').textContent = `${total} results`;
     renderSessionsList(sessions);
     if (!_heatmapData) fetchAndRenderHeatmap();
   } catch (err) {
@@ -741,13 +741,13 @@ async function loadMoreSessions() {
     // Server already filtered — append all returned sessions directly
     const matching = sessions;
 
-    const grid = document.getElementById('sessions-grid');
+    const grid = document.getElementById('search-grid');
     if (grid && matching.length > 0) {
       grid.insertAdjacentHTML('beforeend', matching.map(sessionCardHtml).join(''));
     }
 
     // Update count
-    const countEl = document.getElementById('sessions-count');
+    const countEl = document.getElementById('search-count');
     if (countEl && _lastSearchResults === null) {
       const visibleCount = (grid ? grid.children.length : 0);
       countEl.textContent = String(visibleCount);
@@ -792,7 +792,7 @@ function filterByProject(project) {
   document.getElementById('filter-project').value = project;
   hideFilterDropdown('project');
   applyFilters();
-  if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
+  if (!document.getElementById('tab-search').classList.contains('active')) showTab('search');
 }
 
 function selectFilterOption(type, value) {
@@ -1156,7 +1156,7 @@ async function fetchAndRenderHeatmap() {
 function filterByTag(tag) {
   document.getElementById('filter-tag').value = tag;
   applyFilters();
-  if (!document.getElementById('tab-sessions').classList.contains('active')) showTab('sessions');
+  if (!document.getElementById('tab-search').classList.contains('active')) showTab('search');
 }
 
 function updateDateChip() {
@@ -1220,10 +1220,10 @@ function applyCustomDateRange() {
   document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
   updateDateChip();
   closeDatePicker();
-  if (document.getElementById('tab-sessions').classList.contains('active')) {
+  if (document.getElementById('tab-search').classList.contains('active')) {
     applyFilters(true);
   } else {
-    showTab('sessions');
+    showTab('search');
   }
 }
 
@@ -1234,10 +1234,10 @@ function filterByDate(date) {
   }
   updateDateChip();
   document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
-  if (document.getElementById('tab-sessions').classList.contains('active')) {
+  if (document.getElementById('tab-search').classList.contains('active')) {
     applyFilters(true);
   } else {
-    showTab('sessions');
+    showTab('search');
   }
 }
 
@@ -1260,10 +1260,10 @@ function setDatePreset(preset) {
   document.querySelectorAll('.date-preset').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
   updateDateChip();
   closeDatePicker();
-  if (document.getElementById('tab-sessions').classList.contains('active')) {
+  if (document.getElementById('tab-search').classList.contains('active')) {
     applyFilters(true);
   } else {
-    showTab('sessions');
+    showTab('search');
   }
 }
 
@@ -1309,7 +1309,7 @@ function enrichBlockHtml(s, compact = false) {
   // Tags only appear in the block for the detail view
   const tagPills = !compact
     ? (s.tags ?? []).map(t =>
-        `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}');showTab('sessions')">${escHtml(t)}</span>`
+        `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}');showTab('search')">${escHtml(t)}</span>`
       ).join('')
     : '';
   const entityPills = showField('entities')
@@ -1361,13 +1361,13 @@ function sessionCardHtml(s) {
 }
 
 function renderSessionsList(sessions) {
-  const content = document.getElementById('sessions-content');
+  const content = document.getElementById('search-content');
   if (!sessions || sessions.length === 0) {
     content.innerHTML = '<div class="empty-state">No sessions found.</div>';
     setupScrollObserver();
     return;
   }
-  content.innerHTML = `<div class="sessions-grid" id="sessions-grid">${sessions.map(sessionCardHtml).join('')}</div><div id="sessions-sentinel"></div>`;
+  content.innerHTML = `<div class="search-grid" id="search-grid">${sessions.map(sessionCardHtml).join('')}</div><div id="search-sentinel"></div>`;
   setupScrollObserver();
 }
 
@@ -1382,7 +1382,7 @@ function openSessionDetail(id) {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-session-detail').classList.add('active');
   // Highlight the sessions nav button as parent context
-  document.getElementById('nav-sessions').classList.add('active');
+  document.getElementById('nav-search').classList.add('active');
 
   document.getElementById('detail-loading').style.display = '';
   document.getElementById('detail-error').style.display = 'none';
@@ -1515,7 +1515,7 @@ function renderGroup(group) {
 }
 
 function goBack() {
-  showTab('sessions');
+  showTab('search');
 }
 
 

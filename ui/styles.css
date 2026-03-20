@@ -342,10 +342,10 @@ main {
 }
 
 /* ── Sessions tab ──────────────────────────────────────────────────────── */
-.sessions-toolbar {
+.search-toolbar {
   display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
 }
-.sessions-filters { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
+.search-filters { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
 .filter-wrap { position: relative; }
 .fields-btn { white-space: nowrap; }
 .fields-picker {
@@ -361,12 +361,12 @@ main {
 .fields-option:hover { background: transparent; }
 .fields-option input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
 
-.sessions-filter {
+.search-filter {
   min-width: 140px; background: var(--bg); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 12px; color: var(--text);
   font-size: 13px; outline: none; transition: border-color 0.15s;
 }
-.sessions-filter:focus { border-color: var(--accent); }
+.search-filter:focus { border-color: var(--accent); }
 
 .filter-dropdown {
   display: none;
@@ -419,8 +419,8 @@ main {
 .date-apply-btn { align-self: flex-end; font-size: 12px; padding: 4px 12px; }
 .clickable-tag { cursor: pointer; transition: color 0.15s; }
 .clickable-tag:hover { color: var(--accent); }
-.sessions-grid { display: flex; flex-direction: column; gap: 8px; }
-#sessions-sentinel { height: 1px; }
+.search-grid { display: flex; flex-direction: column; gap: 8px; }
+#search-sentinel { height: 1px; }
 .session-card {
   background: transparent; border-radius: 10px;
   padding: 14px 0; cursor: pointer; transition: border-color 0.15s, background 0.15s;
@@ -657,9 +657,9 @@ main {
   .stat-value { font-size: 22px; }
   .stats-strip { flex-wrap: wrap; }
   .stat-item { min-width: 50%; border-bottom: 1px solid var(--border); }
-  .sessions-toolbar { flex-direction: column; align-items: flex-start; }
-  .sessions-filters { width: 100%; }
-  .sessions-filter { width: 100%; }
+  .search-toolbar { flex-direction: column; align-items: flex-start; }
+  .search-filters { width: 100%; }
+  .search-filter { width: 100%; }
   .detail-header { gap: 8px; }
 }
 

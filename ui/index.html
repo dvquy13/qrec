@@ -13,7 +13,7 @@
   <h1 onclick="showTab('dashboard')" style="cursor:pointer;">qrec</h1>
   <nav>
     <button id="nav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
-    <button id="nav-sessions" onclick="showTab('sessions')">Search</button>
+    <button id="nav-search" onclick="showTab('search')">Search</button>
     <button id="nav-debug" onclick="showTab('debug')">Debug</button>
     <button id="nav-settings" onclick="showTab('settings')">Settings</button>
   </nav>
@@ -65,7 +65,7 @@
 
     <div class="dashboard-recent">
       <div class="dashboard-recent-header">
-        <span class="section-heading" style="cursor:pointer;" onclick="showTab('sessions')">Recent Sessions</span>
+        <span class="section-heading" style="cursor:pointer;" onclick="showTab('search')">Recent Sessions</span>
       </div>
       <div id="dashboard-recent-list"></div>
     </div>
@@ -84,12 +84,12 @@
 </main>
 </div>
 
-<!-- ── Sessions tab ──────────────────────────────────────── -->
-<div id="tab-sessions" class="tab-panel">
+<!-- ── Search tab ────────────────────────────────────────── -->
+<div id="tab-search" class="tab-panel">
 <main>
   <div class="page-header">
     <h2 class="section-heading">Sessions</h2>
-    <span class="badge" id="sessions-count">—</span>
+    <span class="badge" id="search-count">—</span>
   </div>
   <div class="search-bar">
     <input type="text" id="query" placeholder="Search sessions…">
@@ -97,17 +97,17 @@
     <button class="btn" id="clear-search-btn" onclick="clearSearch()" style="display:none;">✕</button>
   </div>
   <div id="latency-bar" class="latency-bar" style="display:none;"></div>
-  <div class="sessions-toolbar">
-    <div class="sessions-filters">
+  <div class="search-toolbar">
+    <div class="search-filters">
       <div class="filter-wrap">
-        <input type="text" class="sessions-filter" id="filter-project"
+        <input type="text" class="search-filter" id="filter-project"
                placeholder="Project…" autocomplete="off"
                oninput="handleFilterInput(this,'project')" onchange="applyFilters()"
                onfocus="showFilterDropdown('project')" onblur="hideFilterDropdown('project')">
         <div class="filter-dropdown" id="dropdown-project" onmousedown="return false;"></div>
       </div>
       <div class="filter-wrap">
-        <input type="text" class="sessions-filter" id="filter-tag"
+        <input type="text" class="search-filter" id="filter-tag"
                placeholder="Tag…" autocomplete="off"
                oninput="handleFilterInput(this,'tag')" onchange="applyFilters()"
                onfocus="showFilterDropdown('tag')" onblur="hideFilterDropdown('tag')">
@@ -149,7 +149,7 @@
       </div>
     </div>
   </div>
-  <div id="sessions-content">
+  <div id="search-content">
     <div class="loading-state"><span class="spinner"></span></div>
   </div>
 </main>
