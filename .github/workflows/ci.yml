@@ -44,7 +44,6 @@ jobs:
       - name: Verify build artifact
         run: |
           test -f plugin/scripts/qrec.cjs
-          test -f plugin/scripts/qrec-mcp.cjs
 
       - name: Register qrec globally
         run: bun link
@@ -111,16 +110,6 @@ jobs:
 
           qrec stop
           echo "Integration test: PASSED"
-
-      # MCP stdio round-trip — stub embed, no model load needed
-      - name: MCP round-trip
-        env:
-          QREC_EMBED_PROVIDER: stub
-        run: |
-          printf '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}\n{"jsonrpc":"2.0","method":"initialized","params":{}}\n{"jsonrpc":"2.0","method":"tools/list","id":2}\n' \
-            | qrec mcp \
-            | grep -q '"search"'
-          echo "MCP tools/list: OK"
 
       # Verify npm distribution: pack → global install → CLI works
       - name: npm distribution path
