@@ -7,6 +7,7 @@ let _enrichModel = null; // model name for enrich runs
 const RUNS_INITIAL = 5;
 let _visibleRunCount = RUNS_INITIAL;
 let _lastRenderedSessionCount = -1;
+let _lastRenderedEnrichedCount = -1;
 
 // ── Search + Sessions state (must be before navigate() at line ~43) ──────────
 let _lastSearchResults = null;
@@ -296,7 +297,10 @@ function showDashboardPanel(data, actEntries) {
   }
   renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
 
-  if (data.sessions !== _lastRenderedSessionCount) loadRecentSessions(data.sessions);
+  if (data.sessions !== _lastRenderedSessionCount || (data.enrichedCount ?? -1) !== _lastRenderedEnrichedCount) {
+    _lastRenderedEnrichedCount = data.enrichedCount ?? -1;
+    loadRecentSessions(data.sessions);
+  }
   if (data.sessions !== _lastRenderedSessionCount || !_heatmapData) fetchAndRenderHeatmap();
 }
 
@@ -943,6 +947,7 @@ function selectHeatmapProject(project) {
   document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
   fetchAndRenderHeatmap();
   _lastRenderedSessionCount = -1; // force recent sessions to reload with new project filter
+  _lastRenderedEnrichedCount = -1;
   loadRecentSessions();
 }
 
