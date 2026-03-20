@@ -147,9 +147,27 @@ export function handleSettings(): Response {
 }
 
 export async function handleSettingsUpdate(req: Request): Promise<Response> {
-  let body: { enrichEnabled?: boolean };
+  let body: { enrichEnabled?: boolean; enrichIdleMs?: number; indexIntervalMs?: number };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid JSON body" }, { status: 400 }); }
-  const updated = writeConfig({ enrichEnabled: body.enrichEnabled });
+
+  const patch: Parameters<typeof writeConfig>[0] = {};
+  if (body.enrichEnabled !== undefined) patch.enrichEnabled = Boolean(body.enrichEnabled);
+  if (body.enrichIdleMs !== undefined) {
+    const v = body.enrichIdleMs;
+    if (!Number.isInteger(v) || v < 60_000 || v > 3_600_000) {
+      return Response.json({ error: "enrichIdleMs must be an integer between 60000 and 3600000" }, { status: 400 });
+    }
+    patch.enrichIdleMs = v;
+  }
+  if (body.indexIntervalMs !== undefined) {
+    const v = body.indexIntervalMs;
+    if (!Number.isInteger(v) || v < 10_000 || v > 3_600_000) {
+      return Response.json({ error: "indexIntervalMs must be an integer between 10000 and 3600000" }, { status: 400 });
+    }
+    patch.indexIntervalMs = v;
+  }
+
+  const updated = writeConfig(patch);
   return Response.json(updated);
 }
 

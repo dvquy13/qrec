@@ -33,6 +33,16 @@ curl -sf -o /dev/null http://localhost:25927/ui/styles.css   && echo "  OK  styl
 curl -sf -o /dev/null http://localhost:25927/ui/app.js       && echo "  OK  app.js"
 curl -sf -o /dev/null http://localhost:25927/ui/fonts/InterVariable.woff2 && echo "  OK  font"
 
+echo "[smoke-test] Settings endpoints..."
+curl -sf http://localhost:25927/settings | grep -q '"enrichEnabled"' && echo "  OK  GET /settings"
+curl -sf -X POST http://localhost:25927/settings \
+  -H 'Content-Type: application/json' \
+  -d '{"enrichEnabled":false}' | grep -q '"enrichEnabled":false' && echo "  OK  POST /settings"
+# Reset to default
+curl -sf -X POST http://localhost:25927/settings \
+  -H 'Content-Type: application/json' \
+  -d '{"enrichEnabled":true}' > /dev/null
+
 echo "[smoke-test] Stopping daemon..."
 bun run plugin/scripts/qrec.cjs stop
 

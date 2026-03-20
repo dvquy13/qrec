@@ -32,7 +32,8 @@ export function spawnEnrichIfNeeded(db: Database): void {
     console.log("[server] Enrich child already running, skipping spawn.");
     return;
   }
-  const cutoff = Date.now() - ENRICH_IDLE_MS;
+  const idleMs = readConfig().enrichIdleMs;
+  const cutoff = Date.now() - idleMs;
   const pending = (db.prepare(
     `SELECT COUNT(*) as n FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND last_message_at < ?`
   ).get(ENRICHMENT_VERSION, cutoff) as { n: number }).n;
@@ -42,7 +43,7 @@ export function spawnEnrichIfNeeded(db: Database): void {
     typeof (import.meta as { dir?: string }).dir === "string"
       ? ["bun", "run", join((import.meta as { dir: string }).dir, "cli.ts"), "enrich"]
       : [process.argv[0], process.argv[1], "enrich"];
-  const child = Bun.spawn([...baseArgs, "--min-age-ms", String(ENRICH_IDLE_MS)], {
+  const child = Bun.spawn([...baseArgs, "--min-age-ms", String(idleMs)], {
     detached: true,
     stdio: ["ignore", Bun.file(logFile), Bun.file(logFile)],
   });
@@ -141,8 +142,10 @@ export async function loadEmbedderWithRetry(db: Database, state: ServerState, ma
 
       // Start enrich cron before indexing so it fires during the initial index run.
       // Initial call skips if DB is empty; cron picks up sessions as they get indexed.
+      const cfg = readConfig();
+      const indexInterval = cfg.indexIntervalMs;
       spawnEnrichIfNeeded(db);
-      setInterval(() => spawnEnrichIfNeeded(db), INDEX_INTERVAL_MS);
+      setInterval(() => spawnEnrichIfNeeded(db), indexInterval);
 
       // Immediate catchup scan on startup (shows indexing progress in onboarding UI)
       await runIncrementalIndex(db, state, true);
@@ -150,7 +153,7 @@ export async function loadEmbedderWithRetry(db: Database, state: ServerState, ma
       serverProgress.phase = "ready";
 
       // Index cron starts after initial run completes (no point running concurrently).
-      setInterval(() => runIncrementalIndex(db, state), INDEX_INTERVAL_MS);
+      setInterval(() => runIncrementalIndex(db, state), indexInterval);
 
       return;
     } catch (err) {

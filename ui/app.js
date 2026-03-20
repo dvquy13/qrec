@@ -65,6 +65,7 @@ function onTabActivated(name) {
     loadSessions();
   }
   if (name === 'debug') { fetchStats(); fetchLog(); fetchConfig(); }
+  if (name === 'settings') { fetchSettings(); }
 }
 
 // Initial tab from URL — replaceState so the blank entry isn't a back-button stop
@@ -1694,4 +1695,75 @@ async function runSearch() {
 function showToolOutput(text) {
   document.getElementById('tool-output').style.display = '';
   document.getElementById('tool-pre').textContent = text;
+}
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+
+// Track original values to detect restart-required changes
+let _settingsOriginal = null;
+
+async function fetchSettings() {
+  try {
+    const res = await fetch('/settings');
+    const cfg = await res.json();
+    _settingsOriginal = { ...cfg };
+    renderSettings(cfg);
+  } catch (err) {
+    console.error('[settings] Failed to load settings:', err);
+  }
+}
+
+function renderSettings(cfg) {
+  const enrichEnabled = document.getElementById('setting-enrich-enabled');
+  const enrichIdle = document.getElementById('setting-enrich-idle');
+  const indexInterval = document.getElementById('setting-index-interval');
+  if (enrichEnabled) enrichEnabled.checked = cfg.enrichEnabled !== false;
+  if (enrichIdle) enrichIdle.value = String(cfg.enrichIdleMs ?? 300000);
+  if (indexInterval) indexInterval.value = String(cfg.indexIntervalMs ?? 60000);
+  document.getElementById('settings-feedback').textContent = '';
+}
+
+async function saveSettingsForm() {
+  const enrichEnabled = document.getElementById('setting-enrich-enabled').checked;
+  const enrichIdleMs = parseInt(document.getElementById('setting-enrich-idle').value, 10);
+  const indexIntervalMs = parseInt(document.getElementById('setting-index-interval').value, 10);
+
+  const patch = { enrichEnabled, enrichIdleMs, indexIntervalMs };
+  const feedback = document.getElementById('settings-feedback');
+  const btn = document.getElementById('settings-save-btn');
+  btn.disabled = true;
+  feedback.textContent = '';
+  feedback.className = 'settings-feedback';
+
+  try {
+    const res = await fetch('/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      feedback.textContent = 'Error: ' + (err.error || res.statusText);
+      feedback.classList.add('settings-feedback--error');
+      return;
+    }
+    const updated = await res.json();
+    const prevIndexInterval = _settingsOriginal?.indexIntervalMs;
+    _settingsOriginal = { ...updated };
+    renderSettings(updated);
+
+    const restartNeeded = prevIndexInterval !== undefined && updated.indexIntervalMs !== prevIndexInterval;
+    if (restartNeeded) {
+      feedback.textContent = '✓ Saved — restart qrec to apply indexing changes';
+      feedback.classList.add('settings-feedback--warn');
+    } else {
+      feedback.textContent = '✓ Saved';
+      feedback.classList.add('settings-feedback--ok');
+    }
+  } catch (err) {
+    feedback.textContent = 'Error: ' + err;
+    feedback.classList.add('settings-feedback--error');
+  } finally {
+    btn.disabled = false;
+  }
 }

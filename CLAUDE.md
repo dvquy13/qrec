@@ -39,7 +39,7 @@ src/
   summarize.ts    # Pure inference: summarizeSession(ctx, chunkText) → {summary, tags, entities}. No lifecycle — caller owns the LlamaContext.
   prompts/
     session-extract-v1.ts  # Extraction prompt v1: SYSTEM_PROMPT + PROMPT_VERSION. Bump ENRICHMENT_VERSION in enrich.ts when this changes.
-  config.ts       # ~/.qrec/config.json reader/writer: { enrichEnabled: boolean }. Read by server.ts before spawning enrich child.
+  config.ts       # ~/.qrec/config.json reader/writer: { enrichEnabled, enrichIdleMs, indexIntervalMs }. ENOENT silently returns defaults (file isn't created until first POST /settings).
   embed/
     provider.ts   # Interface: embed(text): Promise<Float32Array>
     local.ts      # node-llama-cpp singleton + disposeEmbedder()

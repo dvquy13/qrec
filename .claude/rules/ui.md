@@ -87,3 +87,5 @@ paths:
 - **Crashed index run displays "0 new sessions" without the fallback** — when the initial index throws before writing `index_complete`, the group's stale timeout fires after 10 min and `groupSummary` reads `completeEvent?.data?.newSessions ?? 0` — 0, because no complete event was written. Fix: `?? group.events.filter(e => e.type === 'session_indexed').length` as fallback shows the actual partial count.
 
 - **`collapseZeroEnrichRuns` mirrors `collapseZeroIndexRuns`** — zero-enrich runs ("Enrich run 0 sessions") flood Recent Activity the same way zero-index runs did before collapse was added. `isZeroEnrichRun` checks `enrich_complete.data.enriched` (falling back to `session_enriched` event count); multiple consecutive zero-enrich runs collapse into one `enrich_collapsed` group. `groupSummary` handles `enrich_collapsed` → `"Enrich run N× nothing to enrich"`.
+
+- **Settings tab: runtime vs restart-required** — `enrichEnabled`/`enrichIdleMs` apply on the next daemon tick (live-read); `indexIntervalMs` requires a restart (`setInterval` is called once at startup). Save feedback is green for runtime changes, amber for restart-required ones.

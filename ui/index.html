@@ -15,6 +15,7 @@
     <button id="nav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
     <button id="nav-sessions" onclick="showTab('sessions')">Search</button>
     <button id="nav-debug" onclick="showTab('debug')">Debug</button>
+    <button id="nav-settings" onclick="showTab('settings')">Settings</button>
   </nav>
 </header>
 
@@ -242,6 +243,73 @@
       <div id="tool-output" style="display:none;padding:14px 16px;background:var(--bg2);border-top:1px solid var(--border);">
         <pre id="tool-pre" style="font-family:'Menlo',monospace;font-size:11.5px;white-space:pre-wrap;word-break:break-all;color:var(--text);max-height:200px;overflow:auto;"></pre>
       </div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<!-- ── Settings tab ──────────────────────────────────────── -->
+<div id="tab-settings" class="tab-panel">
+<main>
+  <div class="page-header">
+    <h2 class="section-heading">Settings</h2>
+  </div>
+  <div class="settings-wrap">
+
+    <div class="section">
+      <div class="section-header"><span class="section-title">Enrichment</span></div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <span class="settings-row-name">AI Summaries</span>
+            <span class="settings-row-desc">Generate summaries, tags, and entities for indexed sessions</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="setting-enrich-enabled">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <span class="settings-row-name">Enrich delay</span>
+            <span class="settings-row-desc">Wait this long after a session ends before enriching it</span>
+          </div>
+          <select id="setting-enrich-idle" class="settings-select">
+            <option value="60000">1 min</option>
+            <option value="300000">5 min (default)</option>
+            <option value="900000">15 min</option>
+            <option value="1800000">30 min</option>
+            <option value="3600000">1 hour</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">Indexing</span>
+        <span class="restart-badge">⚠ restart required to apply</span>
+      </div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <span class="settings-row-name">Scan interval</span>
+            <span class="settings-row-desc">How often to check for new or changed sessions</span>
+          </div>
+          <select id="setting-index-interval" class="settings-select">
+            <option value="30000">30 sec</option>
+            <option value="60000">1 min (default)</option>
+            <option value="300000">5 min</option>
+            <option value="900000">15 min</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettingsForm()">Save settings</button>
+      <span class="settings-feedback" id="settings-feedback"></span>
     </div>
 
   </div>
