@@ -1,3 +1,9 @@
+## [0.6.7](https://github.com/dvquy13/qrec/compare/v0.6.6...v0.6.7) (2026-03-20)
+
+
+### Bug Fixes
+
+* config takes precedence over env var for indexIntervalMs; update CI ([f273c02](https://github.com/dvquy13/qrec/commit/f273c022dd4d721773f1611e28a77f904bcae714))
 ## [0.6.6](https://github.com/dvquy13/qrec/compare/v0.6.5...v0.6.6) (2026-03-20)
 
 
