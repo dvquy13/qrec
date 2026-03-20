@@ -10,7 +10,7 @@ qrec is a purpose-built session recall engine. It replaces QMD's per-invocation 
 | Language | TypeScript |
 | Search DB | SQLite (FTS5 + sqlite-vec) |
 | Embeddings | node-llama-cpp 3.17.1 (`embeddinggemma-300M-Q8_0`, cached at `~/.qrec/models/`) |
-| MCP server | `@modelcontextprotocol/sdk` |
+| CLI recall | `qrec search` / `qrec get` |
 
 Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/` — do not modify.
 
@@ -18,7 +18,7 @@ Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/
 
 ```
 src/
-  cli.ts          # Entry: `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec mcp [--http]`, `qrec status`, `qrec enrich [--limit N] [--min-age-ms N]`
+  cli.ts          # Entry: `qrec teardown`, `qrec index`, `qrec serve [--daemon]`, `qrec stop`, `qrec search`, `qrec get`, `qrec status`, `qrec enrich [--limit N] [--min-age-ms N]`
   dirs.ts         # Single source of truth for all ~/.qrec paths. Exports getQrecPort() (reads env at call time) and QREC_PORT (frozen at import). Use getQrecPort() everywhere; --port sets env after module load.
   gpu-probe.ts    # probeGpu() — memoized GPU/CUDA/Vulkan detection (Linux only; macOS returns cpu/false immediately). Used by routes.ts /status for Debug UI Compute section.
   db.ts           # SQLite schema + migrations (bun:sqlite + sqlite-vec extension)
@@ -32,8 +32,6 @@ src/
   server.ts       # Thin router (~139 lines): main() opens DB → Bun.serve() dispatches to routes.ts → calls lifecycle.ts; holds ServerState { embedder, embedderError, isIndexing }; signal handlers
   progress.ts     # Shared in-process progress state (phases: starting→model_download→model_loading→indexing→ready); written by local.ts + indexer.ts, read by server.ts
   activity.ts     # Append-only event log (~/.qrec/activity.jsonl); events: daemon_started|index_started|session_indexed|index_complete|enrich_started|session_enriched|enrich_complete
-  mcp.ts          # MCP server (stdio + HTTP on 3031): proxies search/get/status/query_db to daemon at localhost:25927; no model/DB loaded
-  mcp-entry.ts    # Standalone entry point for qrec-mcp.cjs bundle — calls runMcpServer() (mcp.ts only exports it)
   daemon.ts       # PID-file daemon management (~/.qrec/qrec.pid)
   enrich.ts       # Standalone enricher child process: backfill summary chunks → load Qwen3-1.7B → batch-summarize pending sessions → dispose → exit. PID guard at ~/.qrec/enrich.pid prevents double-spawn.
   summarize.ts    # Pure inference: summarizeSession(ctx, chunkText) → {summary, tags, entities}. No lifecycle — caller owns the LlamaContext.
@@ -138,8 +136,8 @@ qrec index                                  # stdin JSON {transcript_path} mode 
 qrec serve                                  # start server (foreground, port 25927); auto-opens browser
 qrec serve --daemon --port 25930            # override port (sets QREC_PORT; all subcommands accept --port)
 qrec stop                                   # stop daemon
-qrec mcp                                    # MCP server (stdio)
-qrec mcp --http                             # MCP server (HTTP, port 3031)
+qrec search "<query>" [--k N]              # search indexed sessions (prints JSON)
+qrec get <session-id>                       # print full session markdown
 qrec status                                 # print status + log tail
 qrec enrich                                 # enrich unenriched sessions with summary/tags/entities (also spawned automatically by daemon)
 qrec enrich --limit N                       # process at most N sessions

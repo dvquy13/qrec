@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // src/cli.ts
 // Commands: qrec teardown, qrec index, qrec serve [--daemon],
-//           qrec stop, qrec mcp [--http], qrec status
+//           qrec stop, qrec search, qrec get, qrec status
 
 import { openDb } from "./db.ts";
 import { indexVault } from "./indexer.ts";
@@ -138,11 +138,45 @@ async function main() {
       break;
     }
 
-    case "mcp": {
-      const useHttp = args.includes("--http");
-      const { runMcpServer } = await import("./mcp.ts");
-      await runMcpServer(useHttp);
-      break;
+    case "search": {
+      const query = args.filter(a => !a.startsWith("--")).join(" ").trim();
+      if (!query) {
+        console.error('[cli] Usage: qrec search "<query>" [--k N]');
+        process.exit(1);
+      }
+      const kIdx = args.indexOf("--k");
+      const k = kIdx !== -1 ? parseInt(args[kIdx + 1], 10) : 10;
+      const res = await fetch(`http://localhost:${getQrecPort()}/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, k }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        console.error(`[cli] search failed (${res.status}): ${body.error ?? "unknown error"}`);
+        process.exit(1);
+      }
+      console.log(JSON.stringify(await res.json(), null, 2));
+      process.exit(0);
+    }
+
+    case "get": {
+      const sessionId = args[0]?.trim();
+      if (!sessionId) {
+        console.error("[cli] Usage: qrec get <session-id>");
+        process.exit(1);
+      }
+      const res = await fetch(`http://localhost:${getQrecPort()}/sessions/${sessionId}/markdown`);
+      if (res.status === 404) {
+        console.error(`[cli] Session not found: ${sessionId}`);
+        process.exit(1);
+      }
+      if (!res.ok) {
+        console.error(`[cli] get failed (${res.status})`);
+        process.exit(1);
+      }
+      console.log(await res.text());
+      process.exit(0);
     }
 
     case "status": {
@@ -309,7 +343,8 @@ async function main() {
       console.error("  qrec index                        # stdin JSON {transcript_path} (hook mode)");
       console.error("  qrec serve [--daemon] [--no-open] [--port N]");
       console.error("  qrec stop");
-      console.error("  qrec mcp [--http]");
+      console.error('  qrec search "<query>" [--k N]   # search indexed sessions');
+      console.error("  qrec get <session-id>            # print full session markdown");
       console.error("  qrec status");
       console.error("  qrec enrich [--limit N]           # summarize unenriched sessions");
       console.error("  qrec doctor                       # diagnose GPU/CUDA setup");

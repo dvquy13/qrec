@@ -23,19 +23,4 @@ await esbuild.build({
   logOverride: { "empty-import-meta": "silent" },
 });
 
-// Separate MCP bundle: no native deps (proxies to daemon over HTTP)
-await esbuild.build({
-  entryPoints: ["src/mcp-entry.ts"],
-  bundle: true,
-  platform: "node",
-  format: "cjs",
-  minify: true,
-  outfile: "plugin/scripts/qrec-mcp.cjs",
-  // No native deps — @modelcontextprotocol/sdk is pure JS, bundle it in
-  define: {
-    __QREC_VERSION__: JSON.stringify(pkg.version),
-  },
-  logOverride: { "empty-import-meta": "silent" },
-});
-
-console.log("Build complete: plugin/scripts/qrec.cjs + qrec-mcp.cjs");
+console.log("Build complete: plugin/scripts/qrec.cjs");

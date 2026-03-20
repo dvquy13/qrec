@@ -7,9 +7,7 @@
   },
   "files": [
     "plugin/scripts/qrec.cjs",
-    "plugin/scripts/qrec-mcp.cjs",
     "plugin/scripts/qrec-cli.js",
-    "plugin/scripts/qrec-mcp.js",
     "plugin/scripts/bun-finder.js",
     "plugin/scripts/postinstall.js",
     "plugin/.claude-plugin",
@@ -29,7 +27,6 @@
     "test": "QREC_EMBED_PROVIDER=stub bun test"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "node-llama-cpp": "3.17.1",
     "sqlite-vec": "^0.1.0"
   },
