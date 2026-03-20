@@ -1,3 +1,9 @@
+## [0.7.4](https://github.com/dvquy13/qrec/compare/v0.7.3...v0.7.4) (2026-03-20)
+
+
+### Bug Fixes
+
+* **index,enrich:** preserve enriched title on re-index; add enrich --force ([283c48c](https://github.com/dvquy13/qrec/commit/283c48ce323f46ae086631003a7ec5141162b8e3))
 ## [0.7.3](https://github.com/dvquy13/qrec/compare/v0.7.2...v0.7.3) (2026-03-20)
 
 
