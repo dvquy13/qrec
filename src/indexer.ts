@@ -209,7 +209,8 @@ export async function indexVault(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       path=excluded.path, project=excluded.project, date=excluded.date,
-      title=excluded.title, hash=excluded.hash, indexed_at=excluded.indexed_at,
+      title=CASE WHEN excluded.hash != sessions.hash THEN excluded.title ELSE COALESCE(sessions.title, excluded.title) END,
+      hash=excluded.hash, indexed_at=excluded.indexed_at,
       duration_seconds=excluded.duration_seconds, last_message_at=excluded.last_message_at,
       summary=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.summary END,
       tags=CASE WHEN excluded.hash != sessions.hash THEN NULL ELSE sessions.tags END,

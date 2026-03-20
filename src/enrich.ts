@@ -155,17 +155,20 @@ function backfillSummaryChunks(db: Database): void {
   console.log(`[enrich] Backfill done.`);
 }
 
-export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}): Promise<void> {
-  writeEnrichPid(process.pid);
-  const db = openDb();
+export function selectPendingSessions(
+  db: Database,
+  opts: { force?: boolean; limit?: number; minAgeMs?: number }
+): Array<{ id: string }> {
+  const cutoff = opts.minAgeMs !== undefined ? Date.now() - opts.minAgeMs : null;
+  let rows: Array<{ id: string }>;
 
-  try {
-    // Fast pass: backfill summary chunks for sessions enriched before this feature existed.
-    backfillSummaryChunks(db);
-
-    // Only enrich sessions whose last message is older than minAgeMs (avoids touching in-flight sessions).
-    const cutoff = opts.minAgeMs !== undefined ? Date.now() - opts.minAgeMs : null;
-    let pending = (cutoff !== null
+  if (opts.force) {
+    rows = (cutoff !== null
+      ? db.prepare("SELECT id FROM sessions WHERE last_message_at < ?").all(cutoff)
+      : db.prepare("SELECT id FROM sessions").all()
+    ) as Array<{ id: string }>;
+  } else {
+    rows = (cutoff !== null
       ? db.prepare(
           "SELECT id FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND last_message_at < ?"
         ).all(ENRICHMENT_VERSION, cutoff)
@@ -173,6 +176,20 @@ export async function runEnrich(opts: { limit?: number; minAgeMs?: number } = {}
           "SELECT id FROM sessions WHERE enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?"
         ).all(ENRICHMENT_VERSION)
     ) as Array<{ id: string }>;
+  }
+
+  return opts.limit !== undefined ? rows.slice(0, opts.limit) : rows;
+}
+
+export async function runEnrich(opts: { force?: boolean; limit?: number; minAgeMs?: number } = {}): Promise<void> {
+  writeEnrichPid(process.pid);
+  const db = openDb();
+
+  try {
+    // Fast pass: backfill summary chunks for sessions enriched before this feature existed.
+    backfillSummaryChunks(db);
+
+    let pending = selectPendingSessions(db, opts);
 
     if (opts.limit !== undefined) {
       pending = pending.slice(0, opts.limit);

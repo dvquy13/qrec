@@ -4,7 +4,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import type { Database } from 'bun:sqlite';
 import { createTestDb, cleanupTestDb, insertSession } from './helpers.ts';
-import { ENRICHMENT_VERSION } from '../src/enrich.ts';
+import { ENRICHMENT_VERSION, selectPendingSessions } from '../src/enrich.ts';
 
 let db: Database;
 let dbPath: string;
@@ -23,6 +23,46 @@ function countPending(db: Database): number {
     `SELECT COUNT(*) as n FROM sessions WHERE (enriched_at IS NULL OR enrichment_version IS NULL OR enrichment_version < ?) AND last_message_at IS NOT NULL`
   ).get(ENRICHMENT_VERSION) as { n: number }).n;
 }
+
+describe('selectPendingSessions', () => {
+  test('returns unenriched sessions normally', () => {
+    const past = Date.now() - 10 * 60 * 1000;
+    insertSession(db, { id: 'aaa11111', last_message_at: past });
+    expect(selectPendingSessions(db, {}).map(r => r.id)).toContain('aaa11111');
+  });
+
+  test('excludes already-enriched sessions normally', () => {
+    const past = Date.now() - 10 * 60 * 1000;
+    insertSession(db, { id: 'bbb22222', last_message_at: past });
+    db.prepare('UPDATE sessions SET enriched_at=?, enrichment_version=? WHERE id=?')
+      .run(past, ENRICHMENT_VERSION, 'bbb22222');
+    expect(selectPendingSessions(db, {}).map(r => r.id)).not.toContain('bbb22222');
+  });
+
+  test('force: true includes already-enriched sessions', () => {
+    const past = Date.now() - 10 * 60 * 1000;
+    insertSession(db, { id: 'ccc33333', last_message_at: past });
+    db.prepare('UPDATE sessions SET enriched_at=?, enrichment_version=? WHERE id=?')
+      .run(past, ENRICHMENT_VERSION, 'ccc33333');
+    // Without force: excluded
+    expect(selectPendingSessions(db, {}).map(r => r.id)).not.toContain('ccc33333');
+    // With force: included
+    expect(selectPendingSessions(db, { force: true }).map(r => r.id)).toContain('ccc33333');
+  });
+
+  test('force: true respects minAgeMs cutoff', () => {
+    const recent = Date.now() - 1000; // 1s ago — within cutoff
+    const old = Date.now() - 10 * 60 * 1000; // 10min ago — outside cutoff
+    insertSession(db, { id: 'ddd44444', last_message_at: recent });
+    insertSession(db, { id: 'eee55555', last_message_at: old });
+    db.prepare('UPDATE sessions SET enriched_at=?, enrichment_version=? WHERE id IN (?,?)')
+      .run(old, ENRICHMENT_VERSION, 'ddd44444', 'eee55555');
+
+    const ids = selectPendingSessions(db, { force: true, minAgeMs: 5 * 60 * 1000 }).map(r => r.id);
+    expect(ids).not.toContain('ddd44444'); // too recent
+    expect(ids).toContain('eee55555');     // old enough
+  });
+});
 
 describe('enrich — no-chunk sessions', () => {
   test('session with chunks remains pending before enrichment', () => {

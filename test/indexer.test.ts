@@ -139,10 +139,10 @@ describe("indexVault", () => {
     try {
       await indexVault(db, MINIMAL_JSONL, { archiveDir: null }, undefined, embedder);
 
-      // Simulate enrichment
+      // Simulate enrichment (including an LLM-generated title)
       db.prepare(`
         UPDATE sessions SET summary='test summary', tags='["tag1"]', entities='["Entity1"]',
-        enriched_at=1000000, enrichment_version=1 WHERE id='01234567'
+        title='enriched title', enriched_at=1000000, enrichment_version=1 WHERE id='01234567'
       `).run();
 
       // Force re-index with same file (hash unchanged)
@@ -152,6 +152,7 @@ describe("indexVault", () => {
       expect(session.summary).toBe("test summary");
       expect(session.tags).toBe('["tag1"]');
       expect(session.enriched_at).toBe(1000000);
+      expect(session.title).toBe("enriched title");
     } finally {
       cleanupTestDb(db, path);
     }

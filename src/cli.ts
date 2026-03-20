@@ -261,8 +261,9 @@ async function main() {
       const limit = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : undefined;
       const minAgeIdx = args.indexOf("--min-age-ms");
       const minAgeMs = minAgeIdx !== -1 ? parseInt(args[minAgeIdx + 1], 10) : undefined;
+      const force = args.includes("--force");
       const { runEnrich } = await import("./enrich.ts");
-      await runEnrich({ limit, minAgeMs });
+      await runEnrich({ limit, minAgeMs, force });
       process.exit(0);
     }
 
