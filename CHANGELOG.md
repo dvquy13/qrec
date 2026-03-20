@@ -1,3 +1,10 @@
+## [0.6.8](https://github.com/dvquy13/qrec/compare/v0.6.7...v0.6.8) (2026-03-20)
+
+
+### Bug Fixes
+
+* pass env: process.env to Bun.spawn in daemon so --port is inherited ([6cd501a](https://github.com/dvquy13/qrec/commit/6cd501a0460ad6f3554c936f3fb8c55e2e5a16b7))
+* remove empty env: key from CI integration test step ([b3fe70c](https://github.com/dvquy13/qrec/commit/b3fe70c00b62df54ccbecd3ed3a60ba280273d06))
 ## [0.6.7](https://github.com/dvquy13/qrec/compare/v0.6.6...v0.6.7) (2026-03-20)
 
 
