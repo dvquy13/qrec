@@ -71,10 +71,13 @@ export async function startDaemon(): Promise<void> {
       ? ["bun", "run", join((import.meta as { dir: string }).dir, "server.ts")]
       : [process.argv[0], process.argv[1], "serve"];
 
-  // Spawn detached child process
+  // Spawn detached child process.
+  // Explicitly pass process.env so mutations (e.g. --port sets QREC_PORT after module load)
+  // are inherited by the child — Bun.spawn does not inherit post-startup env mutations by default.
   const child = Bun.spawn(spawnArgs, {
     detached: true,
     stdio: ["ignore", Bun.file(logFile), Bun.file(logFile)],
+    env: process.env,
   });
 
   const pid = child.pid;
