@@ -97,26 +97,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   font-size: 11px;
   flex-shrink: 0;
-  background: var(--bg3);
+  background: transparent;
   color: var(--text-muted);
-  border: 1px solid var(--border);
 }
 
 .run-icon-badge.index {
   background: var(--accent-light);
   color: var(--accent);
-  border-color: var(--accent-border);
 }
 
 .run-icon-badge.enrich {
-  background: #fdf4ff;
-  color: #9b5de5;
-  border-color: #ddb8f7;
+  background: var(--green-bg);
+  color: var(--green);
 }
 
 .run-icon-badge.model_download,
@@ -189,12 +186,12 @@
 /* ── Events list ──────────────────────────────────────────────────────────── */
 
 .af-events {
-  padding: 4px 8px 8px 8px;
+  padding: 4px 0;
   border-top: 1px solid var(--border);
 }
 
 .af-model-info {
-  padding: 4px 0 6px 0;
+  padding: 3px 0 3px 94px;
 }
 
 .af-model-name {
@@ -205,12 +202,11 @@
 
 .af-event {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 3px 0;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0 5px 94px;
   font-size: 12px;
   color: var(--text);
-  border-radius: 4px;
 }
 
 .af-event--clickable {
@@ -218,11 +214,7 @@
 }
 
 .af-event--clickable:hover {
-  background: var(--bg2);
-  padding-left: 4px;
-  padding-right: 4px;
-  margin-left: -4px;
-  margin-right: -4px;
+  background: transparent;
 }
 
 .af-event-ts {
