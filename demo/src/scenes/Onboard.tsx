@@ -1,6 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {theme} from '../theme';
+import {CLAMP, SPRING_BOUNCY, getTyped, cursorBlink, remotionCSSAnimVars, REMOTION_ANIM_OVERRIDES} from '../animUtils';
 import {DashboardSection} from '../../../ui-react/src/sections/DashboardSection';
 import {RunGroup} from '../../../ui-react/src/components/ActivityFeed/ActivityFeed';
 import {RecentActivitySection} from '../../../ui-react/src/sections/RecentActivitySection';
@@ -12,11 +13,8 @@ import {
 
 // CSS vars are defined globally by Root.tsx → ui-react/src/styles/variables.css
 
-const CLAMP = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
-
 const SESSIONS_TOTAL = 50;
 const SUMMARIES_TOTAL = 50;
-const CHARS_PER_FRAME = 1.5;
 
 // ── Timeline ─────────────────────────────────────────────────────────────────
 //   0– 12f:  scene fade in          ← terminal: original speed
@@ -31,13 +29,6 @@ const CHARS_PER_FRAME = 1.5;
 // 137–169f:  sessions count 0→50 + indexing in activity feed
 // 149–189f:  summaries count 0→50 + enriching in activity feed
 // 192–198f:  fade out
-
-function getTyped(text: string, startFrame: number, frame: number): string {
-  return text.substring(
-    0,
-    Math.min(text.length, Math.floor(Math.max(0, frame - startFrame) * CHARS_PER_FRAME)),
-  );
-}
 
 const TrafficDots: React.FC<{dark?: boolean}> = ({dark}) => (
   <div style={{display: 'flex', gap: 6, alignItems: 'center', width: 56}}>
@@ -72,7 +63,7 @@ export const Onboard: React.FC = () => {
   const cmd2StartFrame = 60;
   const cmd2 = getTyped(CMD2, cmd2StartFrame, frame);
   const cmd2Done = cmd2.length >= CMD2.length;
-  const blinkOn = Math.floor(frame / 15) % 2 === 0;
+  const blinkOn = cursorBlink(frame);
 
   const installResponseOpacity = interpolate(frame, [48, 56], [0, 1], CLAMP);
   const daemon1Opacity = interpolate(frame, [78, 84], [0, 1], CLAMP);
@@ -81,7 +72,7 @@ export const Onboard: React.FC = () => {
 
   // ── Terminal / browser transitions ────────────────────────────────────────
   const terminalOpacity = interpolate(frame, [0, 8, 108, 112], [0, 1, 1, 0], CLAMP);
-  const browserSp = spring({frame: frame - 109, fps, config: {damping: 15, stiffness: 140}});
+  const browserSp = spring({frame: frame - 109, fps, config: SPRING_BOUNCY});
   const browserScale = interpolate(browserSp, [0, 1], [0.88, 1]);
   const browserOpacity = interpolate(frame, [109, 115], [0, 1], CLAMP);
 
@@ -114,10 +105,8 @@ export const Onboard: React.FC = () => {
   const footerText = `${sessionsCount} sessions · ${activeDays} active days`;
 
   // ── Frame-driven CSS animation overrides (CSS animations don't run in Remotion) ──
-  const spinAngle = (frame / (0.7 * fps)) * 360;
-  const indetermPhase = (frame / (1.4 * fps)) % 1; // 0–1 per cycle
-  const indetermX = `${indetermPhase * 500 - 100}%`; // -100% → 400%
-  const pulseOpacity = 0.35 + 0.65 * (Math.sin((frame / (1.5 * fps)) * 2 * Math.PI) * 0.5 + 0.5);
+  const cssAnimVars = remotionCSSAnimVars(frame, fps);
+  const pulseOpacity = parseFloat(cssAnimVars['--remotion-pulse-opacity' as string]);
 
   // ── Activity feed groups ──────────────────────────────────────────────────
   // Use Date.now() so formatRelative returns "just now" for all entries
@@ -359,18 +348,12 @@ export const Onboard: React.FC = () => {
               fontFamily: theme.sans,
               display: 'flex',
               flexDirection: 'column',
-              // CSS custom properties for frame-driven animation overrides
-              ['--remotion-spin-angle' as string]: `${spinAngle}deg`,
-              ['--remotion-indeterminate-x' as string]: indetermX,
-              ['--remotion-pulse-opacity' as string]: String(pulseOpacity),
+              // CSS custom properties for frame-driven animation overrides (see animUtils.ts)
+              ...cssAnimVars,
             }}
           >
             {/* Override CSS animations that don't run in Remotion */}
-            <style>{`
-              .af-spinner { animation: none !important; transform: rotate(var(--remotion-spin-angle, 0deg)); }
-              .af-progress-fill--indeterminate { animation: none !important; transform: translateX(var(--remotion-indeterminate-x, -100%)); }
-              .stat-indexing-dot.visible, .activity-live-dot { animation: none !important; opacity: var(--remotion-pulse-opacity, 1); }
-            `}</style>
+            <style>{REMOTION_ANIM_OVERRIDES}</style>
             {/* max-width: 900px matches the real qrec UI <main> constraint */}
             <div style={{maxWidth: 900, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden'}}>
             <DashboardSection

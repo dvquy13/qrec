@@ -1,6 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {theme} from '../theme';
+import {CLAMP, SPRING_BOUNCY, SPRING_CRISP, getTyped, cursorBlink} from '../animUtils';
 import {ClawdMascot} from '../components/ClawdMascot';
 import {QrecLogo} from '../components/QrecLogo';
 
@@ -15,7 +16,7 @@ const QUESTIONS = [
   {text: 'Have we solved this problem before?', startFrame: 86},
 ];
 
-const CHARS_PER_FRAME = 1.4;
+// CHARS_PER_FRAME uses animUtils default (1.4)
 
 // ── Clawd arm position geometry ──────────────────────────────────────────────
 // ClawdMascot SVG: width=216, height=220, transformOrigin='center bottom'=(108,220)
@@ -31,17 +32,11 @@ export const Opening: React.FC<OpeningProps> = ({showLogo}) => {
   const {fps} = useVideoConfig();
 
   // Scene fade in 0→15, fade out 255→270
-  const sceneOpacity = interpolate(frame, [0, 15, 255, 270], [0, 1, 1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const sceneOpacity = interpolate(frame, [0, 15, 255, 270], [0, 1, 1, 0], CLAMP);
 
   // ── Mascot entrance ──────────────────────────────────────────────────────
-  const mascotSpring = spring({frame: frame - 8, fps, config: {damping: 14, stiffness: 140}});
-  const mascotOpacity = interpolate(frame, [8, 28], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const mascotSpring = spring({frame: frame - 8, fps, config: SPRING_BOUNCY});
+  const mascotOpacity = interpolate(frame, [8, 28], [0, 1], CLAMP);
   const mascotScale = interpolate(mascotSpring, [0, 1], [0.3, 1]);
   const mascotBob = Math.sin((frame / fps) * Math.PI * 1.8) * 5;
   const armsUp = frame >= 172;
@@ -53,52 +48,34 @@ export const Opening: React.FC<OpeningProps> = ({showLogo}) => {
     frame >= 232;                    // settle up
 
   // ── Chapter heading ──────────────────────────────────────────────────────
-  const headingOpacity = interpolate(frame, [6, 20], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const headingOpacity = interpolate(frame, [6, 20], [0, 1], CLAMP);
   const headingSlide = interpolate(
-    spring({frame: frame - 6, fps, config: {damping: 200}}),
+    spring({frame: frame - 6, fps, config: SPRING_CRISP}),
     [0, 1],
     [-16, 0],
   );
 
   // ── Questions panel ──────────────────────────────────────────────────────
-  const questionsOpacity = interpolate(frame, [130, 155], [1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const questionsOpacity = interpolate(frame, [130, 155], [1, 0], CLAMP);
 
-  const getTyped = (text: string, startFrame: number) =>
-    text.substring(0, Math.min(text.length, Math.floor(Math.max(0, frame - startFrame) * CHARS_PER_FRAME)));
-
-  const blinkOn = Math.floor(frame / 15) % 2 === 0;
+  const blinkOn = cursorBlink(frame);
 
   // ── Tagline (default text-only path) ─────────────────────────────────────
-  const taglineSpring = spring({frame: frame - 160, fps, config: {damping: 200}});
-  const taglineOpacity = interpolate(frame, [160, 182], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const taglineSpring = spring({frame: frame - 160, fps, config: SPRING_CRISP});
+  const taglineOpacity = interpolate(frame, [160, 182], [0, 1], CLAMP);
   const taglineY = interpolate(taglineSpring, [0, 1], [36, 0]);
-  const subtitleOpacity = interpolate(frame, [190, 212], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const subtitleOpacity = interpolate(frame, [190, 212], [0, 1], CLAMP);
 
   // ── Logo reveal ──────────────────────────────────────────────────────────
   // Right-side mascot/label fades out as logo reveal starts
   const mascotRevealFade = showLogo
-    ? interpolate(frame, [150, 170], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})
+    ? interpolate(frame, [150, 170], [1, 0], CLAMP)
     : 1;
 
   // Reveal Clawd enters center-stage, arms up in excitement
   const revealClawdSp = spring({frame: frame - 158, fps, config: {damping: 12, stiffness: 160}});
   const revealClawdScale = interpolate(revealClawdSp, [0, 1], [0.4, 1.2]);
-  const revealClawdOp = interpolate(frame, [158, 175], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const revealClawdOp = interpolate(frame, [158, 175], [0, 1], CLAMP);
 
   // Logo arcs in from the left, handle tip lands at Clawd's left hand
   // The SVG handle tip is at (484/512) of the logo size from top-left
@@ -116,21 +93,12 @@ export const Opening: React.FC<OpeningProps> = ({showLogo}) => {
   const logoOffsetX = interpolate(logoArcSp, [0, 1], [-140, 0]);
   const logoOffsetY = interpolate(logoArcSp, [0, 1], [30, 0]);
   const logoEnterScale = interpolate(logoArcSp, [0, 1], [0.3, 1]);
-  const logoOp = interpolate(frame, [163, 180], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const logoOp = interpolate(frame, [163, 180], [0, 1], CLAMP);
 
   // "qrec remembers." fades in after logo lands
-  const revealTagOp = interpolate(frame, [192, 210], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const revealTagOp = interpolate(frame, [192, 210], [0, 1], CLAMP);
   // tagline fades in last
-  const revealSubOp = interpolate(frame, [208, 228], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const revealSubOp = interpolate(frame, [208, 228], [0, 1], CLAMP);
 
   return (
     <AbsoluteFill
@@ -182,14 +150,14 @@ export const Opening: React.FC<OpeningProps> = ({showLogo}) => {
           }}
         >
           {QUESTIONS.map((q) => {
-            const typed = getTyped(q.text, q.startFrame);
+            const typed = getTyped(q.text, q.startFrame, frame);
             const isDone = typed.length >= q.text.length;
             const isActive = frame >= q.startFrame - 6;
             const qOpacity = interpolate(
               frame,
               [q.startFrame - 6, q.startFrame],
               [0, 1],
-              {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
+              CLAMP,
             );
             const showCursor = isActive && (isDone ? blinkOn : true);
 
@@ -272,10 +240,7 @@ export const Opening: React.FC<OpeningProps> = ({showLogo}) => {
           top: '50%',
           transform: 'translateY(-50%)',
           width: 1,
-          height: interpolate(frame, [18, 45], [0, 300], {
-            extrapolateLeft: 'clamp',
-            extrapolateRight: 'clamp',
-          }),
+          height: interpolate(frame, [18, 45], [0, 300], CLAMP),
           background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.2), transparent)',
           opacity: questionsOpacity,
         }}
