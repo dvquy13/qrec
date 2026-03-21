@@ -2,8 +2,13 @@ import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {theme} from '../theme';
 import {ClawdMascot} from '../components/ClawdMascot';
+import {QrecLogo} from '../components/QrecLogo';
 
 const CLAWD_ORANGE = '#D77757';
+
+interface OpeningProps {
+  showLogo?: boolean;
+}
 
 const QUESTIONS = [
   {text: 'What was I working on last week?', startFrame: 28},
@@ -12,7 +17,16 @@ const QUESTIONS = [
 
 const CHARS_PER_FRAME = 1.4;
 
-export const Opening: React.FC = () => {
+// ── Clawd arm position geometry ──────────────────────────────────────────────
+// ClawdMascot SVG: width=216, height=220, transformOrigin='center bottom'=(108,220)
+// armsUp row 1 left arm:  div coords x=12 (left edge), center-y=143
+// At scale S: visual_x = 108 + (x-108)*S,  visual_y = 220 + (y-220)*S
+const armVisualPos = (scale: number) => ({
+  x: 108 + (12 - 108) * scale,    // left arm LEFT edge (the "hand" tip)
+  y: 220 + (143 - 220) * scale,   // arm center height
+});
+
+export const Opening: React.FC<OpeningProps> = ({showLogo}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
 
@@ -30,10 +44,15 @@ export const Opening: React.FC = () => {
   });
   const mascotScale = interpolate(mascotSpring, [0, 1], [0.3, 1]);
   const mascotBob = Math.sin((frame / fps) * Math.PI * 1.8) * 5;
-  const armsUp = frame >= 172 || (frame >= 106 && frame < 118);
+  const armsUp = frame >= 172;
+  // Reveal Clawd waves arms twice after logo lands (~frame 184), then stays up
+  // Pattern: up 12f → down 12f → up 12f → down 12f → up permanently
+  const revealArmsUp =
+    (frame >= 184 && frame < 196) || // wave 1 up
+    (frame >= 208 && frame < 220) || // wave 2 up
+    frame >= 232;                    // settle up
 
   // ── Chapter heading ──────────────────────────────────────────────────────
-  // Fades in first (frames 6→20), stays pinned as anchor throughout questions phase
   const headingOpacity = interpolate(frame, [6, 20], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
@@ -55,7 +74,7 @@ export const Opening: React.FC = () => {
 
   const blinkOn = Math.floor(frame / 15) % 2 === 0;
 
-  // ── Tagline ──────────────────────────────────────────────────────────────
+  // ── Tagline (default text-only path) ─────────────────────────────────────
   const taglineSpring = spring({frame: frame - 160, fps, config: {damping: 200}});
   const taglineOpacity = interpolate(frame, [160, 182], [0, 1], {
     extrapolateLeft: 'clamp',
@@ -63,6 +82,52 @@ export const Opening: React.FC = () => {
   });
   const taglineY = interpolate(taglineSpring, [0, 1], [36, 0]);
   const subtitleOpacity = interpolate(frame, [190, 212], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // ── Logo reveal ──────────────────────────────────────────────────────────
+  // Right-side mascot/label fades out as logo reveal starts
+  const mascotRevealFade = showLogo
+    ? interpolate(frame, [150, 170], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})
+    : 1;
+
+  // Reveal Clawd enters center-stage, arms up in excitement
+  const revealClawdSp = spring({frame: frame - 158, fps, config: {damping: 12, stiffness: 160}});
+  const revealClawdScale = interpolate(revealClawdSp, [0, 1], [0.4, 1.2]);
+  const revealClawdOp = interpolate(frame, [158, 175], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // Logo arcs in from the left, handle tip lands at Clawd's left hand
+  // The SVG handle tip is at (484/512) of the logo size from top-left
+  const LOGO_SIZE = 92;
+  const REVEAL_SCALE = 1.2;
+  const arm = armVisualPos(REVEAL_SCALE);   // visual left-arm tip in 216×220 parent div
+  const handleFrac = 484 / 512;             // handle tip position as fraction of SVG size
+  const handlePx = handleFrac * LOGO_SIZE;  // ~87px
+  // Position logo so its handle tip sits exactly on Clawd's left hand
+  const logoRestLeft = arm.x - handlePx;   // logo left edge
+  const logoRestTop  = arm.y - handlePx;   // logo top edge
+
+  const logoArcSp = spring({frame: frame - 163, fps, config: {damping: 11, stiffness: 140}});
+  // Swings in from the left: starts offset left & slightly below, then springs to hand
+  const logoOffsetX = interpolate(logoArcSp, [0, 1], [-140, 0]);
+  const logoOffsetY = interpolate(logoArcSp, [0, 1], [30, 0]);
+  const logoEnterScale = interpolate(logoArcSp, [0, 1], [0.3, 1]);
+  const logoOp = interpolate(frame, [163, 180], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // "qrec remembers." fades in after logo lands
+  const revealTagOp = interpolate(frame, [192, 210], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  // tagline fades in last
+  const revealSubOp = interpolate(frame, [208, 228], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
@@ -76,10 +141,8 @@ export const Opening: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      {/* ── Questions phase — single opacity wrapper so heading + questions fade together ── */}
+      {/* ── Questions phase ── */}
       <div style={{opacity: questionsOpacity}}>
-
-        {/* Chapter title — anchored top-left, slide deck placeholder */}
         <div
           style={{
             position: 'absolute',
@@ -104,7 +167,6 @@ export const Opening: React.FC = () => {
           </div>
         </div>
 
-        {/* Questions — centered in the space below the heading */}
         <div
           style={{
             position: 'absolute',
@@ -116,7 +178,6 @@ export const Opening: React.FC = () => {
             flexDirection: 'column',
             justifyContent: 'center',
             gap: 36,
-            // Shift the flex center below the heading
             paddingTop: 100,
           }}
         >
@@ -159,10 +220,9 @@ export const Opening: React.FC = () => {
             );
           })}
         </div>
-
       </div>
 
-      {/* ── Right panel: Clawd (white on blue), shifted toward center ── */}
+      {/* ── Right panel: Clawd (questions phase) ── */}
       <div
         style={{
           position: 'absolute',
@@ -174,6 +234,7 @@ export const Opening: React.FC = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          opacity: mascotRevealFade,
         }}
       >
         <ClawdMascot
@@ -186,21 +247,24 @@ export const Opening: React.FC = () => {
           color="#ffffff"
           showThoughtBubble
         />
-        <div
-          style={{
-            marginTop: 16,
-            fontSize: 12,
-            fontWeight: 500,
-            color: 'rgba(255,255,255,0.55)',
-            letterSpacing: 0.3,
-            opacity: mascotOpacity,
-          }}
-        >
-          Your Claude Code
-        </div>
+        {/* "Your Claude Code" label fades with the mascot panel */}
+        {!showLogo && (
+          <div
+            style={{
+              marginTop: 16,
+              fontSize: 12,
+              fontWeight: 500,
+              color: 'rgba(255,255,255,0.55)',
+              letterSpacing: 0.3,
+              opacity: mascotOpacity,
+            }}
+          >
+            Your Claude Code
+          </div>
+        )}
       </div>
 
-      {/* Vertical divider — adjusted for new right panel position */}
+      {/* ── Vertical divider (questions phase only) ── */}
       <div
         style={{
           position: 'absolute',
@@ -218,46 +282,130 @@ export const Opening: React.FC = () => {
       />
 
       {/* ── Tagline reveal ── */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: taglineOpacity,
-          transform: `translateY(${taglineY}px)`,
-        }}
-      >
+      {showLogo ? (
+        /* ── Logo-in-hand variant ── */
         <div
           style={{
-            fontSize: 84,
-            fontWeight: 800,
-            letterSpacing: -4,
-            color: '#ffffff',
-            lineHeight: 1,
-            textAlign: 'center',
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: taglineOpacity,
           }}
         >
-          qrec{' '}
-          <span style={{color: CLAWD_ORANGE}}>remembers.</span>
-        </div>
+          {/* Clawd + logo unit — bob the whole thing together */}
+          <div
+            style={{
+              position: 'relative',
+              width: 216,
+              height: 220,
+              overflow: 'visible',
+              transform: `translateY(${mascotBob}px)`,
+              marginBottom: 52,
+            }}
+          >
+            {/* Reveal Clawd — arms up, excited */}
+            <ClawdMascot
+              scale={revealClawdScale}
+              opacity={revealClawdOp}
+              bob={0}
+              armsUp={revealArmsUp}
+              frame={frame}
+              fps={fps}
+              color="#ffffff"
+            />
 
+            {/* qrec logo — white on blue, positioned at Clawd's right hand */}
+            <div
+              style={{
+                position: 'absolute',
+                top: logoRestTop,
+                left: logoRestLeft,
+                opacity: logoOp,
+                transform: `translate(${logoOffsetX}px, ${logoOffsetY}px) scale(${logoEnterScale})`,
+                // Scale from the handle tip (bottom-right of SVG) so the hand contact stays fixed
+                transformOrigin: 'right bottom',
+              }}
+            >
+              <QrecLogo size={LOGO_SIZE} colorScheme="onBlue" />
+            </div>
+          </div>
+
+          {/* "qrec remembers." — all white */}
+          <div
+            style={{
+              fontSize: 66,
+              fontWeight: 800,
+              letterSpacing: -3,
+              color: '#ffffff',
+              lineHeight: 1,
+              textAlign: 'center',
+              opacity: revealTagOp,
+            }}
+          >
+            qrec remembers.
+          </div>
+
+          {/* Tagline */}
+          <div
+            style={{
+              marginTop: 18,
+              fontSize: 20,
+              fontWeight: 400,
+              color: 'rgba(255,255,255,0.7)',
+              letterSpacing: -0.3,
+              textAlign: 'center',
+              opacity: revealSubOp,
+            }}
+          >
+            Total recall for Claude Code — yours and Claude's.
+          </div>
+        </div>
+      ) : (
+        /* ── Default text-only tagline ── */
         <div
           style={{
-            marginTop: 22,
-            fontSize: 22,
-            fontWeight: 400,
-            color: 'rgba(255,255,255,0.7)',
-            letterSpacing: -0.3,
-            textAlign: 'center',
-            opacity: subtitleOpacity,
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: taglineOpacity,
+            transform: `translateY(${taglineY}px)`,
           }}
         >
-          Your Claude Code sessions, instantly searchable.
+          <div
+            style={{
+              fontSize: 84,
+              fontWeight: 800,
+              letterSpacing: -4,
+              color: '#ffffff',
+              lineHeight: 1,
+              textAlign: 'center',
+            }}
+          >
+            qrec{' '}
+            <span style={{color: CLAWD_ORANGE}}>remembers.</span>
+          </div>
+
+          <div
+            style={{
+              marginTop: 22,
+              fontSize: 22,
+              fontWeight: 400,
+              color: 'rgba(255,255,255,0.7)',
+              letterSpacing: -0.3,
+              textAlign: 'center',
+              opacity: subtitleOpacity,
+            }}
+          >
+            Total recall for Claude Code — yours and Claude's.
+          </div>
         </div>
-      </div>
+      )}
     </AbsoluteFill>
   );
 };
