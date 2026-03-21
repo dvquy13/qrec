@@ -213,10 +213,16 @@ export function handleSessions(db: Database, url: URL): Response {
   return Response.json({ sessions, total, offset, limit });
 }
 
+// Accept full UUIDs (dfce70c4-274d-4cf0-ba6d-109ad49ee419) → resolve to 8-char id
+function resolveSessionId(sessionId: string): string {
+  const m = /^([0-9a-f]{8})-[0-9a-f]{4}-/i.exec(sessionId);
+  return m ? m[1] : sessionId;
+}
+
 export async function handleSessionDetail(db: Database, sessionId: string): Promise<Response> {
   const row = db
     .prepare("SELECT id, title, project, date, path, summary, tags, entities, learnings, questions FROM sessions WHERE id = ?")
-    .get(sessionId) as { id: string; title: string | null; project: string; date: string; path: string; summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null } | null;
+    .get(resolveSessionId(sessionId)) as { id: string; title: string | null; project: string; date: string; path: string; summary: string | null; tags: string | null; entities: string | null; learnings: string | null; questions: string | null } | null;
   if (!row) {
     return Response.json({ error: "Session not found" }, { status: 404 });
   }
@@ -244,7 +250,7 @@ export async function handleSessionDetail(db: Database, sessionId: string): Prom
 export async function handleSessionMarkdown(db: Database, sessionId: string): Promise<Response> {
   const row = db
     .prepare("SELECT path, summary, tags, entities FROM sessions WHERE id = ?")
-    .get(sessionId) as { path: string; summary: string | null; tags: string | null; entities: string | null } | null;
+    .get(resolveSessionId(sessionId)) as { path: string; summary: string | null; tags: string | null; entities: string | null } | null;
   if (!row) {
     return new Response("Session not found", { status: 404 });
   }
