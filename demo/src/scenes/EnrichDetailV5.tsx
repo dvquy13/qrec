@@ -17,7 +17,6 @@ import {
   SessionTurns,
   type Turn,
 } from '../../../ui-react/src/sections/SessionDetailSection';
-import {EnrichBlock} from '../../../ui-react/src/components/EnrichBlock/EnrichBlock';
 import {
   HEATMAP_BYPROJECT_BREAKDOWN,
   HEATMAP_BY_PROJECT,
@@ -34,25 +33,18 @@ import {
 //  78– 90f:  browser cursor fades out
 //  90–112f:  Figma cursor slides in (arrow only, no label)
 // 112–157f:  cursor blinks 3× — "thinking" / model loading
-// 157–164f:  "Qwen3-1.7B (local)" label fades in
-//            zoom-in spring also starts at 112
+// 157–164f:  "Qwen3-1.7B (local)" label fades in; zoom-in spring starts at 112
 // 164–172f:  "Summary" label typed (7 chars)
 // 172–175f:  brief gap
-// 175–280f:  summary content types out with viewport pan following cursor
-//   Burst 1: 175–205 (30f, ~90 chars = 3/f)
-//   Pause:   205–215 (10f)
-//   Burst 2: 215–250 (35f, ~90 chars ≈ 2.6/f)
-//   Pause:   250–260 (10f)
-//   Burst 3: 260–280 (20f, remaining chars)
-// 280–305f:  zoom-out spring; Figma cursor fades out
-// 308–326f:  tags appear (6f stagger)
-// 326–345f:  Learning[0] types
-// 345–358f:  hesitation
-// 358–381f:  Learning[1] types
-// 381–395f:  hesitation/cursor moves
-// 395–413f:  Question[0] types
-// 413–425f:  hold
-// 425–445f:  scene fade out
+// 175–240f:  summary content types (~1.5 chars/frame, no pauses, one line)
+// 255–280f:  zoom-out spring; Figma cursor fades out
+// 280–298f:  tags appear (6f stagger)
+// 300–309f:  "Learnings" label typed (9 chars)
+// 313–332f:  Learning[0] types
+// 346–369f:  Learning[1] types
+// 383–401f:  "Questions answered" label typed (18 chars)
+// 405–423f:  Question[0] types
+// 437–457f:  scene fade out
 
 // ── Session data ──────────────────────────────────────────────────────────────
 const SESSION_ID = 'c0ffee04';
@@ -60,7 +52,7 @@ const SESSION_TITLE = 'Archive JSONL on index for session durability';
 const SESSION_PROJECT = 'qrec';
 const SESSION_DATE = '2026-03-13';
 const SESSION_SUMMARY =
-  'Claude Code deletes old JSONL files after ~30 days. Added archiveJsonl() in indexer.ts to copy each ingested file to ~/.qrec/archive/<project>/ before indexing, ensuring sessions remain queryable after source deletion.';
+  'Added archiveJsonl() in indexer.ts to copy each JSONL to ~/.qrec/archive/ before indexing.';
 const SESSION_TAGS = ['indexer', 'durability', 'archive'];
 const SESSION_LEARNINGS = [
   'JSONL files disappear silently — never assume source files are durable.',
@@ -119,13 +111,15 @@ const LABEL_SHOW_END = 164;
 const LABEL_TYPE_START = 164;
 const LABEL_TYPE_END = 172;
 const CONTENT_TYPE_START = 175;
-const S_FRAMES = [175, 205, 215, 250, 260, 280] as const;
-const S_CHARS  = [0,    90,  90,  180, 180, SUMMARY_LEN] as const;
-const ZOOM_OUT_START = 280;
-const TAGS_START = 308;
-const L0_START = 326, L0_END = 345;
-const L1_START = 358, L1_END = 381;
-const Q0_START = 395, Q0_END = 413;
+const S_FRAMES = [175, 240] as const;
+const S_CHARS  = [0, SUMMARY_LEN] as const;
+const ZOOM_OUT_START = 255;
+const TAGS_START = 280;
+const LL_START = 300, LL_END = 309;   // "Learnings" label (9 chars)
+const L0_START = 313, L0_END = 332;
+const L1_START = 346, L1_END = 369;
+const QL_START = 383, QL_END = 401;   // "Questions answered" label (18 chars)
+const Q0_START = 405, Q0_END = 423;
 
 // ── Heatmap data ──────────────────────────────────────────────────────────────
 const QREC_15W = HEATMAP_BY_PROJECT['qrec'].slice(-105);
@@ -318,7 +312,7 @@ const FigmaCursor: React.FC<{
       fontSize: 14, fontWeight: 700, letterSpacing: '0.01em',
       padding: '5px 13px', borderRadius: '0 10px 10px 10px',
       whiteSpace: 'nowrap',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontFamily: 'Google Sans Flex, system-ui, sans-serif',
       lineHeight: 1.3,
       opacity: labelOpacity,
     }}>
@@ -361,7 +355,7 @@ export const EnrichDetailV5: React.FC = () => {
   }, []);
 
   // ── Scene opacity ────────────────────────────────────────────────────────────
-  const sceneOpacity = interpolate(frame, [0, 8, 425, 445], [0, 1, 1, 0], CLAMP);
+  const sceneOpacity = interpolate(frame, [0, 8, 437, 457], [0, 1, 1, 0], CLAMP);
 
   // ── Browser cursor ──────────────────────────────────────────────────────────
   const cursorMoveSp = spring({frame: frame - 8, fps,
@@ -443,8 +437,20 @@ export const EnrichDetailV5: React.FC = () => {
   const isLearn1Typing = frame >= L1_START && frame < L1_END + 3;
   const isQ0Typing     = frame >= Q0_START && frame < Q0_END + 3;
 
+  // ── Section label typing (Learnings / Questions answered) ───────────────────
+  const learnLabelChars = Math.round(
+    interpolate(frame, [LL_START, LL_END], [0, 9], CLAMP),
+  );
+  const questLabelChars = Math.round(
+    interpolate(frame, [QL_START, QL_END], [0, 18], CLAMP),
+  );
+  const typedLearnLabel = 'Learnings'.substring(0, learnLabelChars);
+  const typedQuestLabel = 'Questions answered'.substring(0, questLabelChars);
+  const isLearnLabelTyping = frame >= LL_START && frame < LL_END + 3;
+  const isQuestLabelTyping = frame >= QL_START && frame < QL_END + 3;
+
   // ── Cursor blink character ───────────────────────────────────────────────────
-  const anyTyping = isSummaryTyping || isLabelTyping || isLearn0Typing || isLearn1Typing || isQ0Typing;
+  const anyTyping = isSummaryTyping || isLabelTyping || isLearnLabelTyping || isQuestLabelTyping || isLearn0Typing || isLearn1Typing || isQ0Typing;
   const blinkChar = anyTyping && cursorBlink(frame, 10) ? '|' : '';
 
   const typedLabelDisplay = isLabelTyping ? typedLabel + blinkChar : typedLabel;
@@ -456,6 +462,9 @@ export const EnrichDetailV5: React.FC = () => {
 
   const displayQuestions: string[] = [];
   if (q0Chars > 0) displayQuestions.push(typedQ0 + (isQ0Typing ? blinkChar : ''));
+
+  const typedLearnLabelDisplay = typedLearnLabel + (isLearnLabelTyping ? blinkChar : '');
+  const typedQuestLabelDisplay = typedQuestLabel + (isQuestLabelTyping ? blinkChar : '');
 
   // ── Tags reveal ─────────────────────────────────────────────────────────────
   const tagCount = frame >= TAGS_START
@@ -470,9 +479,7 @@ export const EnrichDetailV5: React.FC = () => {
   const figmaEntryX = interpolate(spEnter, [0, 1], [POS_ENTER.x, POS_CLICK.x]);
   const figmaEntryY = interpolate(spEnter, [0, 1], [POS_ENTER.y, POS_CLICK.y]);
 
-  // Blink phase: oscillate opacity to signal "thinking"
-  const isBlinkPhase = frame >= BLINK_START && frame < BLINK_END;
-  const blinkAlpha = isBlinkPhase ? (cursorBlink(frame, 15) ? 1.0 : 0.12) : 1.0;
+  // (No blink fade — cursor stays visible throughout the thinking/zoom phase)
 
   // Figma cursor position: entry → click → label tracking → content tracking
   let figmaX: number;
@@ -492,12 +499,11 @@ export const EnrichDetailV5: React.FC = () => {
   }
 
   // FigmaCursor overall opacity (enter → hold → fade on zoom-out)
-  const figmaBaseOpacity =
+  const figmaOpacity =
     interpolate(frame, [90, 110, ZOOM_OUT_START, ZOOM_OUT_START + 30], [0, 1, 1, 0], CLAMP);
-  const figmaOpacity = figmaBaseOpacity * blinkAlpha;
 
-  // Label pill fades in after blink phase ends
-  const figmaLabelOpacity = interpolate(frame, [LABEL_SHOW_START, LABEL_SHOW_END], [0, 1], CLAMP);
+  // Label pill fades in with the cursor from the start
+  const figmaLabelOpacity = interpolate(frame, [90, 110], [0, 1], CLAMP);
 
   // Click animation at zoom-in trigger frame
   const figmaClickScale = interpolate(frame, [ZOOM_IN_FRAME, ZOOM_IN_FRAME + 3, ZOOM_IN_FRAME + 10], [1, 0.72, 1], CLAMP);
@@ -622,20 +628,43 @@ export const EnrichDetailV5: React.FC = () => {
                     </div>
                   )}
 
-                  {/* EnrichBlock: tags / learnings / questions only */}
-                  <EnrichBlock
-                    summary={undefined}
-                    tags={displayTags.length ? displayTags : undefined}
-                    learnings={displayLearnings.length ? displayLearnings : undefined}
-                    questions={displayQuestions.length ? displayQuestions : undefined}
-                    showSummary={false}
-                    showTags={displayTags.length > 0}
-                    showLearnings={displayLearnings.length > 0}
-                    showQuestions={displayQuestions.length > 0}
-                  />
+                  {/* Tags — rendered manually to avoid summary-block padding */}
+                  {displayTags.length > 0 && (
+                    <div className="summary-block-tags">
+                      {displayTags.map((t, i) => (
+                        <span key={i} className="enrich-tag">{t}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Learnings: typed label then typed items */}
+                  {learnLabelChars > 0 && (
+                    <div className="summary-block-section" style={{ marginTop: 12 }}>
+                      <span className="summary-block-label">{typedLearnLabelDisplay}</span>
+                      {displayLearnings.length > 0 && (
+                        <ul className="summary-block-list">
+                          {displayLearnings.map((l, i) => <li key={i}>{l}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Questions: typed label then typed items */}
+                  {questLabelChars > 0 && (
+                    <div className="summary-block-section" style={{ marginTop: 12 }}>
+                      <span className="summary-block-label">{typedQuestLabelDisplay}</span>
+                      {displayQuestions.length > 0 && (
+                        <ul className="summary-block-list">
+                          {displayQuestions.map((q, i) => <li key={i}>{q}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <SessionTurns turns={MOCK_TURNS} />
+                <div style={{ marginTop: 40 }}>
+                  <SessionTurns turns={MOCK_TURNS} />
+                </div>
 
               </div>
 
