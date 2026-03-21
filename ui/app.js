@@ -5,7 +5,6 @@ let _liveIndexing = null; // { indexed, total, current } from /status while inde
 let _embedModel = null;  // model name for indexing runs
 let _enrichModel = null; // model name for enrich runs
 const RUNS_INITIAL = 5;
-let _visibleRunCount = RUNS_INITIAL;
 let _lastRenderedSessionCount = -1;
 let _lastRenderedEnrichedCount = -1;
 
@@ -60,7 +59,7 @@ function showTab(name, push = true) {
 }
 
 function onTabActivated(name) {
-  if (name === 'dashboard') { _visibleRunCount = RUNS_INITIAL; loadDashboard(); }
+  if (name === 'dashboard') { loadDashboard(); }
   if (name === 'search') {
     document.getElementById('query')?.focus();
     loadSessions();
@@ -160,19 +159,6 @@ async function loadDashboard() {
     el.style.display = '';
     el.textContent = 'Could not connect to qrec server: ' + String(err);
   }
-}
-
-function buildRunProgressHtml(progress) {
-  const pct = progress.percent;
-  return `<div class="run-progress">
-    <div class="progress-label">
-      <span>${escHtml(progress.label)}</span>
-      ${pct != null ? `<strong>${pct}%</strong>` : ''}
-    </div>
-    <div class="progress-track">
-      <div class="progress-fill ${pct == null ? 'indeterminate' : ''}" style="width:${pct ?? 40}%"></div>
-    </div>
-  </div>`;
 }
 
 // Shared Phase 2 helper: find a *_model_downloaded activity event and return a
@@ -295,7 +281,7 @@ function showDashboardPanel(data, actEntries) {
       g.events.some(e => e.type === 'session_enriched')
     );
   }
-  renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
+  renderActivityFeed();
 
   if (data.sessions !== _lastRenderedSessionCount || (data.enrichedCount ?? -1) !== _lastRenderedEnrichedCount) {
     _lastRenderedEnrichedCount = data.enrichedCount ?? -1;
@@ -345,160 +331,42 @@ async function loadRecentSessions(sessionCount) {
 // fmtDuration, groupActivityEvents, isZeroIndexRun, collapseZeroIndexRuns,
 // groupSummary are all defined there as globals.
 
-function runIcon(type) {
-  if (type === 'index' || type === 'index_collapsed') return '⊙';
-  if (type === 'enrich' || type === 'enrich_collapsed') return '✦';
-  if (type === 'model_download') return '⬇';
-  if (type === 'model_loading') return '◎';
-  if (type === 'enrich_model_download') return '⬇';
-  return '◉';
-}
-
-function renderRunGroup(group) {
-  const { label, detail } = groupSummary(group, _liveIndexing);
-  const subEvents = group.events.filter(e =>
-    e.type === 'session_indexed' || e.type === 'session_enriched'
-  );
-
-  const iconHtml = group.running
-    ? `<span class="run-spinner-wrap"><span class="spinner run-spinner"></span></span>`
-    : `<span class="run-icon-badge ${group.type === 'index_collapsed' ? 'index' : group.type === 'enrich_collapsed' ? 'enrich' : group.type}">${runIcon(group.type)}</span>`;
-
-  const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
-  const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;
-  const progressHtml = group.syntheticProgress && group.running ? buildRunProgressHtml(group.syntheticProgress) : '';
-
-  if (subEvents.length === 0) {
-    return `<div class="run-group no-expand"><div class="run-header">
-      ${tsHtml}<span class="run-chevron-spacer"></span>${iconHtml}
-      <span class="run-label">${escHtml(label)}</span>${detailHtml}
-    </div>${progressHtml}</div>`;
-  }
-
-  const sessionIds = subEvents.map(e => e.data?.sessionId ?? '').filter(Boolean);
-
-  const eventsHtml = subEvents.map(e => {
-    const sid = escHtml(e.data?.sessionId ?? '');
-    const ms = e.data?.latencyMs != null ? escHtml(fmtDuration(e.data.latencyMs)) : '';
-    const timeStr = new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    return `<div class="run-event" data-session-id="${sid}">
-      <span class="run-event-ts">${timeStr}</span>
-      <span class="run-event-id">${sid}</span>
-      ${ms ? `<span class="run-event-meta">${ms}</span>` : ''}
-    </div>`;
-  }).join('');
-
-  const modelName = group.type === 'index' ? _embedModel : group.type === 'enrich' ? _enrichModel : null;
-  const modelHtml = modelName
-    ? `<div class="run-model-info"><span class="run-model-name">model: ${escHtml(modelName)}</span></div>`
-    : '';
-
-  return `<details class="run-group" data-run-ts="${group.ts}" data-session-ids="${escHtml(sessionIds.join(','))}">
-    <summary class="run-header">
-      ${tsHtml}${iconHtml}<span class="run-label">${escHtml(label)}</span>${detailHtml}
-    </summary>
-    <div class="run-events">${modelHtml}${eventsHtml}</div>
-  </details>`;
-}
-
-function renderActivityRuns(groups, syntheticGroups = []) {
-  const runList = document.getElementById('run-list');
-  const showMoreBtn = document.getElementById('activity-show-more');
+function renderActivityFeed() {
+  const el = document.getElementById('run-list');
   const liveDot = document.getElementById('activity-live-dot');
-  if (!runList) return;
+  if (!el || !window.QrecUI?.renderActivityFeed) return;
 
-  const syntheticArr = Array.isArray(syntheticGroups) ? syntheticGroups : (syntheticGroups ? [syntheticGroups] : []);
-  // Merge synthetic and real groups by timestamp (newest first) so ordering is chronological.
-  const displayGroups = [...syntheticArr, ...groups].sort((a, b) => b.ts - a.ts);
+  const syntheticArr = Array.isArray(_currentSyntheticGroup)
+    ? _currentSyntheticGroup
+    : (_currentSyntheticGroup ? [_currentSyntheticGroup] : []);
+  const displayGroups = [...syntheticArr, ..._allRunGroups].sort((a, b) => b.ts - a.ts);
 
-  // Preserve open state across re-renders
-  const openTs = new Set();
-  runList.querySelectorAll('details.run-group').forEach(d => {
-    if (d.open) openTs.add(d.dataset.runTs);
-  });
-
-  const visible = displayGroups.slice(0, _visibleRunCount);
-  const hidden = displayGroups.length - visible.length;
   const anyRunning = displayGroups.slice(0, 3).some(g => g.running);
-
-  if (groups.length === 0) {
-    runList.innerHTML = '<div style="padding:20px 0;color:var(--text-muted);font-size:13px;">No activity yet.</div>';
-  } else {
-    runList.innerHTML = visible.map(g => renderRunGroup(g)).join('');
-  }
-
-  // Restore open state — always re-enrich since DOM was rebuilt
-  runList.querySelectorAll('details.run-group').forEach(d => {
-    if (openTs.has(d.dataset.runTs)) {
-      d.setAttribute('open', '');
-      enrichRunGroup(d);
-    }
-  });
-
   if (liveDot) liveDot.classList.toggle('visible', anyRunning);
 
-  if (showMoreBtn) {
-    if (hidden > 0) {
-      showMoreBtn.textContent = `Show ${hidden} older run${hidden === 1 ? '' : 's'}`;
-      showMoreBtn.style.display = '';
-    } else {
-      showMoreBtn.style.display = 'none';
-    }
-  }
+  // Hide the legacy show-more button — ActivityFeed handles it internally
+  const showMoreBtn = document.getElementById('activity-show-more');
+  if (showMoreBtn) showMoreBtn.style.display = 'none';
+
+  window.QrecUI.renderActivityFeed(el, {
+    groups: displayGroups,
+    modelName: _embedModel,
+    enrichModelName: _enrichModel,
+    maxVisible: RUNS_INITIAL,
+    onSessionClick: (id) => openSession(id),
+    onSessionsLoad: async (ids) => {
+      const idList = ids.map(id => `'${id}'`).join(',');
+      const res = await fetch('/query_db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql: `SELECT id, title, summary FROM sessions WHERE id IN (${idList})` }),
+      });
+      if (!res.ok) return [];
+      const { rows } = await res.json();
+      return rows;
+    },
+  });
 }
-
-function showMoreRuns() {
-  _visibleRunCount = Infinity;
-  renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
-}
-
-async function enrichRunGroup(detailsEl) {
-  detailsEl.dataset.enriched = '1';
-  const ids = (detailsEl.dataset.sessionIds || '').split(',').filter(Boolean);
-  if (ids.length === 0) return;
-
-  try {
-    const idList = ids.map(id => `'${id}'`).join(',');
-    const res = await fetch('/query_db', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql: `SELECT id, title, project, summary FROM sessions WHERE id IN (${idList})` }),
-    });
-    if (!res.ok) return;
-    const { rows } = await res.json();
-    const byId = Object.fromEntries(rows.map(r => [r.id, r]));
-
-    detailsEl.querySelectorAll('.run-event[data-session-id]').forEach(row => {
-      const session = byId[row.dataset.sessionId];
-      if (!session) return;
-      const tsEl = row.querySelector('.run-event-ts');
-      const metaEl = row.querySelector('.run-event-meta');
-      const title = escHtml(session.title || 'Untitled session');
-      const project = escHtml(session.project || '');
-      const summary = session.summary
-        ? escHtml(session.summary.slice(0, 120)) + (session.summary.length > 120 ? '…' : '')
-        : '';
-      row.innerHTML = `
-        ${tsEl ? tsEl.outerHTML : ''}
-        <div class="run-event-info">
-          <div class="run-event-header">
-            <span class="run-event-title">${title}</span>
-            ${project ? `<span class="run-event-project">${project}</span>` : ''}
-          </div>
-          ${summary ? `<div class="run-event-summary">${summary}</div>` : ''}
-        </div>
-        ${metaEl ? metaEl.outerHTML : ''}
-      `;
-    });
-  } catch { /* silently fail — IDs remain as fallback */ }
-}
-
-// Lazy-enrich session rows when a run group is expanded
-document.addEventListener('toggle', e => {
-  const details = e.target;
-  if (!details.matches('details.run-group') || !details.open || details.dataset.enriched) return;
-  enrichRunGroup(details);
-}, true);
 
 // ── Search ──────────────────────────────────────────────────────────────────
 
@@ -960,34 +828,20 @@ function selectHeatmapMetric(metricId) {
 
 function selectHeatmapProject(project) {
   _heatmapProject = project || null;
-  const btn = document.getElementById('heatmap-project-btn');
-  if (btn) {
-    if (project) {
-      btn.innerHTML = `${projectDot(project, 8)} <span style="margin-left:5px;">${escHtml(project)}</span> ▾`;
-    } else {
-      btn.textContent = 'All projects ▾';
-    }
-  }
-  document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
   fetchAndRenderHeatmap();
   _lastRenderedSessionCount = -1; // force recent sessions to reload with new project filter
   _lastRenderedEnrichedCount = -1;
   loadRecentSessions();
 }
 
-function toggleHeatmapProjectDropdown() {
-  const el = document.getElementById('heatmap-dropdown-project');
-  if (el.classList.contains('open')) { el.classList.remove('open'); return; }
-  const items = [{ label: 'All projects', value: '' }, ..._heatmapProjects.map(p => ({ label: p, value: p }))];
-  el.innerHTML = items.map(({ label, value }) => {
-    const dot = value ? `${projectDot(value, 8)}&nbsp;` : '';
-    return `<div class="filter-dropdown-item${value === (_heatmapProject ?? '') ? ' filter-dropdown-item--active' : ''}" style="display:flex;align-items:center;gap:4px;" onclick="selectHeatmapProject('${escHtml(value)}')">${dot}${escHtml(label)}</div>`;
-  }).join('');
-  el.classList.add('open');
-}
-
-function hideHeatmapProjectDropdown() {
-  document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
+function renderHeatmapProjectFilter() {
+  const el = document.getElementById('heatmap-project-filter');
+  if (!el || !window.QrecUI?.renderHeatmapProjectFilter) return;
+  window.QrecUI.renderHeatmapProjectFilter(el, {
+    projects: _heatmapProjects,
+    selected: _heatmapProject,
+    onSelect: (p) => { selectHeatmapProject(p); },
+  });
 }
 
 function renderHeatmap(containerId, days, opts = {}) {
@@ -1159,6 +1013,7 @@ async function fetchAndRenderHeatmap() {
       const pr = await fetch('/projects');
       if (pr.ok) _heatmapProjects = (await pr.json()).projects ?? [];
     }
+    renderHeatmapProjectFilter();
 
     const params = new URLSearchParams({ weeks: '15', metric: _heatmapMetric });
     if (_heatmapProject) params.set('project', _heatmapProject);

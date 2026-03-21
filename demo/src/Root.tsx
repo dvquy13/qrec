@@ -35,7 +35,7 @@ export const Root: React.FC = () => {
       <Composition
         id="QrecDemo"
         component={QrecDemo}
-        durationInFrames={1500}
+        durationInFrames={1920}
         fps={30}
         width={1280}
         height={720}

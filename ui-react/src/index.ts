@@ -3,3 +3,5 @@ export * from './components/EnrichBlock';
 export * from './components/SessionCard';
 export * from './components/HeatmapGrid';
 export * from './components/StatCard';
+export * from './components/HeatmapProjectFilter';
+export * from './components/ActivityFeed';

@@ -4,6 +4,8 @@ import ReactDOM from 'react-dom/client';
 import { SessionCard, SessionCardProps } from './src/components/SessionCard';
 import { HeatmapGrid, HeatmapGridProps } from './src/components/HeatmapGrid';
 import { EnrichBlock, EnrichBlockProps } from './src/components/EnrichBlock';
+import { HeatmapProjectFilter, HeatmapProjectFilterProps } from './src/components/HeatmapProjectFilter';
+import { ActivityFeed, ActivityFeedProps } from './src/components/ActivityFeed';
 
 interface ElementWithRoot extends HTMLElement {
   __qrec_root__?: ReturnType<typeof ReactDOM.createRoot>;
@@ -21,6 +23,8 @@ declare global {
       renderSessionCard: (el: HTMLElement, props: SessionCardProps) => void;
       renderHeatmapGrid: (el: HTMLElement, props: HeatmapGridProps) => void;
       renderEnrichBlock: (el: HTMLElement, props: EnrichBlockProps) => void;
+      renderHeatmapProjectFilter: (el: HTMLElement, props: HeatmapProjectFilterProps) => void;
+      renderActivityFeed: (el: HTMLElement, props: ActivityFeedProps) => void;
       unmount: (el: HTMLElement) => void;
     };
   }
@@ -30,6 +34,8 @@ window.QrecUI = {
   renderSessionCard: (el, props) => mount(SessionCard, el as ElementWithRoot, props),
   renderHeatmapGrid: (el, props) => mount(HeatmapGrid, el as ElementWithRoot, props),
   renderEnrichBlock: (el, props) => mount(EnrichBlock, el as ElementWithRoot, props),
+  renderHeatmapProjectFilter: (el, props) => mount(HeatmapProjectFilter, el as ElementWithRoot, props),
+  renderActivityFeed: (el, props) => mount(ActivityFeed, el as ElementWithRoot, props),
   unmount: (el) => {
     const e = el as ElementWithRoot;
     e.__qrec_root__?.unmount();

@@ -8,7 +8,7 @@ export const CTA: React.FC = () => {
   const frame = useCurrentFrame();
 
   return (
-    <SceneFade durationInFrames={150} fadeIn={20} fadeOut={15}>
+    <SceneFade durationInFrames={180} fadeIn={20} fadeOut={15}>
       <AbsoluteFill
         style={{
           display: 'flex',

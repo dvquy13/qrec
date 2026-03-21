@@ -51,12 +51,7 @@
       <div class="dashboard-heatmap-col" id="dashboard-heatmap-section" style="display:none;">
         <div class="heatmap-controls">
           <div id="heatmap-metric-btns"></div>
-          <div class="filter-wrap">
-            <button class="btn heatmap-project-btn" id="heatmap-project-btn"
-                    onclick="toggleHeatmapProjectDropdown()"
-                    onblur="hideHeatmapProjectDropdown()">All projects ▾</button>
-            <div class="filter-dropdown" id="heatmap-dropdown-project" onmousedown="return false;"></div>
-          </div>
+          <div id="heatmap-project-filter"></div>
         </div>
         <div id="dashboard-heatmap"></div>
         <div class="heatmap-footer" id="dashboard-heatmap-footer"></div>
@@ -76,7 +71,7 @@
         <span class="activity-live-dot" id="activity-live-dot"></span>
       </div>
       <div class="run-list" id="run-list"></div>
-      <button class="show-more-btn" id="activity-show-more" style="display:none;" onclick="showMoreRuns()">Show older entries</button>
+      <button class="show-more-btn" id="activity-show-more" style="display:none;">Show older entries</button>
     </div>
 
     <div class="last-updated" id="db-last-updated"></div>
