@@ -45,6 +45,14 @@ export const Root: React.FC = () => {
         width={1280}
         height={720}
       />
+        <Composition
+          id="OpeningLogo"
+          component={OpeningLogo}
+          durationInFrames={270}
+          fps={30}
+          width={1280}
+          height={720}
+        />
       <Composition
         id="Onboard"
         component={Onboard}
@@ -57,14 +65,6 @@ export const Root: React.FC = () => {
         id="ProjectFilter"
         component={ProjectFilter}
         durationInFrames={180}
-        fps={30}
-        width={1280}
-        height={720}
-      />
-      <Composition
-        id="OpeningLogo"
-        component={OpeningLogo}
-        durationInFrames={270}
         fps={30}
         width={1280}
         height={720}
