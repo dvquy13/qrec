@@ -359,9 +359,9 @@ export const Onboard: React.FC = () => {
             <DashboardSection
               sessionsCount={sessionsCount}
               sessionsIndexing={sessionsIndexing}
-              summariesCount={frame >= 250 ? summariesCount : null}
+              summariesCount={frame >= 149 ? summariesCount : null}
               summariesSub={
-                frame < 250
+                frame < 149
                   ? 'disabled'
                   : summariesEnriching
                     ? `${summariesCount} enriched`
