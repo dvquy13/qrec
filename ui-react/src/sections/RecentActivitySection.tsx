@@ -25,7 +25,10 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({
   style,
 }) => {
   return (
-    <div className="activity-section" style={marginTop !== undefined ? { marginTop } : undefined}>
+    <div
+      className="activity-section"
+      style={{ minHeight: 0, ...(marginTop !== undefined ? { marginTop } : {}), ...style }}
+    >
       <div className="activity-section-header">
         <span className="section-heading">Recent Activity</span>
         {isLive && (
@@ -42,7 +45,6 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({
         maxVisible={maxVisible}
         onSessionClick={onSessionClick}
         onSessionsLoad={onSessionsLoad}
-        style={style}
       />
     </div>
   );
