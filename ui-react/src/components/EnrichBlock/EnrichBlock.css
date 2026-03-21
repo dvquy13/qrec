@@ -1,3 +1,5 @@
+.tag { background: transparent; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+
 .summary-block {
   background: transparent;
   padding: 14px 0; margin-bottom: 20px;

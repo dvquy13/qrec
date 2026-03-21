@@ -7,6 +7,7 @@ import {QrecDemo} from './QrecDemo';
 import {Opening} from './scenes/Opening';
 import {Onboard} from './scenes/Onboard';
 import {ProjectFilter} from './scenes/ProjectFilter';
+import {EnrichDetail} from './scenes/EnrichDetail';
 
 const OpeningLogo: React.FC = () => <Opening showLogo />;
 
@@ -65,6 +66,14 @@ export const Root: React.FC = () => {
         id="ProjectFilter"
         component={ProjectFilter}
         durationInFrames={180}
+        fps={30}
+        width={1280}
+        height={720}
+      />
+      <Composition
+        id="EnrichDetail"
+        component={EnrichDetail}
+        durationInFrames={230}
         fps={30}
         width={1280}
         height={720}
