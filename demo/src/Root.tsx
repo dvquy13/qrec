@@ -3,7 +3,6 @@ import {Composition} from 'remotion';
 import {loadFont} from '@remotion/fonts';
 import {staticFile} from 'remotion';
 import '../../ui-react/src/styles/variables.css';
-import {QrecDemo} from './QrecDemo';
 import {Opening} from './scenes/Opening';
 import {Onboard} from './scenes/Onboard';
 import {ProjectFilter} from './scenes/ProjectFilter';
@@ -39,14 +38,6 @@ export const Root: React.FC = () => {
     <>
       <style>{globalStyles}</style>
       <Composition
-        id="QrecDemo"
-        component={QrecDemo}
-        durationInFrames={2310}
-        fps={30}
-        width={1280}
-        height={720}
-      />
-        <Composition
           id="OpeningLogo"
           component={OpeningLogo}
           durationInFrames={270}
