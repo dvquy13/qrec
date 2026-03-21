@@ -52,7 +52,7 @@ qrec serve --daemon --no-open        # start without opening browser (used by Se
 qrec stop                            # stop daemon
 qrec index [path]                    # index path (default: ~/.claude/projects/)
 qrec index --force                   # force re-index all sessions from scratch
-qrec search "<query>" [--k N]        # search indexed sessions (prints JSON)
+qrec search "<query>" [--project P] [--tag T] [--from DATE] [--to DATE] [--k N]   # search (with query: POST /search; filters only: GET /sessions browse)
 qrec get <session_id>                # print full session markdown
 qrec enrich [--limit N]              # enrich sessions with summary/tags/entities
 qrec enrich --force                  # re-enrich all sessions (use after accidental re-index to recover titles)
@@ -73,7 +73,7 @@ node $CLAUDE_PLUGIN_ROOT/scripts/qrec-cli.js <command>
 | GET | `/` | Search UI |
 | GET | `/audit` | Audit log UI |
 | GET | `/debug` | Debug UI |
-| POST | `/search` | `{query, k}` → results; 503 until model ready |
+| POST | `/search` | `{query, k, project?, tag?, dateFrom?, dateTo?}` → results; 503 until model ready |
 | GET | `/sessions` | List sessions |
 | GET | `/sessions/:id` | Session detail JSON |
 | GET | `/sessions/:id/markdown` | Session full markdown |

@@ -148,7 +148,7 @@ qrec index                                  # stdin JSON {transcript_path} mode 
 qrec serve                                  # start server (foreground, port 25927); auto-opens browser
 qrec serve --daemon --port 25930            # override port (sets QREC_PORT; all subcommands accept --port)
 qrec stop                                   # stop daemon
-qrec search "<query>" [--k N]              # search indexed sessions (prints JSON)
+qrec search "<query>" [--project P] [--tag T] [--from DATE] [--to DATE] [--k N]  # search sessions (with query: POST /search; no query + filters: GET /sessions browse)
 qrec get <session-id>                       # print full session markdown
 qrec status                                 # print status + log tail
 qrec enrich                                 # enrich unenriched sessions with summary/tags/entities (also spawned automatically by daemon)

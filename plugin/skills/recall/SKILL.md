@@ -15,19 +15,31 @@ Use the qrec CLI to search past Claude Code sessions and answer questions about 
 
 ## Workflow
 
-1. **Search** — run `qrec search "<query>" --k 10`. Use concrete nouns from the topic (function names, error messages, feature names).
-2. **Review results** — check titles, dates, and previews in the JSON output. If the top results don't match, run up to 2 more searches with different phrasings before giving up.
-3. **Get full session** — for the top 1–2 matching results, run `qrec get <session_id>` to read the full conversation.
-4. **Synthesize** — answer the user's question based on what you found.
+**Recency request** — user asks for "latest session", "pick up context", "what were we working on", "continue from last time":
+1. Run `qrec search --k 10` (no query → browse mode, date-sorted latest first).
+2. Scan `project`, `title`, `date` fields. Pick the session that best matches the current working context.
+3. Run `qrec get <session_id>` and summarize what was in progress.
+
+**Topic search** — user asks about a specific past decision, implementation, bug, or feature:
+1. Run `qrec search "<query>" --k 10` with concrete nouns (function names, error messages, feature names). Narrow with `--project <name>`, `--tag <tag>`, `--from`/`--to YYYY-MM-DD` if helpful.
+2. If top results don't match, try up to 2 different phrasings.
+3. Run `qrec get <session_id>` on the top 1–2 matches and synthesize.
+
+**Uncertain intent**: start with browse (`qrec search --k 10`) to see what's recent, then fall back to semantic search if nothing relevant surfaces.
 
 ## Commands
 
 ```bash
-qrec search "<query>" --k 10
-# → JSON: { results: [{ session_id, score, preview, project, date, title }], latencyMs }
+# Browse mode — no query, date-sorted (latest first)
+qrec search --k 10                              # 10 most recent sessions (all projects)
+qrec search --project <name> --k 10            # filter to a known project name
+qrec search --project <name> --tag <tag> --k 10
 
-qrec get <session_id>
-# → full rendered markdown of the session (8-char hex ID from search results)
+# Semantic search
+qrec search "<query>" --k 10
+qrec search "<query>" --project <name> --k 10
+
+qrec get <session_id>   # full session markdown (8-char hex ID from results)
 ```
 
 ## Error handling

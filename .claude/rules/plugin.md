@@ -77,11 +77,24 @@ NPM_TOKEN=<token> npm publish --access public
 ```
 Or set in `~/.npmrc`: `//registry.npmjs.org/:_authToken=<token>`
 
+## Dev workflow: updating skills without a release
+
+To test skill changes locally without publishing to npm:
+1. Edit `plugin/skills/<name>/SKILL.md` in the repo.
+2. Delete the cached version: `rm -rf ~/.claude/plugins/cache/qrec/qrec/<version>`
+3. Run `/plugin update qrec` in a new Claude Code session — Claude Code reinstalls from the local directory source and picks up the changes.
+
+**`installPath` in `installed_plugins.json` does NOT control which skill files Claude Code loads.** Claude Code computes skill file paths from its own cache independently of that field. Changing `installPath` has no effect on runtime skill loading.
+
 ## Plugin recall: CLI-based (`qrec search` / `qrec get`)
 
 The recall skill uses `Bash` with `qrec search` and `qrec get` shell commands — no MCP server needed. Both commands proxy to the daemon over HTTP at `localhost:25927`.
 
 **`--no-open` in hooks.json** — `qrec serve --daemon --no-open` prevents the browser from auto-opening on every `SessionStart` hook fire. Always keep `--no-open` in the hook command.
+
+## Skill args contamination
+
+When Claude invokes a skill, it appends surrounding conversation context to `$ARGUMENTS` — e.g., "latest session remotion demo cli filters" even if the user only said "pick up context from latest session". **Intent detection inside a skill based purely on `$ARGUMENTS` keywords is unreliable.** Design skill workflows that work correctly regardless of extra topic keywords in args (e.g., use unambiguous trigger phrases like "latest"/"pick up" and treat all other args as advisory, not intent-defining).
 
 ## Plugin skills: disable-model-invocation
 

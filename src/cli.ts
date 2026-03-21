@@ -139,24 +139,68 @@ async function main() {
     }
 
     case "search": {
+      const flagValue = (flag: string) => {
+        const idx = args.indexOf(flag);
+        if (idx === -1 || idx + 1 >= args.length) return null;
+        return args[idx + 1] ?? null;
+      };
+
       const query = args.filter(a => !a.startsWith("--")).join(" ").trim();
-      if (!query) {
-        console.error('[cli] Usage: qrec search "<query>" [--k N]');
+      const k       = parseInt(flagValue("--k") ?? "10", 10);
+      const project = flagValue("--project");
+      const tag     = flagValue("--tag");
+      const from    = flagValue("--from");
+      const to      = flagValue("--to");
+
+      const hasFilter = project || tag || from || to;
+      if (!query && !hasFilter) {
+        console.error('[cli] Usage: qrec search "<query>" [--project P] [--tag T] [--from DATE] [--to DATE] [--k N]');
         process.exit(1);
       }
-      const kIdx = args.indexOf("--k");
-      const k = kIdx !== -1 ? parseInt(args[kIdx + 1], 10) : 10;
-      const res = await fetch(`http://localhost:${getQrecPort()}/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, k }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
-        console.error(`[cli] search failed (${res.status}): ${body.error ?? "unknown error"}`);
-        process.exit(1);
+
+      if (query) {
+        // POST /search — semantic + BM25 with optional filters
+        const body: Record<string, unknown> = { query, k };
+        if (project) body.project  = project;
+        if (tag)     body.tag      = tag;
+        if (from)    body.dateFrom = from;
+        if (to)      body.dateTo   = to;
+        const res = await fetch(`http://localhost:${getQrecPort()}/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const body2 = await res.json().catch(() => ({})) as { error?: string };
+          console.error(`[cli] search failed (${res.status}): ${body2.error ?? "unknown error"}`);
+          process.exit(1);
+        }
+        console.log(JSON.stringify(await res.json(), null, 2));
+      } else {
+        // GET /sessions — browse mode, date-sorted (no query)
+        const params = new URLSearchParams({ offset: "0", limit: String(k) });
+        if (project) params.set("project", project);
+        if (tag)     params.set("tag",     tag);
+        if (from)    params.set("dateFrom", from);
+        if (to)      params.set("dateTo",   to);
+        const res = await fetch(`http://localhost:${getQrecPort()}/sessions?${params}`);
+        if (!res.ok) {
+          const body2 = await res.json().catch(() => ({})) as { error?: string };
+          console.error(`[cli] browse failed (${res.status}): ${body2.error ?? "unknown error"}`);
+          process.exit(1);
+        }
+        const data = await res.json() as { sessions: Array<Record<string, unknown>>; total: number };
+        // Normalise to a compact list (no raw JSON dump)
+        const rows = data.sessions.map(s => ({
+          id:      s.id,
+          date:    s.date,
+          project: s.project,
+          title:   s.title,
+          tags:    Array.isArray(s.tags) ? (s.tags as string[]).join(", ") : null,
+          summary: typeof s.summary === "string" ? s.summary.slice(0, 120) + (s.summary.length > 120 ? "…" : "") : null,
+        }));
+        console.log(JSON.stringify({ total: data.total, results: rows }, null, 2));
       }
-      console.log(JSON.stringify(await res.json(), null, 2));
       process.exit(0);
     }
 
