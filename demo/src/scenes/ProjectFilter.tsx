@@ -151,9 +151,9 @@ export const ProjectFilter: React.FC = () => {
   const filterApplied = frame >= 122;
 
   const heatmapDays = filterApplied ? QREC_FILTERED_DAYS : ONBOARD_DAYS;
-  const sessionsCount = filterApplied ? QREC_SESSION_COUNT : SESSIONS_TOTAL;
+  // Sessions stat card always shows total (real qrec UI doesn't filter it by project)
   const activeDays = filterApplied ? QREC_ACTIVE_DAYS : ONBOARD_ACTIVE_DAYS;
-  const footerText = `${sessionsCount} sessions · ${activeDays} active days`;
+  const footerText = `${filterApplied ? QREC_SESSION_COUNT : SESSIONS_TOTAL} sessions · ${activeDays} active days`;
   const selectedProject = filterApplied ? 'qrec' : null;
 
   const displaySessions = filterApplied
@@ -272,7 +272,7 @@ export const ProjectFilter: React.FC = () => {
               }}
             >
               <DashboardSection
-                sessionsCount={sessionsCount}
+                sessionsCount={SESSIONS_TOTAL}
                 sessionsIndexing={false}
                 summariesCount={SUMMARIES_TOTAL}
                 summariesSub="enriched"
