@@ -51,6 +51,7 @@
     "test": "QREC_EMBED_PROVIDER=stub bun test"
   },
   "dependencies": {
+    "citty": "^0.2.1",
     "node-llama-cpp": "3.17.1",
     "sqlite-vec": "^0.1.0"
   },

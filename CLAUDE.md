@@ -11,6 +11,7 @@ qrec is a purpose-built session recall engine. It replaces QMD's per-invocation 
 | Search DB | SQLite (FTS5 + sqlite-vec) |
 | Embeddings | node-llama-cpp 3.17.1 (`embeddinggemma-300M-Q8_0`, cached at `~/.qrec/models/`) |
 | CLI recall | `qrec search` / `qrec get` |
+| CLI framework | citty 0.2.1 — subcommand dispatch + typed arg parsing |
 
 Python scripts (eval generation) run with `uv`. Read-only subtrees in `docs/ext/` — do not modify.
 
