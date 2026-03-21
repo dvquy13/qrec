@@ -131,10 +131,10 @@ const serveCmd = defineCommand({
   meta: { name: "serve", description: "Start the qrec HTTP server (default: foreground)" },
   args: {
     daemon: { type: "boolean", description: "Run as background daemon", default: false },
-    "no-open": { type: "boolean", description: "Do not open browser on start", default: false },
+    open:   { type: "boolean", description: "Open browser on start (pass --no-open to suppress)", default: true },
   },
   async run({ args }) {
-    const noOpen = args["no-open"] ?? false;
+    const noOpen = !(args.open ?? true);
     if (args.daemon) {
       await startDaemon();
       if (!noOpen) openBrowser();
