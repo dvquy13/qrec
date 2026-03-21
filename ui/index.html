@@ -4,12 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>qrec</title>
+<link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
 <link rel="stylesheet" href="/ui/styles.css">
+<link rel="stylesheet" href="/ui/components.css">
 <script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
 </head>
 <body>
 <header>
-  <div class="logo" onclick="showTab('dashboard')" style="cursor:pointer;">q</div>
+  <img class="logo" src="/public/logo.svg" alt="qrec" onclick="showTab('dashboard')" style="cursor:pointer;">
   <h1 onclick="showTab('dashboard')" style="cursor:pointer;">qrec</h1>
   <nav>
     <button id="nav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
