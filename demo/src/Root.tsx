@@ -91,7 +91,7 @@ export const Root: React.FC = () => {
       <Composition
         id="EnrichDetailV5"
         component={EnrichDetailV5}
-        durationInFrames={345}
+        durationInFrames={445}
         fps={30}
         width={1280}
         height={720}

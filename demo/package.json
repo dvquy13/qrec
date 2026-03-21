@@ -10,6 +10,7 @@
   "dependencies": {
     "@remotion/cli": "4.0.438",
     "@remotion/fonts": "^4.0.438",
+    "@remotion/layout-utils": "4.0.438",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "remotion": "4.0.438"
