@@ -90,9 +90,11 @@ export const Onboard: React.FC = () => {
   const summariesCount = Math.round(interpolate(frame, [250, 390], [0, SUMMARIES_TOTAL], CLAMP));
   const sessionsIndexing = frame >= 208 && frame < 330;
   const summariesEnriching = frame >= 250 && frame < 395;
-  const revealedCount = Math.round(interpolate(frame, [208, 320], [0, HEATMAP_DAYS.length], CLAMP));
+  // Real qrec UI defaults to 15 weeks (105 days); slice to match
+  const HEATMAP_15W = HEATMAP_DAYS.slice(-105);
+  const revealedCount = Math.round(interpolate(frame, [208, 320], [0, HEATMAP_15W.length], CLAMP));
 
-  const activeDays = HEATMAP_DAYS.filter((d) => d.count > 0).length;
+  const activeDays = HEATMAP_15W.filter((d) => d.count > 0).length;
   const footerText = `${sessionsCount} sessions · ${activeDays} active days`;
 
   // ── Frame-driven CSS animation overrides (CSS animations don't run in Remotion) ──
@@ -337,7 +339,7 @@ export const Onboard: React.FC = () => {
               flex: 1,
               background: '#ffffff',
               overflow: 'hidden',
-              padding: '20px 28px 14px',
+              padding: '20px 28px 24px',
               fontFamily: theme.sans,
               display: 'flex',
               flexDirection: 'column',
@@ -353,6 +355,8 @@ export const Onboard: React.FC = () => {
               .af-progress-fill--indeterminate { animation: none !important; transform: translateX(var(--remotion-indeterminate-x, -100%)); }
               .stat-indexing-dot.visible, .activity-live-dot { animation: none !important; opacity: var(--remotion-pulse-opacity, 1); }
             `}</style>
+            {/* max-width: 900px matches the real qrec UI <main> constraint */}
+            <div style={{maxWidth: 900, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', flex: 1}}>
             <DashboardSection
               sessionsCount={sessionsCount}
               sessionsIndexing={sessionsIndexing}
@@ -366,7 +370,7 @@ export const Onboard: React.FC = () => {
               }
               summariesEnriching={summariesEnriching}
               searchesCount={0}
-              heatmapDays={HEATMAP_DAYS}
+              heatmapDays={HEATMAP_15W}
               heatmapByProject={HEATMAP_BYPROJECT_BREAKDOWN}
               projects={[...PROJECTS]}
               selectedProject={null}
@@ -387,6 +391,7 @@ export const Onboard: React.FC = () => {
                 style={{flex: 1, overflow: 'hidden'}}
               />
             )}
+            </div>
           </div>
         </div>
       </div>
