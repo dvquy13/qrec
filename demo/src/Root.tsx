@@ -8,8 +8,6 @@ import {Opening} from './scenes/Opening';
 import {Onboard} from './scenes/Onboard';
 import {ProjectFilter} from './scenes/ProjectFilter';
 import {EnrichDetail} from './scenes/EnrichDetail';
-import {EnrichDetailV2} from './scenes/EnrichDetailV2';
-import {EnrichDetailV5} from './scenes/EnrichDetailV5';
 
 const OpeningLogo: React.FC = () => <Opening showLogo />;
 
@@ -75,22 +73,6 @@ export const Root: React.FC = () => {
       <Composition
         id="EnrichDetail"
         component={EnrichDetail}
-        durationInFrames={230}
-        fps={30}
-        width={1280}
-        height={720}
-      />
-      <Composition
-        id="EnrichDetailV2"
-        component={EnrichDetailV2}
-        durationInFrames={230}
-        fps={30}
-        width={1280}
-        height={720}
-      />
-      <Composition
-        id="EnrichDetailV5"
-        component={EnrichDetailV5}
         durationInFrames={591}
         fps={30}
         width={1280}
