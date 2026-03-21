@@ -68,6 +68,8 @@
   transition: transform 0.15s;
   flex-shrink: 0;
   line-height: 1;
+  width: 13px;
+  text-align: center;
 }
 
 .af-chevron--open {
@@ -191,7 +193,7 @@
 }
 
 .af-model-info {
-  padding: 3px 0 3px 94px;
+  padding: 3px 0 3px 115px;
 }
 
 .af-model-name {
@@ -204,7 +206,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 5px 0 5px 94px;
+  padding: 5px 0 5px 115px;
   font-size: 12px;
   color: var(--text);
 }
