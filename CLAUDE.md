@@ -195,3 +195,5 @@ Use pre-release to test on non-macOS environments (Linux K8s, etc.) before promo
 - Python scripts: always run with `uv`
 - Do not modify `docs/ext/` — read-only subtrees
 - Engine-specific gotchas (embedder, FTS5, server startup, indexer, enricher): see `.claude/rules/src.md`
+- **UI is a hybrid architecture** — `ui/app.js` owns tab routing, data fetching, and mounts React sections via `window.QrecUI.*`. It is NOT a full React SPA. `app.js`/`styles.css`/`index.html` are served fresh (browser refresh picks up changes); `ui-react/src/` changes require `cd ui-react && bun run build.ts` to take effect in the main UI.
+- **Demo imports `ui-react/src/` directly** — changes to `ui-react/src/` are visible immediately in the Remotion demo without rebuilding `components.js`.

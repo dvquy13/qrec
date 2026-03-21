@@ -14,4 +14,6 @@ Use remotion-best-practices skill for creating videos with Remotion.
 
 **`Sequence from={N}` makes inner frames 0-based.** A scene placed at `from={210}` receives `useCurrentFrame() === 0` at absolute frame 210. All scene-internal timings are relative to 0 — never add the sequence offset inside a scene.
 
+**Demo imports `ui-react/src/` directly — no rebuild needed.** Unlike the main UI (which uses the pre-built `ui/components.js` bundle), the Remotion demo imports components straight from `ui-react/src/`. Changes to `heatmap.ts`, component TSX, etc. are reflected immediately in the Remotion preview without running `bun run build.ts`.
+
 **Logo/mascot hand-placement geometry requires manual pixel measurement.** The arm contact point in `Opening.tsx` was derived by measuring SVG pixel coordinates at a specific scale. If `ClawdMascot` SVG changes or scale changes, recalculate `armVisualPos()` empirically — there's no formula that derives it automatically.
