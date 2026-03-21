@@ -1,3 +1,8 @@
+---
+paths:
+  - demo/**
+---
+
 # Demo Video Rules (demo/)
 
 ## Skills to use
