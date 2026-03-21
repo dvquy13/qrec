@@ -17,5 +17,5 @@ export const theme = {
 
   // Fonts — Google Sans Flex everywhere; Inter removed
   sans: "'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  mono: "'Menlo', 'Consolas', monospace",
+  mono: "'Google Sans Code', 'Menlo', 'Consolas', monospace",
 };

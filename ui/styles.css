@@ -27,6 +27,15 @@
   src: url('/ui/fonts/InterVariable.woff2') format('woff2');
 }
 
+/* ── Google Sans Code — monospace font ───────────────────────────────── */
+@font-face {
+  font-family: 'Google Sans Code';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/ui/fonts/GoogleSansCode-VariableFont_wght.ttf') format('truetype');
+}
+
 /* ── Reset ──────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -47,7 +56,7 @@
   --yellow: #d97706;
   --yellow-bg: #fffbeb;
   --red: #dc2626;
-  --mono: 'Menlo', 'Consolas', monospace;
+  --mono: 'Google Sans Code', 'Menlo', 'Consolas', monospace;
 }
 
 body {

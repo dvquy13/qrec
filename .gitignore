@@ -15,3 +15,5 @@ eval/**/*.html
 
 # plugin/ui/ is committed — UI files must be present in the installed plugin
 .npmrc
+
+.DS_Store
