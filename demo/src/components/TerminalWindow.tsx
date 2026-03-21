@@ -16,8 +16,9 @@ export const TerminalWindow: React.FC<{
   lines: TerminalLine[];
   title?: string;
   width?: number;
+  height?: number;
   variant?: 'light' | 'dark';
-}> = ({lines, title = 'zsh', width = 560, variant = 'dark'}) => {
+}> = ({lines, title = 'zsh', width = 560, height, variant = 'dark'}) => {
   const frame = useCurrentFrame();
   const isLight = variant === 'light';
 
@@ -25,6 +26,7 @@ export const TerminalWindow: React.FC<{
     <div
       style={{
         width,
+        ...(height ? {height, display: 'flex', flexDirection: 'column'} : {}),
         background: '#1e1e2e',
         borderRadius: 10,
         border: `1px solid ${theme.border}`,
@@ -69,7 +71,7 @@ export const TerminalWindow: React.FC<{
       </div>
 
       {/* Content */}
-      <div style={{padding: '16px 20px', minHeight: 120}}>
+      <div style={{padding: '16px 20px', minHeight: 120, ...(height ? {flex: 1} : {})}}>
         {lines.map((line, i) => {
           if (frame < line.startFrame) return null;
 

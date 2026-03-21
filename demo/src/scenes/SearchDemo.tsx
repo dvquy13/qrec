@@ -27,11 +27,17 @@ import {SEARCH_RESULTS} from '../data/index';
 //  40– 78f:  MouseCursor spring-moves to "Search" nav button
 //  72– 82f:  click: cursor scale dip (0.82), activeTab switches at frame 78
 //  82–105f:  session detail fades out; SessionsSection empty state fades in
-// 105–155f:  search query "archive JSONL" types into search bar
-//            results appear one by one: card 0 at 135f, card 1 at 145f, card 2 at 155f
-// 155–195f:  split animation: browser narrows, terminal slides in from right
-// 195–290f:  TerminalWindow types CLI output lines
-// 290–310f:  fade out
+// 105–135f:  split animation: browser narrows left, terminal slides in from right
+//            (terminal panel visible but empty — shows open terminal)
+// 135–175f:  BOTH sides type simultaneously:
+//            browser bar types "archive JSONL" (13 chars @ 1.4/f → done ~145f)
+//            terminal types full CLI command (40 chars over 40f → done 175f)
+// 175–215f:  results appear progressively in both panels:
+//            card 0 + terminal result 0 at 175f
+//            card 1 + terminal result 1 at 195f
+//            card 2 + terminal result 2 at 215f
+// 215–270f:  hold on completed dual view
+// 270–290f:  fade out
 
 // ── Session data (same session as EnrichDetail) ───────────────────────────────
 const SESSION_ID = 'c0ffee04';
@@ -73,22 +79,23 @@ const SCROLL_START = 12;
 const CURSOR_MOVE_START = 40;
 const CLICK_START = 72;
 const TAB_SWITCH_FRAME = 78;
-const SEARCH_TYPE_START = 105;
-const CARD0_FRAME = 135;
-const CARD1_FRAME = 145;
-const CARD2_FRAME = 155;
-const SPLIT_START = 155;
-const TERMINAL_START = 195;
-const FADE_START = 290;
-const FADE_END = 310;
-
-// ── Terminal line timings ─────────────────────────────────────────────────────
-const T_CMD_START   = TERMINAL_START;        // 195f: command line
-const T_CMD_FRAMES  = 35;                    // typewriter over 35f
-const T_FOUND_START = T_CMD_START + T_CMD_FRAMES; // 230f: "3 sessions found"
-const T_R0_START    = T_FOUND_START + 7;     // 237f: result 0
-const T_R1_START    = T_R0_START + 12;       // 249f: result 1
-const T_R2_START    = T_R1_START + 12;       // 261f: result 2
+// Split starts immediately when search UI appears
+const SPLIT_START = 105;
+// Both sides start typing after split completes
+const SEARCH_TYPE_START = 135;
+// Terminal typing (same start frame as browser bar)
+const T_CMD_START = 135;
+const T_CMD_FRAMES = 40;
+// Results appear after command finishes typing
+const T_FOUND_START = 175;  // = T_CMD_START + T_CMD_FRAMES
+const CARD0_FRAME = 175;
+const T_R0_START = 180;
+const CARD1_FRAME = 195;
+const T_R1_START = 197;
+const CARD2_FRAME = 215;
+const T_R2_START = 217;
+const FADE_START = 270;
+const FADE_END = 290;
 
 // ── Cursor target (measured post-build, placeholder until measured) ───────────
 // These coords are in canvas space (1280×720).
@@ -171,6 +178,7 @@ export const SearchDemo: React.FC = () => {
   // ── Terminal content ──────────────────────────────────────────────────────────
   const CMD_TEXT = '$ qrec search "archive JSONL" --k 3';
   const terminalLines = [
+    // Command — typewriter, same start as browser bar
     {
       text: CMD_TEXT,
       color: 'rgba(255,255,255,0.9)',
@@ -178,25 +186,74 @@ export const SearchDemo: React.FC = () => {
       typewriter: true,
       typeFrames: T_CMD_FRAMES,
     },
+    // Header
     {
-      text: '↳ 3 sessions found  [28ms]',
+      text: '↳ 3 sessions found  [5.4ms]',
       color: 'rgba(255,255,255,0.5)',
       startFrame: T_FOUND_START,
     },
+    // ── Result 0 ──
     {
-      text: `  Archive JSONL on index for session durability   0.943`,
+      text: '  [c0ffee04] Archive JSONL on index for session durability  0.943',
       color: '#7ec8f5',
       startFrame: T_R0_START,
     },
     {
-      text: `  Fixed mtime pre-filter bug in indexer            0.812`,
+      text: '             qrec · Mar 13',
+      color: 'rgba(255,255,255,0.4)',
+      startFrame: T_R0_START + 2,
+    },
+    {
+      text: '             Claude Code deletes old JSONL files. Added archiveJsonl()…',
+      color: 'rgba(255,255,255,0.55)',
+      startFrame: T_R0_START + 4,
+    },
+    {
+      text: '             #indexer  #durability  #archive',
+      color: 'rgba(126,200,245,0.6)',
+      startFrame: T_R0_START + 6,
+    },
+    // ── Result 1 ──
+    {
+      text: '  [c0ffee01] Fixed mtime pre-filter bug in indexer          0.812',
       color: '#7ec8f5',
       startFrame: T_R1_START,
     },
     {
-      text: `  Embedder singleton + dispose lifecycle            0.741`,
+      text: '             qrec · Mar 10',
+      color: 'rgba(255,255,255,0.4)',
+      startFrame: T_R1_START + 2,
+    },
+    {
+      text: '             Mtime pre-filter skips unchanged JSONL; stat-only…',
+      color: 'rgba(255,255,255,0.55)',
+      startFrame: T_R1_START + 4,
+    },
+    {
+      text: '             #indexer  #performance',
+      color: 'rgba(126,200,245,0.6)',
+      startFrame: T_R1_START + 6,
+    },
+    // ── Result 2 ──
+    {
+      text: '  [c0ffee03] Embedder singleton + dispose lifecycle         0.741',
       color: '#7ec8f5',
       startFrame: T_R2_START,
+    },
+    {
+      text: '             qrec · Mar 12',
+      color: 'rgba(255,255,255,0.4)',
+      startFrame: T_R2_START + 2,
+    },
+    {
+      text: '             Lazy singleton load; disposeEmbedder() before exit…',
+      color: 'rgba(255,255,255,0.55)',
+      startFrame: T_R2_START + 4,
+    },
+    {
+      text: '             #embeddings  #lifecycle',
+      color: 'rgba(126,200,245,0.6)',
+      startFrame: T_R2_START + 6,
     },
   ];
 
@@ -309,7 +366,7 @@ export const SearchDemo: React.FC = () => {
                     sessions={searchResults}
                     total={searchResults.length}
                     isLoading={false}
-                    isEmpty={revealedCount === 0 && frame < CARD0_FRAME && frame >= 82}
+                    isEmpty={typedQuery.length > 0 && revealedCount === 0}
                     latency={showLatency ? SEARCH_LATENCY : undefined}
                     showFields={{
                       summary: true,
@@ -337,14 +394,12 @@ export const SearchDemo: React.FC = () => {
         height: 640,
         transform: `translateX(${terminalTranslateX}px)`,
         opacity: terminalOpacity,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
       }}>
         <TerminalWindow
           lines={terminalLines}
           title="zsh"
-          width={560}
+          width={600}
+          height={640}
           variant="light"
         />
       </div>
