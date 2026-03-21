@@ -141,9 +141,9 @@ const AgentTurn: React.FC<{ turns: Turn[] }> = ({ turns }) => {
 // These export the same building blocks that SessionDetailSection uses internally,
 // so demo scenes can compose them independently (e.g. animate EnrichBlock in place).
 
-export const SessionDetailHeader: React.FC<{ title: string }> = ({ title }) => (
+export const SessionDetailHeader: React.FC<{ title: string; titleNode?: React.ReactNode }> = ({ title, titleNode }) => (
   <div className="detail-header">
-    <div className="detail-title">{title || '(untitled)'}</div>
+    <div className="detail-title">{titleNode ?? (title || '(untitled)')}</div>
   </div>
 );
 

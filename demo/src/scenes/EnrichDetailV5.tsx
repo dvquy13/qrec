@@ -30,23 +30,22 @@ import {
 //  43– 65f:  sessions fade out
 //  55– 78f:  detail fades in (shows RAW_TITLE)
 //  78– 90f:  browser cursor fades out
-//  90–112f:  Figma cursor slides in → end of RAW_TITLE text
-// 112–165f:  cursor blinks (thinking, ~5 blinks); zoom-in starts at 112
-// 165–175f:  "Qwen3-1.7B (local)" label fades in
-// 182–250f:  RAW_TITLE deleted char-by-char (~1.3 chars/frame)
-// 250–270f:  pause — empty title, cursor blinks
-// 270–330f:  SESSION_TITLE typed char-by-char (~1.3 chars/frame)
-// 330–345f:  hold on finished enriched title
-// 345–365f:  zoom-out spring; Figma cursor fades out
-// 375–382f:  "Summary" label typed (7 chars)
-// 385–449f:  summary content types fast
-// 463–481f:  tags appear (6f stagger)
-// 481–490f:  "Learnings" label typed (9 chars)
-// 493–512f:  Learning[0] types
-// 526–549f:  Learning[1] types
-// 562–580f:  "Questions answered" label typed (18 chars)
-// 583–604f:  Question[0] types
-// 615–635f:  scene fade out
+//  90–112f:  Figma cursor slides in → end of RAW_TITLE text; label appears with cursor
+// 112–205f:  cursor blinks (thinking, ~5 blinks); zoom-in starts at 112
+// 205–233f:  RAW_TITLE deleted char-by-char
+// 233–253f:  pause — empty title, cursor blinks
+// 253–288f:  SESSION_TITLE typed char-by-char (blue text)
+// 288–303f:  hold on finished enriched title
+// 303–323f:  zoom-out spring; Figma cursor fades out
+// 333–337f:  "Summary" label typed (7 chars, ~2 chars/f)
+// 340–365f:  summary content types fast (~3.75 chars/f)
+// 379–397f:  tags appear (6f stagger) → "Learnings" label starts
+// 397–402f:  "Learnings" label typed (9 chars, ~2 chars/f)
+// 405–424f:  Learning[0] types
+// 438–461f:  Learning[1] types
+// 474–492f:  "Questions answered" label typed (18 chars)
+// 495–514f:  Question[0] types
+// 525–545f:  scene fade out
 
 // ── Session data ──────────────────────────────────────────────────────────────
 const SESSION_ID = 'c0ffee04';
@@ -94,6 +93,8 @@ const MOCK_TURNS: Turn[] = [
 // ENRICH_Y / SUMMARY_LABEL_Y / SUMMARY_TEXT_Y: as before
 const TEXT_BLOCK_LEFT = 170;
 const TITLE_CURSOR_Y = 16;
+// Bottom of the title text line: top(16) + font-size(24) * line-height(1.2) ≈ 45
+const TITLE_BOTTOM_Y = 45;
 const ENRICH_Y = 118;
 const SUMMARY_LABEL_Y = 132;
 const SUMMARY_TEXT_Y = 151;
@@ -111,27 +112,25 @@ const TITLE_TY = 0;
 // ── Timing constants ──────────────────────────────────────────────────────────
 const TITLE_ZOOM_IN_FRAME = 112;
 const BLINK_START = 112;
-const BLINK_END = 165;           // 53f ≈ 5 blinks — cursor visible at end of raw title
-const LABEL_SHOW_START = 165;
-const LABEL_SHOW_END = 175;
-const TITLE_DEL_START = 205;     // 30f (1s) pause after label fully appears
+// Figma cursor + label enter at frame 90; label opacity tracks cursor (no separate show window)
+const TITLE_DEL_START = 205;     // 93f thinking pause after cursor arrives
 const TITLE_DEL_END = 233;       // 28f for 36 chars ≈ 1.29 chars/f (deliberate)
 const TITLE_TYPE_START = 253;    // 20f pause — beat before rewriting
 const TITLE_TYPE_END = 288;      // 35f for 46 chars ≈ 1.31 chars/f (deliberate)
 const TITLE_ZOOM_OUT_START = 303; // 15f hold on finished title before zoom-out
-// Post-zoom: summary block types at original fast speed (zoom settles ~frame 328)
-const SL_START = 333, SL_END = 340;   // "Summary" label (7 chars)
-const S_FRAMES = [343, 407] as const;
+// Post-zoom: summary block types fast (zoom settles ~frame 328)
+const SL_START = 333, SL_END = 337;   // "Summary" label (7 chars, ~2 chars/f)
+const S_FRAMES = [340, 365] as const; // summary content: 93 chars @ ~3.75 chars/f
 const S_CHARS  = [0, SUMMARY_LEN] as const;
-const TAGS_START = 421;
-const LL_START = 439, LL_END = 448;   // "Learnings" label (9 chars)
-const L0_START = 451, L0_END = 470;
-const L1_START = 484, L1_END = 507;
-const QL_START = 520, QL_END = 538;   // "Questions answered" (18 chars)
-const Q0_START = 541, Q0_END = 560;
+const TAGS_START = 379;               // +14f from S end
+const LL_START = 397, LL_END = 402;   // "Learnings" label (9 chars, ~2 chars/f)
+const L0_START = 405, L0_END = 424;
+const L1_START = 438, L1_END = 461;
+const QL_START = 474, QL_END = 492;   // "Questions answered" (18 chars)
+const Q0_START = 495, Q0_END = 514;
 // scene fade
-const FADE_START = 571;
-const FADE_END = 591;
+const FADE_START = 525;
+const FADE_END = 545;
 
 // ── Heatmap data ──────────────────────────────────────────────────────────────
 const QREC_15W = HEATMAP_BY_PROJECT['qrec'].slice(-105);
@@ -342,26 +341,49 @@ export const EnrichDetailV5: React.FC = () => {
     isLearnLabelTyping || isLearn0Typing || isLearn1Typing ||
     isQuestLabelTyping || isQ0Typing
   );
-  const blinkChar = anyTyping && cursorBlink(frame, 10) ? '|' : '';
+  const showCursor = anyTyping && cursorBlink(frame, 10);
+  const blinkChar = showCursor ? '|' : '';
+  // Blue cursor span — used in title node; summary/learnings already blue via CSS
+  const BlueCursor = showCursor
+    ? <span style={{color: '#0062a8', fontWeight: 400}}>|</span>
+    : null;
 
   // ── Display title: raw (blinking) → deleting → pause → typing → enriched ────
-  // NBSP fallback prevents SessionDetailHeader's `|| '(untitled)'` from firing
-  // when the composed string is empty (blink-off state or fully deleted).
+  // displayTitle (string) is passed as the `title` prop fallback; titleNode overrides rendering.
   let displayTitle: string;
   if (frame < TITLE_DEL_START) {
-    // Thinking/blink phase: full raw title + blinking cursor
     displayTitle = RAW_TITLE + blinkChar;
   } else if (frame <= TITLE_DEL_END + 3) {
-    // Deletion phase: shrinking text + cursor
     displayTitle = (RAW_TITLE.substring(0, rawDelChars) + blinkChar) || '\u00a0';
   } else if (frame < TITLE_TYPE_START) {
-    // Brief pause: title gone, cursor blinks at left edge
     displayTitle = blinkChar || '\u00a0';
   } else if (frame <= TITLE_TYPE_END + 3) {
-    // Rewrite phase: growing text + cursor
     displayTitle = (SESSION_TITLE.substring(0, titleTypeChars) + blinkChar) || '\u00a0';
   } else {
     displayTitle = SESSION_TITLE;
+  }
+
+  // ── Title node: blue cursor + blue rewrite text ───────────────────────────────
+  let displayTitleNode: React.ReactNode;
+  if (frame < TITLE_DEL_START) {
+    // Thinking/blink: raw title in default color, blue cursor
+    displayTitleNode = <>{RAW_TITLE}{BlueCursor}</>;
+  } else if (frame <= TITLE_DEL_END + 3) {
+    // Deletion: shrinking raw text + blue cursor
+    const text = RAW_TITLE.substring(0, rawDelChars);
+    displayTitleNode = <>{text || '\u00a0'}{BlueCursor}</>;
+  } else if (frame < TITLE_TYPE_START) {
+    // Gap: only blue cursor (or nbsp to prevent "(untitled)")
+    displayTitleNode = BlueCursor ?? '\u00a0';
+  } else if (frame <= TITLE_TYPE_END + 3) {
+    // Rewrite: blue text + blue cursor
+    const typed = SESSION_TITLE.substring(0, titleTypeChars);
+    displayTitleNode = typed
+      ? <><span style={{color: '#0062a8'}}>{typed}</span>{BlueCursor}</>
+      : (BlueCursor ?? '\u00a0');
+  } else {
+    // Enriched title stays blue
+    displayTitleNode = <span style={{color: '#0062a8'}}>{SESSION_TITLE}</span>;
   }
 
   // ── Display typed summary / learnings / questions ────────────────────────────
@@ -389,7 +411,7 @@ export const EnrichDetailV5: React.FC = () => {
   const spEnter = spring({frame: frame - 90, fps,
     config: {damping: 18, stiffness: 100, overshootClamping: true}});
   const figmaEntryX = interpolate(spEnter, [0, 1], [POS_ENTER.x, rawTitleEndX]);
-  const figmaEntryY = interpolate(spEnter, [0, 1], [POS_ENTER.y, TITLE_CURSOR_Y]);
+  const figmaEntryY = interpolate(spEnter, [0, 1], [POS_ENTER.y, TITLE_BOTTOM_Y]);
 
   // Cursor tracks deletion/typing in title phase
   let figmaX: number;
@@ -402,19 +424,19 @@ export const EnrichDetailV5: React.FC = () => {
   } else if (frame <= TITLE_DEL_END) {
     // Delete phase: cursor retreats left with remaining text
     figmaX = TEXT_BLOCK_LEFT + measureTitleText(RAW_TITLE.substring(0, rawDelChars));
-    figmaY = TITLE_CURSOR_Y;
+    figmaY = TITLE_BOTTOM_Y;
   } else if (frame < TITLE_TYPE_START) {
     // Gap: cursor at left edge of title
     figmaX = TEXT_BLOCK_LEFT;
-    figmaY = TITLE_CURSOR_Y;
+    figmaY = TITLE_BOTTOM_Y;
   } else if (frame <= TITLE_TYPE_END) {
     // Type phase: cursor advances right
     figmaX = TEXT_BLOCK_LEFT + measureTitleText(SESSION_TITLE.substring(0, titleTypeChars));
-    figmaY = TITLE_CURSOR_Y;
+    figmaY = TITLE_BOTTOM_Y;
   } else {
     // Hold: cursor at end of new enriched title
     figmaX = TEXT_BLOCK_LEFT + measureTitleText(SESSION_TITLE);
-    figmaY = TITLE_CURSOR_Y;
+    figmaY = TITLE_BOTTOM_Y;
   }
 
   // Figma cursor opacity: enters at 90, fades on zoom-out
@@ -425,8 +447,8 @@ export const EnrichDetailV5: React.FC = () => {
     CLAMP,
   );
 
-  // Label fades in after thinking blinks
-  const figmaLabelOpacity = interpolate(frame, [LABEL_SHOW_START, LABEL_SHOW_END], [0, 1], CLAMP);
+  // Label appears with the cursor (no separate delay — cursor enters with label)
+  const figmaLabelOpacity = figmaOpacity;
 
   const cssAnimVars = remotionCSSAnimVars(frame, fps);
 
@@ -522,7 +544,7 @@ export const EnrichDetailV5: React.FC = () => {
             }}>
               <div style={{maxWidth: 860, margin: '0 auto', width: '100%'}}>
 
-                <SessionDetailHeader title={displayTitle} />
+                <SessionDetailHeader title={displayTitle} titleNode={displayTitleNode} />
                 <SessionDetailMeta
                   id={SESSION_ID}
                   project={SESSION_PROJECT}
