@@ -46,6 +46,30 @@ const SESSION_PROJECT = 'qrec';
 const SESSION_DATE = '2026-03-13';
 const SESSION_SUMMARY =
   'Added archiveJsonl() in indexer.ts to copy each JSONL to ~/.qrec/archive/ before indexing.';
+const SESSION_TAGS = ['indexer', 'durability', 'archive'];
+const SESSION_LEARNINGS = [
+  'JSONL files disappear silently — never assume source files are durable.',
+  'Self-copy guard is essential: if source is already inside ARCHIVE_DIR, skip to avoid ENOENT.',
+];
+const SESSION_QUESTIONS = [
+  'What happens when archiveJsonl() is called on a path already inside ARCHIVE_DIR?',
+];
+
+const ENRICH_ANIMATED_CSS = `
+  .enrich-animated .summary-block-label {
+    color: rgb(0, 98, 168) !important;
+    opacity: 1 !important;
+  }
+  .enrich-animated .summary-block p,
+  .enrich-animated .summary-block-list li {
+    color: rgb(0, 98, 168) !important;
+  }
+  .enrich-animated .enrich-tag {
+    background: rgba(0, 98, 168, 0.08) !important;
+    color: rgb(0, 98, 168) !important;
+    border-color: rgba(0, 98, 168, 0.25) !important;
+  }
+`;
 
 const MOCK_TURNS: Turn[] = [
   {
@@ -335,19 +359,48 @@ export const SearchDemo: React.FC = () => {
             {/* Page content area */}
             <div style={{flex: 1, position: 'relative', overflow: 'hidden'}}>
 
-              {/* Phase 1: Session detail */}
+              {/* Phase 1: Session detail — enriched state (carries over from EnrichDetail) */}
               <div style={{
                 position: 'absolute', inset: 0, opacity: detailOpacity,
                 padding: '16px 28px 20px', overflowY: 'hidden',
               }}>
                 <div style={{maxWidth: 860, margin: '0 auto', width: '100%'}}>
-                  <SessionDetailHeader title={SESSION_TITLE} />
+                  <SessionDetailHeader
+                    title={SESSION_TITLE}
+                    titleNode={<span style={{color: '#0062a8'}}>{SESSION_TITLE}</span>}
+                  />
                   <SessionDetailMeta
                     id={SESSION_ID}
                     project={SESSION_PROJECT}
                     date={SESSION_DATE}
                     turnCount={MOCK_TURNS.length}
                   />
+                  <div className="enrich-animated">
+                    <style>{ENRICH_ANIMATED_CSS}</style>
+                    <div className="summary-block" style={{paddingBottom: 0, marginBottom: 0}}>
+                      <div className="summary-block-section">
+                        <span className="summary-block-label">Summary</span>
+                        <p style={{marginTop: 4}}>{SESSION_SUMMARY}</p>
+                      </div>
+                    </div>
+                    <div className="summary-block-tags">
+                      {SESSION_TAGS.map((t, i) => (
+                        <span key={i} className="enrich-tag">{t}</span>
+                      ))}
+                    </div>
+                    <div className="summary-block-section" style={{marginTop: 12}}>
+                      <span className="summary-block-label">Learnings</span>
+                      <ul className="summary-block-list">
+                        {SESSION_LEARNINGS.map((l, i) => <li key={i}>{l}</li>)}
+                      </ul>
+                    </div>
+                    <div className="summary-block-section" style={{marginTop: 12}}>
+                      <span className="summary-block-label">Questions answered</span>
+                      <ul className="summary-block-list">
+                        {SESSION_QUESTIONS.map((q, i) => <li key={i}>{q}</li>)}
+                      </ul>
+                    </div>
+                  </div>
                   <div style={{marginTop: 40}}>
                     <SessionTurns turns={MOCK_TURNS} />
                   </div>
