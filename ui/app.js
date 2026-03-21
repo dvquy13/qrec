@@ -569,38 +569,38 @@ async function doSearch() {
 function renderSearchResults(results) {
   const content = document.getElementById('search-content');
   if (!results || results.length === 0) {
+    content.querySelectorAll('[data-qrec-mount]').forEach(el => window.QrecUI?.unmount(el));
     content.innerHTML = '<div class="empty-state">No results found.</div>';
     return;
   }
-  content.innerHTML = `<div class="search-grid">${results.map(r => {
-    const tagPills = (r.tags ?? []).map(t =>
-      `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
-    ).join('');
-    const summaryHtml = r.summary
-      ? `<div class="session-card-summary">${escHtml(r.summary)}</div>` : '';
+  content.querySelectorAll('[data-qrec-mount]').forEach(el => window.QrecUI?.unmount(el));
+  const grid = document.createElement('div');
+  grid.className = 'search-grid';
+  for (const r of results) {
+    const el = document.createElement('div');
+    el.dataset.qrecMount = '1';
     const snippetText = r.highlightedPreview ?? r.preview;
-    const previewHtml = snippetText
-      ? `<div class="result-snippet">
-           <span class="result-snippet-score">${r.score.toFixed(4)}</span>
-           <div class="result-snippet-body">${renderText(snippetText)}</div>
-         </div>` : '';
-    return `
-    <div class="session-card" onclick="openSession('${escHtml(r.session_id)}')">
-      <div class="session-card-body">
-        <div class="session-card-title">${escHtml(r.title || r.session_id)}</div>
-        <div class="session-card-meta">
-          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(r.project || '')}')">${escHtml(r.project || '—')}</span>
-          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(r.date || '')}')">${escHtml(r.date || '—')}</span>
-          ${r.last_message_at ? `<span class="session-ts">${formatRelative(r.last_message_at)}</span>` : ''}
-          <span class="session-id">${escHtml(r.session_id)}</span>
-          ${tagPills}
-        </div>
-        ${summaryHtml}
-        ${previewHtml}
-      </div>
-      <div class="session-card-arrow">›</div>
-    </div>`;
-  }).join('')}</div>`;
+    window.QrecUI.renderSessionCard(el, {
+      id: r.session_id,
+      title: r.title || r.session_id,
+      project: r.project,
+      date: r.date,
+      last_message_at: r.last_message_at,
+      summary: r.summary,
+      tags: r.tags,
+      showScore: true,
+      score: r.score,
+      preview: snippetText ? renderText(snippetText) : undefined,
+      showSummary: !!r.summary,
+      showTags: (r.tags ?? []).length > 0,
+      onClick: () => openSession(r.session_id),
+      onProjectClick: (proj) => filterByProject(proj),
+      onTagClick: (tag) => filterByTag(tag),
+    });
+    grid.appendChild(el);
+  }
+  content.innerHTML = '';
+  content.appendChild(grid);
 }
 
 function clearSearch() {
@@ -747,7 +747,31 @@ async function loadMoreSessions() {
 
     const grid = document.getElementById('search-grid');
     if (grid && matching.length > 0) {
-      grid.insertAdjacentHTML('beforeend', matching.map(sessionCardHtml).join(''));
+      for (const s of matching) {
+        const el = document.createElement('div');
+        el.dataset.qrecMount = '1';
+        window.QrecUI.renderSessionCard(el, {
+          id: s.id,
+          title: s.title,
+          project: s.project,
+          date: s.date,
+          last_message_at: s.last_message_at,
+          summary: s.summary,
+          tags: s.tags,
+          entities: s.entities,
+          learnings: s.learnings,
+          questions: s.questions,
+          showSummary: _cardFields.summary,
+          showTags: _cardFields.tags,
+          showEntities: _cardFields.entities,
+          showLearnings: _cardFields.learnings,
+          showQuestions: _cardFields.questions,
+          onClick: () => openSession(s.id),
+          onProjectClick: (proj) => filterByProject(proj),
+          onTagClick: (tag) => filterByTag(tag),
+        });
+        grid.appendChild(el);
+      }
     }
 
     // Update count
@@ -1146,7 +1170,16 @@ async function fetchAndRenderHeatmap() {
     const dashSection = document.getElementById('dashboard-heatmap-section');
     if (dashSection) {
       renderHeatmapMetricBtns();
-      renderHeatmap('dashboard-heatmap', _heatmapData.days, { clickable: true, byProject: _heatmapData.byProject });
+      const heatmapEl = document.getElementById('dashboard-heatmap');
+      if (heatmapEl) {
+        window.QrecUI.renderHeatmapGrid(heatmapEl, {
+          days: _heatmapData.days,
+          byProject: _heatmapData.byProject,
+          metric: _heatmapMetric,
+          project: _heatmapProject || undefined,
+          onCellClick: filterByDate,
+        });
+      }
       const footer = document.getElementById('dashboard-heatmap-footer');
       if (footer) {
         const m = HEATMAP_METRICS.find(m => m.id === _heatmapMetric) || HEATMAP_METRICS[0];
@@ -1368,11 +1401,45 @@ function sessionCardHtml(s) {
 function renderSessionsList(sessions) {
   const content = document.getElementById('search-content');
   if (!sessions || sessions.length === 0) {
+    content.querySelectorAll('[data-qrec-mount]').forEach(el => window.QrecUI?.unmount(el));
     content.innerHTML = '<div class="empty-state">No sessions found.</div>';
     setupScrollObserver();
     return;
   }
-  content.innerHTML = `<div class="search-grid" id="search-grid">${sessions.map(sessionCardHtml).join('')}</div><div id="search-sentinel"></div>`;
+  content.querySelectorAll('[data-qrec-mount]').forEach(el => window.QrecUI?.unmount(el));
+  const grid = document.createElement('div');
+  grid.className = 'search-grid';
+  grid.id = 'search-grid';
+  for (const s of sessions) {
+    const el = document.createElement('div');
+    el.dataset.qrecMount = '1';
+    window.QrecUI.renderSessionCard(el, {
+      id: s.id,
+      title: s.title,
+      project: s.project,
+      date: s.date,
+      last_message_at: s.last_message_at,
+      summary: s.summary,
+      tags: s.tags,
+      entities: s.entities,
+      learnings: s.learnings,
+      questions: s.questions,
+      showSummary: _cardFields.summary,
+      showTags: _cardFields.tags,
+      showEntities: _cardFields.entities,
+      showLearnings: _cardFields.learnings,
+      showQuestions: _cardFields.questions,
+      onClick: () => openSession(s.id),
+      onProjectClick: (proj) => filterByProject(proj),
+      onTagClick: (tag) => filterByTag(tag),
+    });
+    grid.appendChild(el);
+  }
+  const sentinel = document.createElement('div');
+  sentinel.id = 'search-sentinel';
+  content.innerHTML = '';
+  content.appendChild(grid);
+  content.appendChild(sentinel);
   setupScrollObserver();
 }
 

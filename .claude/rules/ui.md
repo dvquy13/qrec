@@ -1,6 +1,8 @@
 ---
 paths:
   - ui/**
+  - ui-react/**
+  - demo/**
 ---
 
 # UI Rules (ui/)
@@ -89,3 +91,17 @@ paths:
 - **`collapseZeroEnrichRuns` mirrors `collapseZeroIndexRuns`** — zero-enrich runs ("Enrich run 0 sessions") flood Recent Activity the same way zero-index runs did before collapse was added. `isZeroEnrichRun` checks `enrich_complete.data.enriched` (falling back to `session_enriched` event count); multiple consecutive zero-enrich runs collapse into one `enrich_collapsed` group. `groupSummary` handles `enrich_collapsed` → `"Enrich run N× nothing to enrich"`.
 
 - **Settings tab: runtime vs restart-required** — `enrichEnabled`/`enrichIdleMs` apply on the next daemon tick (live-read); `indexIntervalMs` requires a restart (`setInterval` is called once at startup). Save feedback is green for runtime changes, amber for restart-required ones.
+
+---
+
+## React Component Library (ui-react/)
+
+- **`ui-react/` is the shared component library** — SessionCard, HeatmapGrid, EnrichBlock, TagBadge, StatCard. Build: `cd ui-react && bun run build.ts` → `ui/components.js` (328 KB IIFE). Also runs automatically via `scripts/build.js` after the main esbuild step.
+
+- **Bun IIFE build naming quirk** — `format: 'iife'` with `naming: '[name].[ext]'` emits `web-entry.js` + `web-entry.css`. `build.ts` renames `web-entry.js` → `components.js` and deletes the extracted CSS file (CSS vars are already in `ui/styles.css`). The size displayed in build output shows 0.0 KB due to the rename happening after size capture — the file on disk is correct.
+
+- **`window.QrecUI` unmount before clearing innerHTML** — before any `container.innerHTML = ''` that may contain React-mounted cards, call: `container.querySelectorAll('[data-qrec-mount]').forEach(el => window.QrecUI?.unmount(el))`. The `data-qrec-mount="1"` attribute is added to container divs in `app.js`, not inside the React component.
+
+- **`loadRecentSessions()` is NOT migrated to React** — dashboard recent sessions use `.dashboard-session-card` (different design). Only the Search tab's session cards and the heatmap use `window.QrecUI.*`.
+
+- **Remotion demo imports directly from `ui-react/src/`** — not from the built `components.js`. Use relative path: `import { SessionCard } from '../../../ui-react/src/components/SessionCard'`. CSS vars load via `import '../../ui-react/src/styles/variables.css'` in `Root.tsx` (Remotion's esbuild injects as `<style>`). Shared components have no Remotion dependencies — animation stays in `<SlideUp start={N}>` wrappers in the demo scenes.

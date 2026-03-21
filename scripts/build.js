@@ -24,3 +24,12 @@ await esbuild.build({
 });
 
 console.log("Build complete: plugin/scripts/qrec.cjs");
+
+// Build React component library → ui/components.js
+const { spawnSync } = await import('child_process');
+const uiReactResult = spawnSync('bun', ['run', 'build.ts'], {
+  cwd: 'ui-react',
+  stdio: 'inherit',
+  shell: false,
+});
+if (uiReactResult.status !== 0) process.exit(uiReactResult.status ?? 1);

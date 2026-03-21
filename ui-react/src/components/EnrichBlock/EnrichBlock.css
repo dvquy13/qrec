@@ -1,0 +1,23 @@
+.summary-block {
+  background: transparent;
+  padding: 14px 0; margin-bottom: 20px;
+}
+.summary-block p { font-size: 12.5px; line-height: 1.6; color: var(--text-muted); margin-bottom: 0; }
+.summary-block-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.summary-block-section { margin-top: 12px; }
+.summary-block-section:first-child { margin-top: 0; }
+.summary-block-label { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); opacity: 0.7; }
+.summary-block-list { margin: 4px 0 0 0; padding-left: 18px; }
+.summary-block-list li { font-size: 12.5px; line-height: 1.6; color: var(--text-muted); margin-bottom: 2px; }
+.summary-block--compact { padding: 6px 0; margin-top: 6px; margin-bottom: 0; }
+.summary-block--compact p { font-size: 12.5px; }
+.summary-block--compact .summary-block-label { font-size: 12.5px; }
+.summary-block--compact .summary-block-list { padding-left: 14px; }
+.summary-block--compact .summary-block-list li { font-size: 12.5px; margin-bottom: 1px; }
+.summary-block--compact .summary-block-tags { margin-top: 6px; gap: 4px; }
+.enrich-tag {
+  background: transparent; color: var(--text); border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.enrich-tag:hover { color: var(--accent); border-color: var(--accent); }

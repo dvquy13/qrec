@@ -1,0 +1,23 @@
+{
+  "name": "qrec-demo",
+  "version": "1.0.0",
+  "description": "qrec demo video",
+  "scripts": {
+    "start": "remotion studio",
+    "render": "remotion render QrecDemo out/qrec-demo.mp4",
+    "render:gif": "remotion render QrecDemo out/qrec-demo.gif --frames=0-299"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.438",
+    "remotion": "4.0.438",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "18.2.0",
+    "typescript": "5.4.5"
+  },
+  "remotion": {
+    "entryPoint": "src/index.ts"
+  }
+}

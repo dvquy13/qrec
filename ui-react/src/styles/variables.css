@@ -1,0 +1,19 @@
+:root {
+  --bg: #ffffff;
+  --bg2: #f8fafc;
+  --bg3: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --accent: #0062a8;
+  --accent-hover: #004d84;
+  --accent-light: #e0f0ff;
+  --accent-border: #b3d9f5;
+  --green: #059669;
+  --green-bg: #ecfdf5;
+  --green-border: #a7f3d0;
+  --yellow: #d97706;
+  --yellow-bg: #fffbeb;
+  --red: #dc2626;
+  --mono: 'Menlo', 'Consolas', monospace;
+}
