@@ -51,6 +51,7 @@ test/
   chunk.test.ts   # chunkMarkdown() unit tests
   parser.test.ts  # parseSession(), extractChunkText(), renderMarkdown() unit tests
   search.test.ts  # BM25/KNN/RRF integration tests with stub embedder
+  routes-sessions.test.ts  # handleSessions unit tests: sort order (last_message_at DESC), ?limit= param
   indexer.test.ts # indexVault() integration tests (skip/force/archive/enrichment preservation)
 eval/
   pipeline.py     # Orchestrator: query gen → index → serve → eval → report
@@ -149,7 +150,8 @@ qrec index                                  # stdin JSON {transcript_path} mode 
 qrec serve                                  # start server (foreground, port 25927); auto-opens browser
 qrec serve --daemon --port 25930            # override port (sets QREC_PORT; all subcommands accept --port)
 qrec stop                                   # stop daemon
-qrec search "<query>" [--project P] [--tag T] [--from DATE] [--to DATE] [--k N]  # search sessions (with query: POST /search; no query + filters: GET /sessions browse)
+qrec search                                 # browse mode: K most recent sessions, date-sorted (no query required)
+qrec search "<query>" [--project P] [--tag T] [--from DATE] [--to DATE] [--k N]  # semantic search; no query → browse (GET /sessions); output is a plain JSON array
 qrec get <session-id>                       # print full session markdown
 qrec status                                 # print status + log tail
 qrec enrich                                 # enrich unenriched sessions with summary/tags/entities (also spawned automatically by daemon)

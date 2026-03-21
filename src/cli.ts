@@ -152,12 +152,6 @@ async function main() {
       const from    = flagValue("--from");
       const to      = flagValue("--to");
 
-      const hasFilter = project || tag || from || to;
-      if (!query && !hasFilter) {
-        console.error('[cli] Usage: qrec search "<query>" [--project P] [--tag T] [--from DATE] [--to DATE] [--k N]');
-        process.exit(1);
-      }
-
       if (query) {
         // POST /search — semantic + BM25 with optional filters
         const body: Record<string, unknown> = { query, k };
@@ -199,7 +193,7 @@ async function main() {
           tags:    Array.isArray(s.tags) ? (s.tags as string[]).join(", ") : null,
           summary: typeof s.summary === "string" ? s.summary.slice(0, 120) + (s.summary.length > 120 ? "…" : "") : null,
         }));
-        console.log(JSON.stringify({ total: data.total, results: rows }, null, 2));
+        console.log(JSON.stringify(rows, null, 2));
       }
       process.exit(0);
     }

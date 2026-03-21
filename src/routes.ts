@@ -174,7 +174,7 @@ export async function handleSettingsUpdate(req: Request): Promise<Response> {
 // --- Sessions ---
 
 export function handleSessions(db: Database, url: URL): Response {
-  const limit = 100;
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") ?? "100", 10) || 100));
   const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
   // ?date=X is shorthand for dateFrom=X&dateTo=X
   const dateShorthand = url.searchParams.get("date") ?? null;
