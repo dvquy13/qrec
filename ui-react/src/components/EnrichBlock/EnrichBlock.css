@@ -1,4 +1,4 @@
-.tag { background: transparent; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+@import '../../styles/shared.css';
 
 .summary-block {
   background: transparent;
@@ -17,9 +17,3 @@
 .summary-block--compact .summary-block-list { padding-left: 14px; }
 .summary-block--compact .summary-block-list li { font-size: 12.5px; margin-bottom: 1px; }
 .summary-block--compact .summary-block-tags { margin-top: 6px; gap: 4px; }
-.enrich-tag {
-  background: transparent; color: var(--text); border: 1px solid var(--border);
-  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-.enrich-tag:hover { color: var(--accent); border-color: var(--accent); }

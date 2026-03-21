@@ -1,11 +1,5 @@
+@import '../styles/shared.css';
+
 .sessions-panel { }
 
-.search-grid { display: flex; flex-direction: column; gap: 0; }
-
 #sessions-sentinel { height: 1px; }
-
-.empty-state { text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 15px; }
-
-.latency-bar { display: flex; gap: 16px; margin-bottom: 16px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
-.latency-bar span { display: flex; align-items: center; gap: 4px; }
-.latency-bar strong { color: var(--text); }

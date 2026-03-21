@@ -1,4 +1,5 @@
 import React from 'react';
+import './StatCard.css';
 
 export interface StatCardProps {
   label: string;

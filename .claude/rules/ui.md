@@ -86,7 +86,9 @@ paths:
 
 - **`DashboardSection` owns stats grid + heatmap only** — `loadRecentSessions()` (vanilla `innerHTML`, `.dashboard-session-card` design) and `renderActivityFeed()` (separate React mount into `#run-list`) remain as independent calls below the section. Do not absorb them into `DashboardSection`.
 
-- **Bun IIFE build naming quirk** — `format: 'iife'` with `naming: '[name].[ext]'` emits `web-entry.js` + `web-entry.css`. `build.ts` renames `web-entry.js` → `components.js` and deletes the extracted CSS file (CSS vars are already in `ui/styles.css`). The size displayed in build output shows 0.0 KB due to the rename happening after size capture — the file on disk is correct.
+- **Bun IIFE build naming quirk** — `format: 'iife'` with `naming: '[name].[ext]'` emits `web-entry.js` + `web-entry.css`. `build.ts` renames both: `web-entry.js` → `components.js`, `web-entry.css` → `components.css`. The size displayed in build output shows 0.0 KB due to the rename happening after size capture — the file on disk is correct.
+
+- **`ui-react/src/styles/shared.css` is the canonical source for cross-component utility classes** — `.tag`, `.clickable-tag`, `.enrich-tag`, `.session-id`, `.session-ts`, `.copy-btn`, `.section-heading`, `.stat-card`, `.search-grid`, `.latency-bar`, `.empty-state`, `.loading-state`, `.spinner` / `@keyframes spin` all live here. Every component and section CSS file that uses any of these classes has `@import '../../styles/shared.css'` (components) or `@import '../styles/shared.css'` (sections) at the top. `ui/styles.css` does NOT define these classes — they arrive in the browser app via `ui/components.css` (loaded before `styles.css` in `index.html`). Do not add them back to `styles.css`.
 
 - **`window.QrecUI` unmount before clearing innerHTML** — before any `container.innerHTML = ''` that may contain React-mounted cards, call: `container.querySelectorAll('[data-qrec-mount]').forEach(el => window.QrecUI?.unmount(el))`. The `data-qrec-mount="1"` attribute is added to container divs in `app.js`, not inside the React component.
 

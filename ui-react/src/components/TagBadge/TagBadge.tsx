@@ -1,4 +1,5 @@
 import React from 'react';
+import './TagBadge.css';
 
 export interface TagBadgeProps {
   text: string;

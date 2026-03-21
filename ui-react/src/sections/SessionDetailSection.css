@@ -1,11 +1,4 @@
-/* ── Global tag/pill styles (copied from ui/styles.css for self-containment) ── */
-.tag { background: transparent; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-.clickable-tag { cursor: pointer; transition: color 0.15s; }
-.clickable-tag:hover { color: var(--accent); }
-.session-id { font-family: var(--mono); font-size: 11px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
-.copy-btn { background: none; border: none; padding: 0; cursor: pointer; font-size: 12px; color: var(--text-muted); line-height: 1; transition: color 0.15s; }
-.copy-btn:hover { color: var(--accent); }
-.empty-state { text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 15px; }
+@import '../styles/shared.css';
 
 /* ── Session detail ─────────────────────────────────────────────────────── */
 .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }

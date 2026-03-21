@@ -1,0 +1,35 @@
+/* ui-react/src/styles/shared.css
+   Cross-component utility classes. This is the single source of truth.
+   ui/styles.css must NOT duplicate these — it receives them via components.css.
+*/
+
+/* Tags / pills */
+.tag { background: transparent; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+.clickable-tag { cursor: pointer; transition: color 0.15s; }
+.clickable-tag:hover { color: var(--accent); }
+.enrich-tag {
+  background: transparent; color: var(--text); border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.enrich-tag:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Session meta */
+.session-id { font-family: var(--mono); font-size: 11px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
+.session-ts { font-size: 11px; color: var(--text-muted); }
+.copy-btn { background: none; border: none; padding: 0; cursor: pointer; font-size: 12px; color: var(--text-muted); line-height: 1; transition: color 0.15s; }
+.copy-btn:hover { color: var(--accent); }
+
+/* Layout */
+.section-heading { font-size: 32px; font-weight: 700; letter-spacing: -0.04em; color: var(--text); }
+.stat-card { background: transparent; border-radius: 10px; padding: 20px 0; }
+.search-grid { display: flex; flex-direction: column; gap: 0; }
+.latency-bar { display: flex; gap: 16px; margin-bottom: 16px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
+.latency-bar span { display: flex; align-items: center; gap: 4px; }
+.latency-bar strong { color: var(--text); }
+
+/* States */
+.empty-state { text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 15px; }
+.loading-state { text-align: center; color: var(--text-muted); padding: 80px 0; }
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

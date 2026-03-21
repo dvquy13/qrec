@@ -1,6 +1,4 @@
-/* Mirrors .activity-section / .activity-section-header / .activity-live-dot in ui/styles.css */
-
-.section-heading { font-size: 32px; font-weight: 700; letter-spacing: -0.04em; color: var(--text); }
+@import '../styles/shared.css';
 
 .activity-section {
   margin-top: 32px;

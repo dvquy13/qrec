@@ -33,6 +33,12 @@ curl -sf -o /dev/null http://localhost:25927/ui/styles.css   && echo "  OK  styl
 curl -sf -o /dev/null http://localhost:25927/ui/app.js       && echo "  OK  app.js"
 curl -sf -o /dev/null http://localhost:25927/ui/fonts/InterVariable.woff2 && echo "  OK  font"
 
+echo "[smoke-test] Shared classes in components.css..."
+COMPONENTS_CSS=$(curl -s http://localhost:25927/ui/components.css)
+echo "$COMPONENTS_CSS" | grep -q '\.tag' || { echo "FAIL: .tag missing from components.css"; exit 1; }
+echo "$COMPONENTS_CSS" | grep -q '\.section-heading' || { echo "FAIL: .section-heading missing from components.css"; exit 1; }
+echo "  OK  shared classes present in components.css"
+
 echo "[smoke-test] Settings endpoints..."
 curl -sf http://localhost:25927/settings | grep -q '"enrichEnabled"' && echo "  OK  GET /settings"
 curl -sf -X POST http://localhost:25927/settings \
