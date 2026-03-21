@@ -137,6 +137,72 @@ const AgentTurn: React.FC<{ turns: Turn[] }> = ({ turns }) => {
   );
 };
 
+// ── Decomposed sub-components (for Remotion demo scenes) ─────────────────────
+// These export the same building blocks that SessionDetailSection uses internally,
+// so demo scenes can compose them independently (e.g. animate EnrichBlock in place).
+
+export const SessionDetailHeader: React.FC<{ title: string }> = ({ title }) => (
+  <div className="detail-header">
+    <div className="detail-title">{title || '(untitled)'}</div>
+  </div>
+);
+
+export interface SessionDetailMetaProps {
+  id: string;
+  project?: string;
+  date?: string;
+  turnCount?: number;
+  onProjectClick?: (project: string) => void;
+}
+
+export const SessionDetailMeta: React.FC<SessionDetailMetaProps> = ({
+  id, project, date, turnCount = 0, onProjectClick,
+}) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(id).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+  return (
+    <div className="detail-meta">
+      <span className="tag clickable-tag" onClick={() => onProjectClick?.(project ?? '')}>
+        {project ?? '—'}
+      </span>
+      <span className="tag clickable-tag">{date ?? '—'}</span>
+      <span className="tag session-id">
+        {id}
+        <button className="copy-btn" title="Copy session UUID" onClick={handleCopy}>
+          {copied ? '✓' : '⎘'}
+        </button>
+      </span>
+      <span className="tag">{turnCount} turns</span>
+    </div>
+  );
+};
+
+export const SessionTurns: React.FC<{ turns: Turn[] }> = ({ turns }) => {
+  const groups = groupTurns(turns);
+  return (
+    <div className="turns">
+      {turns.length === 0 ? (
+        <div className="empty-state">No turns found in this session.</div>
+      ) : (
+        groups.map((group, i) =>
+          group.type === 'user' ? (
+            <UserTurn key={i} turn={group.turn} />
+          ) : (
+            <AgentTurn key={i} turns={group.turns} />
+          )
+        )
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const SessionDetailSection: React.FC<SessionDetailSectionProps> = ({
   id,
   title,
