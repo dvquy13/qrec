@@ -320,9 +320,8 @@ async function loadRecentSessions(sessionCount) {
 // groupSummary are all defined there as globals.
 
 function renderActivityFeed() {
-  const el = document.getElementById('run-list');
-  const liveDot = document.getElementById('activity-live-dot');
-  if (!el || !window.QrecUI?.renderActivityFeed) return;
+  const el = document.getElementById('db-activity-feed');
+  if (!el || !window.QrecUI?.renderRecentActivity) return;
 
   const syntheticArr = Array.isArray(_currentSyntheticGroup)
     ? _currentSyntheticGroup
@@ -330,17 +329,13 @@ function renderActivityFeed() {
   const displayGroups = [...syntheticArr, ..._allRunGroups].sort((a, b) => b.ts - a.ts);
 
   const anyRunning = displayGroups.slice(0, 3).some(g => g.running);
-  if (liveDot) liveDot.classList.toggle('visible', anyRunning);
 
-  // Hide the legacy show-more button — ActivityFeed handles it internally
-  const showMoreBtn = document.getElementById('activity-show-more');
-  if (showMoreBtn) showMoreBtn.style.display = 'none';
-
-  window.QrecUI.renderActivityFeed(el, {
+  window.QrecUI.renderRecentActivity(el, {
     groups: displayGroups,
     modelName: _embedModel,
     enrichModelName: _enrichModel,
     maxVisible: RUNS_INITIAL,
+    isLive: anyRunning,
     onSessionClick: (id) => openSession(id),
     onSessionsLoad: async (ids) => {
       const idList = ids.map(id => `'${id}'`).join(',');

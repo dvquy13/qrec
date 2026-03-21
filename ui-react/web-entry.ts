@@ -7,6 +7,7 @@ import { EnrichBlock, EnrichBlockProps } from './src/components/EnrichBlock';
 import { HeatmapProjectFilter, HeatmapProjectFilterProps } from './src/components/HeatmapProjectFilter';
 import { ActivityFeed, ActivityFeedProps } from './src/components/ActivityFeed';
 import { DashboardSection, DashboardSectionProps } from './src/sections/DashboardSection';
+import { RecentActivitySection, RecentActivitySectionProps } from './src/sections/RecentActivitySection';
 import { RecentSessionsSection, RecentSessionsSectionProps } from './src/sections/RecentSessionsSection';
 import { SessionsSection, SessionsSectionProps } from './src/sections/SessionsSection';
 import { SessionDetailSection, SessionDetailSectionProps } from './src/sections/SessionDetailSection';
@@ -29,6 +30,7 @@ declare global {
       renderEnrichBlock: (el: HTMLElement, props: EnrichBlockProps) => void;
       renderHeatmapProjectFilter: (el: HTMLElement, props: HeatmapProjectFilterProps) => void;
       renderActivityFeed: (el: HTMLElement, props: ActivityFeedProps) => void;
+      renderRecentActivity: (el: HTMLElement, props: RecentActivitySectionProps) => void;
       renderDashboard: (el: HTMLElement, props: DashboardSectionProps) => void;
       renderRecentSessions: (el: HTMLElement, props: RecentSessionsSectionProps) => void;
       renderSessions: (el: HTMLElement, props: SessionsSectionProps) => void;
@@ -44,6 +46,7 @@ window.QrecUI = {
   renderEnrichBlock: (el, props) => mount(EnrichBlock, el as ElementWithRoot, props),
   renderHeatmapProjectFilter: (el, props) => mount(HeatmapProjectFilter, el as ElementWithRoot, props),
   renderActivityFeed: (el, props) => mount(ActivityFeed, el as ElementWithRoot, props),
+  renderRecentActivity: (el, props) => mount(RecentActivitySection, el as ElementWithRoot, props),
   renderDashboard: (el, props) => mount(DashboardSection, el as ElementWithRoot, props),
   renderRecentSessions: (el, props) => mount(RecentSessionsSection, el as ElementWithRoot, props),
   renderSessions: (el, props) => mount(SessionsSection, el as ElementWithRoot, props),
