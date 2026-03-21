@@ -35,10 +35,10 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   date,
   last_message_at,
   summary,
-  tags = [],
-  entities = [],
-  learnings = [],
-  questions = [],
+  tags: tagsProp,
+  entities: entitiesProp,
+  learnings: learningsProp,
+  questions: questionsProp,
   score,
   showScore = false,
   preview,
@@ -52,6 +52,13 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   onTagClick,
   style,
 }) => {
+  // ?? not default params: API returns null (not undefined) for unenriched sessions.
+  // TypeScript default params only guard undefined; null passes through and crashes .map().
+  const tags = tagsProp ?? [];
+  const entities = entitiesProp ?? [];
+  const learnings = learningsProp ?? [];
+  const questions = questionsProp ?? [];
+
   // Compact tag pills in meta row (only if showTags is true)
   const metaTagPills = showTags ? tags.map((t, i) => (
     <span
