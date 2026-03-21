@@ -356,7 +356,7 @@ export const Onboard: React.FC = () => {
               .stat-indexing-dot.visible, .activity-live-dot { animation: none !important; opacity: var(--remotion-pulse-opacity, 1); }
             `}</style>
             {/* max-width: 900px matches the real qrec UI <main> constraint */}
-            <div style={{maxWidth: 900, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', flex: 1}}>
+            <div style={{maxWidth: 900, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', flex: 1, paddingBottom: 20}}>
             <DashboardSection
               sessionsCount={sessionsCount}
               sessionsIndexing={sessionsIndexing}
