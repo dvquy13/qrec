@@ -47,7 +47,7 @@ export const Root: React.FC = () => {
       <Composition
         id="Onboard"
         component={Onboard}
-        durationInFrames={420}
+        durationInFrames={198}
         fps={30}
         width={1280}
         height={720}

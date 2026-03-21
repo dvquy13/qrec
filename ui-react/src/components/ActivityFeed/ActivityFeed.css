@@ -155,7 +155,7 @@
 /* ── Progress bar ─────────────────────────────────────────────────────────── */
 
 .af-progress {
-  padding: 0 8px 8px 8px;
+  padding: 0 8px 8px 115px;
 }
 
 .af-progress-label {

@@ -14,23 +14,23 @@ import {
 
 const CLAMP = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 
-const SESSIONS_TOTAL = 100;
-const SUMMARIES_TOTAL = 87;
+const SESSIONS_TOTAL = 50;
+const SUMMARIES_TOTAL = 50;
 const CHARS_PER_FRAME = 1.5;
 
 // ── Timeline ─────────────────────────────────────────────────────────────────
-//   0–12f:   scene fade in
-//  12–55f:   type cmd1 (npm install -g @dvquys/qrec)
-//  48–56f:   install response fades in
-//  60–75f:   type cmd2 (qrec serve --daemon)
+//   0– 12f:  scene fade in          ← terminal: original speed
+//  12– 55f:  type cmd1
+//  48– 56f:  install response fades in
+//  60– 75f:  type cmd2
 //  78–102f:  daemon messages appear
-// 108–125f:  terminal fades out
-// 112–135f:  browser springs in
-// 140–178f:  model_download (0→100%)
-// 178–208f:  model_loading (indeterminate)
-// 208–320f:  sessions count 0→100 + indexing in activity feed
-// 250–390f:  summaries count 0→87 + enriching in activity feed
-// 400–420f:  fade out
+// 108–112f:  terminal fades out     ← browser: compressed to 90f total (3s)
+// 109–116f:  browser springs in
+// 117–128f:  model_download (0→100%)
+// 128–137f:  model_loading (indeterminate)
+// 137–169f:  sessions count 0→50 + indexing in activity feed
+// 149–189f:  summaries count 0→50 + enriching in activity feed
+// 192–198f:  fade out
 
 function getTyped(text: string, startFrame: number, frame: number): string {
   return text.substring(
@@ -62,7 +62,7 @@ export const Onboard: React.FC = () => {
   const {fps} = useVideoConfig();
 
   // ── Scene opacity ─────────────────────────────────────────────────────────
-  const sceneOpacity = interpolate(frame, [0, 12, 400, 420], [0, 1, 1, 0], CLAMP);
+  const sceneOpacity = interpolate(frame, [0, 12, 192, 198], [0, 1, 1, 0], CLAMP);
 
   // ── Terminal typing ───────────────────────────────────────────────────────
   const CMD1 = 'npm install -g @dvquys/qrec';
@@ -80,21 +80,37 @@ export const Onboard: React.FC = () => {
   const daemon3Opacity = interpolate(frame, [94, 100], [0, 1], CLAMP);
 
   // ── Terminal / browser transitions ────────────────────────────────────────
-  const terminalOpacity = interpolate(frame, [0, 8, 108, 122], [0, 1, 1, 0], CLAMP);
-  const browserSp = spring({frame: frame - 112, fps, config: {damping: 15, stiffness: 140}});
+  const terminalOpacity = interpolate(frame, [0, 8, 108, 112], [0, 1, 1, 0], CLAMP);
+  const browserSp = spring({frame: frame - 109, fps, config: {damping: 15, stiffness: 140}});
   const browserScale = interpolate(browserSp, [0, 1], [0.88, 1]);
-  const browserOpacity = interpolate(frame, [112, 132], [0, 1], CLAMP);
+  const browserOpacity = interpolate(frame, [109, 115], [0, 1], CLAMP);
 
   // ── Dashboard counts ──────────────────────────────────────────────────────
-  const sessionsCount = Math.round(interpolate(frame, [208, 320], [0, SESSIONS_TOTAL], CLAMP));
-  const summariesCount = Math.round(interpolate(frame, [250, 390], [0, SUMMARIES_TOTAL], CLAMP));
-  const sessionsIndexing = frame >= 208 && frame < 330;
-  const summariesEnriching = frame >= 250 && frame < 395;
-  // Real qrec UI defaults to 15 weeks (105 days); slice to match
+  const sessionsCount = Math.round(interpolate(frame, [137, 169], [0, SESSIONS_TOTAL], CLAMP));
+  const summariesCount = Math.round(interpolate(frame, [149, 189], [0, SUMMARIES_TOTAL], CLAMP));
+  const sessionsIndexing = frame >= 137 && frame < 172;
+  const summariesEnriching = frame >= 149 && frame < 191;
+  // Full 15-week grid matches the real qrec UI; only the last 30 days animate
+  // (Claude only retains the last 30 days of sessions).
   const HEATMAP_15W = HEATMAP_DAYS.slice(-105);
-  const revealedCount = Math.round(interpolate(frame, [208, 320], [0, HEATMAP_15W.length], CLAMP));
+  const LAST30_OFFSET = HEATMAP_15W.length - 30; // index into HEATMAP_15W where the 30d window starts
+  const heatmap30 = HEATMAP_15W.slice(LAST30_OFFSET);
+  // Distribute exactly sessionsCount sessions across the last 30 days (largest-remainder rounding).
+  const weightTotal = heatmap30.reduce((s, d) => s + d.count, 0);
+  const exact = heatmap30.map((d) => (d.count / weightTotal) * sessionsCount);
+  const floors = exact.map(Math.floor);
+  const remaining = sessionsCount - floors.reduce((s, v) => s + v, 0);
+  exact
+    .map((v, i) => ({i, frac: v % 1}))
+    .sort((a, b) => b.frac - a.frac)
+    .slice(0, remaining)
+    .forEach(({i}) => floors[i]++);
+  // Older days are empty (outside Claude's 30d retention); last 30 days animate
+  const animatedDays = HEATMAP_15W.map((d, i) =>
+    i >= LAST30_OFFSET ? {...d, count: floors[i - LAST30_OFFSET]} : {...d, count: 0},
+  );
 
-  const activeDays = HEATMAP_15W.filter((d) => d.count > 0).length;
+  const activeDays = animatedDays.filter((d) => d.count > 0).length;
   const footerText = `${sessionsCount} sessions · ${activeDays} active days`;
 
   // ── Frame-driven CSS animation overrides (CSS animations don't run in Remotion) ──
@@ -108,9 +124,9 @@ export const Onboard: React.FC = () => {
   const NOW = Date.now();
   const activityGroups: RunGroup[] = [];
 
-  if (frame >= 140) {
-    const dlPercent = Math.round(interpolate(frame, [140, 178], [0, 100], CLAMP));
-    const dlDone = frame >= 178;
+  if (frame >= 117) {
+    const dlPercent = Math.round(interpolate(frame, [117, 128], [0, 100], CLAMP));
+    const dlDone = frame >= 128;
     activityGroups.push({
       type: 'model_download',
       running: !dlDone,
@@ -122,8 +138,8 @@ export const Onboard: React.FC = () => {
     });
   }
 
-  if (frame >= 178) {
-    const loadingDone = frame >= 208;
+  if (frame >= 128) {
+    const loadingDone = frame >= 137;
     activityGroups.unshift({
       type: 'model_loading',
       running: !loadingDone,
@@ -132,9 +148,9 @@ export const Onboard: React.FC = () => {
     });
   }
 
-  if (frame >= 208) {
-    const indexDone = frame >= 330;
-    const n = Math.round(interpolate(frame, [208, 320], [0, 100], CLAMP));
+  if (frame >= 137) {
+    const indexDone = frame >= 172;
+    const n = Math.round(interpolate(frame, [137, 169], [0, SESSIONS_TOTAL], CLAMP));
     activityGroups.unshift({
       type: 'index',
       running: !indexDone,
@@ -144,15 +160,15 @@ export const Onboard: React.FC = () => {
     });
   }
 
-  if (frame >= 250) {
-    const enrichDone = frame >= 395;
-    const n = Math.round(interpolate(frame, [250, 380], [0, 87], CLAMP));
+  if (frame >= 149) {
+    const enrichDone = frame >= 191;
+    const n = Math.round(interpolate(frame, [149, 186], [0, SUMMARIES_TOTAL], CLAMP));
     activityGroups.unshift({
       type: 'enrich',
       running: !enrichDone,
       ts: NOW,
       events: [],
-      syntheticLabel: enrichDone ? undefined : `Enriching… ${n} / 87`,
+      syntheticLabel: enrichDone ? undefined : `Enriching… ${n} / ${SUMMARIES_TOTAL}`,
     });
   }
 
@@ -370,17 +386,16 @@ export const Onboard: React.FC = () => {
               }
               summariesEnriching={summariesEnriching}
               searchesCount={0}
-              heatmapDays={HEATMAP_15W}
+              heatmapDays={animatedDays}
               heatmapByProject={HEATMAP_BYPROJECT_BREAKDOWN}
               projects={[...PROJECTS]}
               selectedProject={null}
               heatmapMetric="sessions"
               footerText={footerText}
-              revealedCount={revealedCount}
             />
 
             {/* Recent Activity — exact same component as qrec web UI */}
-            {frame >= 140 && (
+            {frame >= 117 && (
               <RecentActivitySection
                 groups={activityGroups}
                 modelName="embeddinggemma-300M-Q8_0.gguf"
