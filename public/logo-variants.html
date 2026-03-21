@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>qrec — Logo Variants</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Newsreader:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #0062a8;
+      --accent-light: #3399cc;
+      --bg-page: #f4f2ee;
+      --bg-card-light: #ffffff;
+      --bg-card-dark: #0b0d12;
+      --text-primary: #0f172a;
+      --text-muted: #94a3b8;
+      --text-label: #b0bac8;
+      --border-card: rgba(0,0,0,0.05);
+    }
+
+    body {
+      background: var(--bg-page);
+      min-height: 100vh;
+      padding: 72px 56px 96px;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    /* ─── Header ─────────────────────────────────────────────────────────── */
+    .header {
+      margin-bottom: 68px;
+    }
+
+    .header-eyebrow {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-label);
+      margin-bottom: 10px;
+    }
+
+    .header h1 {
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: 38px;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+
+    .header-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      margin-top: 10px;
+      line-height: 1.7;
+      max-width: 520px;
+    }
+
+    /* ─── Grid ───────────────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* ─── Variant card ───────────────────────────────────────────────────── */
+    .variant {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .variant-header {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .variant-id {
+      font-size: 9.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-label);
+    }
+
+    .variant-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+    }
+
+    /* ─── Swatches ───────────────────────────────────────────────────────── */
+    .swatches {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .swatch {
+      border-radius: 16px;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 23%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .swatch-label {
+      position: absolute;
+      bottom: 8px;
+      left: 10px;
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.35;
+    }
+
+    .swatch.on-white {
+      background: var(--bg-card-light);
+      box-shadow: 0 1px 28px rgba(0,0,0,0.07), 0 0 0 1px var(--border-card);
+    }
+    .swatch.on-white .swatch-label { color: #0f172a; }
+
+    .swatch.on-dark {
+      background: var(--bg-card-dark);
+    }
+    .swatch.on-dark .swatch-label { color: #ffffff; }
+
+    .swatch svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ─── Description ────────────────────────────────────────────────────── */
+    .desc {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.75;
+      letter-spacing: 0.01em;
+    }
+
+    /* ─── Divider ─────────────────────────────────────────────────────────── */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: rgba(0,0,0,0.08);
+      margin: 56px 0;
+    }
+
+    /* ─── Full-size preview section ──────────────────────────────────────── */
+    .preview-section h2 {
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: 22px;
+      color: var(--text-primary);
+      margin-bottom: 28px;
+    }
+
+    .preview-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .preview-tile {
+      border-radius: 20px;
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      flex-shrink: 0;
+    }
+
+    .preview-tile.on-white {
+      background: #ffffff;
+      box-shadow: 0 1px 24px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.05);
+    }
+    .preview-tile.on-dark { background: #0b0d12; }
+    .preview-tile.on-accent { background: #0062a8; }
+    .preview-tile.on-mid { background: #f1f5f9; }
+
+    .preview-tile svg { width: 100%; height: 100%; }
+
+    .tile-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .tile-group-label {
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-label);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-eyebrow">qrec / brand</div>
+    <h1>Logo Variants</h1>
+    <p class="header-sub">
+      Five smooth reinterpretations of the qrec magnifying glass. Inspired by Remotion's concentric opacity-layering technique — same brand blue <code>#0062a8</code>, smooth bezier curves instead of pixel rects.
+    </p>
+  </div>
+
+  <div class="grid">
+
+    <!-- ── A: Halo ──────────────────────────────────────────────────────── -->
+    <div class="variant">
+      <div class="variant-header">
+        <span class="variant-id">Variant A</span>
+        <span class="variant-name">Halo</span>
+      </div>
+      <div class="swatches">
+        <div class="swatch on-white">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer ambient halo -->
+            <circle cx="82" cy="82" r="70" fill="#0062a8" fill-opacity="0.07"/>
+            <!-- Mid ring -->
+            <circle cx="82" cy="82" r="56" fill="#0062a8" fill-opacity="0.18"/>
+            <!-- Core lens -->
+            <circle cx="82" cy="82" r="42" fill="#0062a8"/>
+            <!-- Handle -->
+            <line x1="112" y1="112" x2="172" y2="172" stroke="#0062a8" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Light</span>
+        </div>
+        <div class="swatch on-dark">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="82" cy="82" r="70" fill="#3399cc" fill-opacity="0.08"/>
+            <circle cx="82" cy="82" r="56" fill="#3399cc" fill-opacity="0.22"/>
+            <circle cx="82" cy="82" r="42" fill="#3399cc"/>
+            <line x1="112" y1="112" x2="172" y2="172" stroke="#3399cc" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Dark</span>
+        </div>
+      </div>
+      <p class="desc">Three concentric filled circles at 7% / 18% / 100% opacity. The most direct application of Remotion's layering technique.</p>
+    </div>
+
+    <!-- ── B: Glass ─────────────────────────────────────────────────────── -->
+    <div class="variant">
+      <div class="variant-header">
+        <span class="variant-id">Variant B</span>
+        <span class="variant-name">Glass</span>
+      </div>
+      <div class="swatches">
+        <div class="swatch on-white">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="glass-l" cx="38%" cy="32%" r="68%">
+                <stop offset="0%"   stop-color="#5ab8f8"/>
+                <stop offset="52%"  stop-color="#0062a8"/>
+                <stop offset="100%" stop-color="#00417a"/>
+              </radialGradient>
+            </defs>
+            <!-- Soft frame ring -->
+            <circle cx="82" cy="82" r="58" fill="none" stroke="#0062a8" stroke-width="2" stroke-opacity="0.18"/>
+            <!-- Gradient lens -->
+            <circle cx="82" cy="82" r="46" fill="url(#glass-l)"/>
+            <!-- Lens highlight -->
+            <circle cx="67" cy="67" r="9" fill="white" fill-opacity="0.18"/>
+            <!-- Handle -->
+            <line x1="115" y1="115" x2="174" y2="174" stroke="#003d70" stroke-width="14" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Light</span>
+        </div>
+        <div class="swatch on-dark">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="glass-d" cx="38%" cy="32%" r="68%">
+                <stop offset="0%"   stop-color="#74d0ff"/>
+                <stop offset="52%"  stop-color="#1a8fd1"/>
+                <stop offset="100%" stop-color="#0062a8"/>
+              </radialGradient>
+            </defs>
+            <circle cx="82" cy="82" r="58" fill="none" stroke="#3399cc" stroke-width="2" stroke-opacity="0.22"/>
+            <circle cx="82" cy="82" r="46" fill="url(#glass-d)"/>
+            <circle cx="67" cy="67" r="9" fill="white" fill-opacity="0.24"/>
+            <line x1="115" y1="115" x2="174" y2="174" stroke="#1a8fd1" stroke-width="14" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Dark</span>
+        </div>
+      </div>
+      <p class="desc">Radial gradient lens with an inner highlight refraction. Reads as actual glass — depth through light, not layers.</p>
+    </div>
+
+    <!-- ── C: Outline ───────────────────────────────────────────────────── -->
+    <div class="variant">
+      <div class="variant-header">
+        <span class="variant-id">Variant C</span>
+        <span class="variant-name">Outline</span>
+      </div>
+      <div class="swatches">
+        <div class="swatch on-white">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer ambient ring -->
+            <circle cx="82" cy="82" r="68" fill="none" stroke="#0062a8" stroke-width="2" stroke-opacity="0.12"/>
+            <!-- Mid ring -->
+            <circle cx="82" cy="82" r="54" fill="none" stroke="#0062a8" stroke-width="2.5" stroke-opacity="0.32"/>
+            <!-- Main lens ring -->
+            <circle cx="82" cy="82" r="40" fill="none" stroke="#0062a8" stroke-width="5.5"/>
+            <!-- Handle -->
+            <line x1="110" y1="110" x2="173" y2="173" stroke="#0062a8" stroke-width="10" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Light</span>
+        </div>
+        <div class="swatch on-dark">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="82" cy="82" r="68" fill="none" stroke="#4db8e8" stroke-width="2" stroke-opacity="0.12"/>
+            <circle cx="82" cy="82" r="54" fill="none" stroke="#4db8e8" stroke-width="2.5" stroke-opacity="0.32"/>
+            <circle cx="82" cy="82" r="40" fill="none" stroke="#4db8e8" stroke-width="5.5"/>
+            <line x1="110" y1="110" x2="173" y2="173" stroke="#4db8e8" stroke-width="10" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Dark</span>
+        </div>
+      </div>
+      <p class="desc">Three concentric stroke rings, zero fill. Opacity fades outward. The most restrained and technical-feeling variant.</p>
+    </div>
+
+    <!-- ── D: Ring ───────────────────────────────────────────────────────── -->
+    <div class="variant">
+      <div class="variant-header">
+        <span class="variant-id">Variant D</span>
+        <span class="variant-name">Ring</span>
+      </div>
+      <div class="swatches">
+        <div class="swatch on-white">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer halo fill -->
+            <circle cx="82" cy="82" r="70" fill="#0062a8" fill-opacity="0.06"/>
+            <!-- Mid halo fill -->
+            <circle cx="82" cy="82" r="56" fill="#0062a8" fill-opacity="0.15"/>
+            <!-- Donut: filled + hole -->
+            <circle cx="82" cy="82" r="44" fill="#0062a8"/>
+            <circle cx="82" cy="82" r="26" fill="#ffffff"/>
+            <!-- Handle -->
+            <line x1="113" y1="113" x2="172" y2="172" stroke="#0062a8" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Light</span>
+        </div>
+        <div class="swatch on-dark">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="82" cy="82" r="70" fill="#3399cc" fill-opacity="0.07"/>
+            <circle cx="82" cy="82" r="56" fill="#3399cc" fill-opacity="0.18"/>
+            <circle cx="82" cy="82" r="44" fill="#3399cc"/>
+            <circle cx="82" cy="82" r="26" fill="#0b0d12"/>
+            <line x1="113" y1="113" x2="172" y2="172" stroke="#3399cc" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Dark</span>
+        </div>
+      </div>
+      <p class="desc">Open donut lens with two concentric halo rings. The hollow center preserves the classic magnifying glass silhouette.</p>
+    </div>
+
+    <!-- ── E: Glow ───────────────────────────────────────────────────────── -->
+    <div class="variant">
+      <div class="variant-header">
+        <span class="variant-id">Variant E</span>
+        <span class="variant-name">Glow</span>
+      </div>
+      <div class="swatches">
+        <div class="swatch on-white">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="bloom-l" cx="50%" cy="50%" r="50%">
+                <stop offset="0%"   stop-color="#0062a8" stop-opacity="0.14"/>
+                <stop offset="60%"  stop-color="#0062a8" stop-opacity="0.06"/>
+                <stop offset="100%" stop-color="#0062a8" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <!-- Bloom aura -->
+            <circle cx="82" cy="82" r="90" fill="url(#bloom-l)"/>
+            <!-- Mid ring -->
+            <circle cx="82" cy="82" r="52" fill="#0062a8" fill-opacity="0.11"/>
+            <!-- Solid core -->
+            <circle cx="82" cy="82" r="40" fill="#0062a8"/>
+            <!-- Handle -->
+            <line x1="110" y1="110" x2="172" y2="172" stroke="#0062a8" stroke-width="12" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Light</span>
+        </div>
+        <div class="swatch on-dark">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="bloom-d" cx="50%" cy="50%" r="50%">
+                <stop offset="0%"   stop-color="#3399cc" stop-opacity="0.4"/>
+                <stop offset="55%"  stop-color="#3399cc" stop-opacity="0.12"/>
+                <stop offset="100%" stop-color="#3399cc" stop-opacity="0"/>
+              </radialGradient>
+              <filter id="glow-blur" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="3"/>
+              </filter>
+            </defs>
+            <!-- Bloom aura -->
+            <circle cx="82" cy="82" r="90" fill="url(#bloom-d)"/>
+            <!-- Soft glow behind core -->
+            <circle cx="82" cy="82" r="44" fill="#3399cc" fill-opacity="0.3" filter="url(#glow-blur)"/>
+            <!-- Solid core -->
+            <circle cx="82" cy="82" r="40" fill="#3399cc"/>
+            <!-- Handle -->
+            <line x1="110" y1="110" x2="172" y2="172" stroke="#3399cc" stroke-width="12" stroke-linecap="round"/>
+          </svg>
+          <span class="swatch-label">Dark</span>
+        </div>
+      </div>
+      <p class="desc">Radial bloom emanates from the lens core. The glow effect shines on dark backgrounds — gives the logo a lit, energetic quality.</p>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── Full-size previews ─────────────────────────────────────────────── -->
+  <div class="preview-section">
+    <h2>At scale — Variant A (Halo)</h2>
+    <div class="preview-row">
+
+      <div class="tile-group">
+        <div class="preview-tile on-white">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="82" cy="82" r="70" fill="#0062a8" fill-opacity="0.07"/>
+            <circle cx="82" cy="82" r="56" fill="#0062a8" fill-opacity="0.18"/>
+            <circle cx="82" cy="82" r="42" fill="#0062a8"/>
+            <line x1="112" y1="112" x2="172" y2="172" stroke="#0062a8" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="tile-group-label">White</span>
+      </div>
+
+      <div class="tile-group">
+        <div class="preview-tile on-mid">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="82" cy="82" r="70" fill="#0062a8" fill-opacity="0.07"/>
+            <circle cx="82" cy="82" r="56" fill="#0062a8" fill-opacity="0.18"/>
+            <circle cx="82" cy="82" r="42" fill="#0062a8"/>
+            <line x1="112" y1="112" x2="172" y2="172" stroke="#0062a8" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="tile-group-label">Muted</span>
+      </div>
+
+      <div class="tile-group">
+        <div class="preview-tile on-dark">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="82" cy="82" r="70" fill="#3399cc" fill-opacity="0.08"/>
+            <circle cx="82" cy="82" r="56" fill="#3399cc" fill-opacity="0.22"/>
+            <circle cx="82" cy="82" r="42" fill="#3399cc"/>
+            <line x1="112" y1="112" x2="172" y2="172" stroke="#3399cc" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="tile-group-label">Dark</span>
+      </div>
+
+      <div class="tile-group">
+        <div class="preview-tile on-accent">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="82" cy="82" r="70" fill="white" fill-opacity="0.08"/>
+            <circle cx="82" cy="82" r="56" fill="white" fill-opacity="0.2"/>
+            <circle cx="82" cy="82" r="42" fill="white"/>
+            <line x1="112" y1="112" x2="172" y2="172" stroke="white" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="tile-group-label">Accent bg</span>
+      </div>
+
+    </div>
+
+    <div style="margin-top: 48px">
+      <h2>At scale — Variant E (Glow, dark only)</h2>
+      <div class="preview-row" style="margin-top: 20px">
+
+        <div class="tile-group">
+          <div class="preview-tile on-dark" style="width:160px;height:160px;padding:28px">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <radialGradient id="bloom-d2" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%"   stop-color="#3399cc" stop-opacity="0.4"/>
+                  <stop offset="55%"  stop-color="#3399cc" stop-opacity="0.12"/>
+                  <stop offset="100%" stop-color="#3399cc" stop-opacity="0"/>
+                </radialGradient>
+                <filter id="glow-blur2" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="3"/>
+                </filter>
+              </defs>
+              <circle cx="82" cy="82" r="90" fill="url(#bloom-d2)"/>
+              <circle cx="82" cy="82" r="44" fill="#3399cc" fill-opacity="0.3" filter="url(#glow-blur2)"/>
+              <circle cx="82" cy="82" r="40" fill="#3399cc"/>
+              <line x1="110" y1="110" x2="172" y2="172" stroke="#3399cc" stroke-width="12" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="tile-group-label">160px</span>
+        </div>
+
+        <div class="tile-group">
+          <div class="preview-tile on-dark" style="width:80px;height:80px;padding:16px">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <radialGradient id="bloom-d3" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%"   stop-color="#3399cc" stop-opacity="0.4"/>
+                  <stop offset="55%"  stop-color="#3399cc" stop-opacity="0.12"/>
+                  <stop offset="100%" stop-color="#3399cc" stop-opacity="0"/>
+                </radialGradient>
+                <filter id="glow-blur3" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="3"/>
+                </filter>
+              </defs>
+              <circle cx="82" cy="82" r="90" fill="url(#bloom-d3)"/>
+              <circle cx="82" cy="82" r="44" fill="#3399cc" fill-opacity="0.3" filter="url(#glow-blur3)"/>
+              <circle cx="82" cy="82" r="40" fill="#3399cc"/>
+              <line x1="110" y1="110" x2="172" y2="172" stroke="#3399cc" stroke-width="12" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="tile-group-label">80px</span>
+        </div>
+
+        <div class="tile-group">
+          <div class="preview-tile on-dark" style="width:48px;height:48px;padding:10px;border-radius:12px">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <radialGradient id="bloom-d4" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%"   stop-color="#3399cc" stop-opacity="0.4"/>
+                  <stop offset="55%"  stop-color="#3399cc" stop-opacity="0.12"/>
+                  <stop offset="100%" stop-color="#3399cc" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <circle cx="82" cy="82" r="90" fill="url(#bloom-d4)"/>
+              <circle cx="82" cy="82" r="40" fill="#3399cc"/>
+              <line x1="110" y1="110" x2="172" y2="172" stroke="#3399cc" stroke-width="12" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="tile-group-label">48px favicon</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
