@@ -13,6 +13,9 @@ node_modules/
 
 eval/**/*.html
 
+# skill eval workspaces — scratch data, not reproducible specs
+plugin/skills/*-workspace/
+
 # plugin/ui/ is committed — UI files must be present in the installed plugin
 .npmrc
 
