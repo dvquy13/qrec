@@ -22,9 +22,10 @@ const src = '../ui/web-entry.js';
 const dst = '../ui/components.js';
 await rename(src, dst);
 
-// Remove the extracted CSS file — variables.css is already in ui/styles.css
+// Rename web-entry.css → components.css (contains component styles + variables)
 const cssOut = '../ui/web-entry.css';
-if (existsSync(cssOut)) await unlink(cssOut);
+const cssDst = '../ui/components.css';
+if (existsSync(cssOut)) await rename(cssOut, cssDst);
 
 console.log('Build complete: ui/components.js');
 for (const out of result.outputs) {

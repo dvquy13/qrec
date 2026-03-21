@@ -210,7 +210,7 @@ export const HeatmapGrid: React.FC<HeatmapGridProps> = ({
                   )}
                 </div>
                 {label && !fitsInside && (
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>{label}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4, lineHeight: 1 }}>{label}</span>
                 )}
               </div>
             );
