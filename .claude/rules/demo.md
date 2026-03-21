@@ -1,5 +1,9 @@
 # Demo Video Rules (demo/)
 
+## Skills to use
+
+Use remotion-best-practices skill for creating videos with Remotion.
+
 ## Gotchas
 
 **CSS animations are silent no-ops in Remotion.** The renderer never runs the animation loop. Any ui-react component with CSS animations (spinner, indeterminate bar, pulse dot) will appear frozen unless overridden with frame-driven values. Use `remotionCSSAnimVars` + `REMOTION_ANIM_OVERRIDES` from `animUtils.ts`.
