@@ -6,6 +6,7 @@ import { HeatmapGrid, HeatmapGridProps } from './src/components/HeatmapGrid';
 import { EnrichBlock, EnrichBlockProps } from './src/components/EnrichBlock';
 import { HeatmapProjectFilter, HeatmapProjectFilterProps } from './src/components/HeatmapProjectFilter';
 import { ActivityFeed, ActivityFeedProps } from './src/components/ActivityFeed';
+import { DashboardSection, DashboardSectionProps } from './src/sections/DashboardSection';
 
 interface ElementWithRoot extends HTMLElement {
   __qrec_root__?: ReturnType<typeof ReactDOM.createRoot>;
@@ -25,6 +26,7 @@ declare global {
       renderEnrichBlock: (el: HTMLElement, props: EnrichBlockProps) => void;
       renderHeatmapProjectFilter: (el: HTMLElement, props: HeatmapProjectFilterProps) => void;
       renderActivityFeed: (el: HTMLElement, props: ActivityFeedProps) => void;
+      renderDashboard: (el: HTMLElement, props: DashboardSectionProps) => void;
       unmount: (el: HTMLElement) => void;
     };
   }
@@ -36,6 +38,7 @@ window.QrecUI = {
   renderEnrichBlock: (el, props) => mount(EnrichBlock, el as ElementWithRoot, props),
   renderHeatmapProjectFilter: (el, props) => mount(HeatmapProjectFilter, el as ElementWithRoot, props),
   renderActivityFeed: (el, props) => mount(ActivityFeed, el as ElementWithRoot, props),
+  renderDashboard: (el, props) => mount(DashboardSection, el as ElementWithRoot, props),
   unmount: (el) => {
     const e = el as ElementWithRoot;
     e.__qrec_root__?.unmount();

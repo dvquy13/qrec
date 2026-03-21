@@ -1,19 +1,9 @@
-/*
- * Dashboard CSS extracted from ui/styles.css.
- * @font-face rules omitted — fonts loaded by Remotion Root.tsx via loadFont().
- * CSS custom properties (--accent, --text, etc.) set by ui-react/src/styles/variables.css
- * which is imported in Root.tsx, plus any overrides on individual containers.
- */
-
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-
 /* ── Stat indexing dot ─────────────────────────────────────────────────── */
 .stat-indexing-dot { display: none; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.5s infinite; vertical-align: middle; margin-left: 4px; }
 .stat-indexing-dot.visible { display: inline-block; }
 
 /* ── Dashboard layout ──────────────────────────────────────────────────── */
 .dashboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; }
-.section-heading { font-size: 32px; font-weight: 700; letter-spacing: -0.04em; color: var(--text); margin: 0 0 20px; }
 .dashboard-top { display: flex; gap: 40px; align-items: flex-start; margin-bottom: 28px; }
 .dashboard-heatmap-col { flex-shrink: 0; }
 
@@ -33,15 +23,19 @@
   border: 1px solid var(--border);
   border-right: none;
   color: var(--text);
+  border-radius: 0;
   padding: 3px 10px;
   font-size: 12px;
   font-weight: 500;
-  cursor: default;
+  cursor: pointer;
   font-family: inherit;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .heatmap-metrics .heatmap-metric:first-child { border-radius: 6px 0 0 6px; }
 .heatmap-metrics .heatmap-metric:last-child { border-radius: 0 6px 6px 0; border-right: 1px solid var(--border); }
+.heatmap-metric:hover { color: var(--accent); border-color: var(--accent); }
 .heatmap-metric--active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.heatmap-metric--active:hover { color: #fff; border-color: var(--accent); }
 .heatmap-metrics .heatmap-metric--active:last-child { border-right-color: var(--accent); }
 
 /* ── Heatmap footer ────────────────────────────────────────────────────── */

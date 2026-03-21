@@ -33,6 +33,14 @@ let _heatmapMetric = (() => {
 let _heatmapProject = null;
 let _heatmapProjects = [];
 
+// ── Dashboard stat state ───────────────────────────────────────────────────
+let _sessionsCount = 0;
+let _sessionsIndexing = false;
+let _summariesCount = null;
+let _summariesSub = '';
+let _summariesEnriching = false;
+let _searchesCount = 0;
+
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
 function navigate(hash, push = true) {
@@ -223,31 +231,24 @@ function showDashboardPanel(data, actEntries) {
   if (data.embedModel) _embedModel = data.embedModel;
   if (data.enrichModel) _enrichModel = data.enrichModel;
 
-  // Indexing dot on Sessions stat card
-  const sessionsDot = document.getElementById('stat-sessions-dot');
-  if (sessionsDot) sessionsDot.classList.toggle('visible', phase === 'indexing');
-
-  document.getElementById('stat-sessions').textContent = data.sessions.toLocaleString();
-  document.getElementById('stat-searches').textContent = data.searches.toLocaleString();
+  // Update stat state
+  _sessionsCount = data.sessions ?? 0;
+  _sessionsIndexing = phase === 'indexing';
+  _searchesCount = data.searches ?? 0;
   const enrichTotal = data.sessions ?? 0;
   const enrichDone = data.enrichedCount ?? 0;
   const enrichPending = data.pendingCount ?? 0;
-  const aiEl = document.getElementById('info-ai-summaries');
-  const aiSubEl = document.getElementById('info-ai-summaries-sub');
-  const enrichDot = document.getElementById('stat-enrich-dot');
-  if (enrichDot) enrichDot.classList.toggle('visible', !!data.enriching);
-  if (aiEl) {
-    if (!data.enrichEnabled) {
-      aiEl.innerHTML = '<span style="color:var(--text-muted)">—</span>';
-      if (aiSubEl) aiSubEl.textContent = 'disabled';
-    } else if (data.enriching) {
-      const pct = enrichTotal > 0 ? Math.round((enrichDone / enrichTotal) * 100) : 0;
-      aiEl.textContent = enrichDone.toLocaleString();
-      if (aiSubEl) aiSubEl.textContent = `${pct}% enriched`;
-    } else {
-      aiEl.textContent = enrichDone.toLocaleString();
-      if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
-    }
+  _summariesEnriching = !!data.enriching;
+  if (!data.enrichEnabled) {
+    _summariesCount = null;
+    _summariesSub = 'disabled';
+  } else if (data.enriching) {
+    const pct = enrichTotal > 0 ? Math.round((enrichDone / enrichTotal) * 100) : 0;
+    _summariesCount = enrichDone;
+    _summariesSub = `${pct}% enriched`;
+  } else {
+    _summariesCount = enrichDone;
+    _summariesSub = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
   }
 
   // Activity runs
@@ -287,7 +288,11 @@ function showDashboardPanel(data, actEntries) {
     _lastRenderedEnrichedCount = data.enrichedCount ?? -1;
     loadRecentSessions(data.sessions);
   }
-  if (data.sessions !== _lastRenderedSessionCount || !_heatmapData) fetchAndRenderHeatmap();
+  if (data.sessions !== _lastRenderedSessionCount || !_heatmapData) {
+    fetchAndRenderHeatmap(); // calls renderDashboard() after updating _heatmapData
+  } else {
+    renderDashboard();
+  }
 }
 
 async function loadRecentSessions(sessionCount) {
@@ -810,14 +815,26 @@ function heatmapCurrentWeek(days) {
   return result;
 }
 
-function renderHeatmapMetricBtns() {
-  const el = document.getElementById('heatmap-metric-btns');
-  if (!el || HEATMAP_METRICS.length <= 1) return;
-  el.innerHTML = '<div class="heatmap-metrics">' +
-    HEATMAP_METRICS.map(m => {
-      const active = m.id === _heatmapMetric ? ' heatmap-metric--active' : '';
-      return `<button class="heatmap-metric${active}" onclick="selectHeatmapMetric('${m.id}')">${m.label}</button>`;
-    }).join('') + '</div>';
+function renderDashboard() {
+  const el = document.getElementById('dashboard-panel');
+  if (!el || !window.QrecUI?.renderDashboard) return;
+  const m = HEATMAP_METRICS.find(m => m.id === _heatmapMetric) || HEATMAP_METRICS[0];
+  window.QrecUI.renderDashboard(el, {
+    sessionsCount: _sessionsCount,
+    sessionsIndexing: _sessionsIndexing,
+    summariesCount: _summariesCount,
+    summariesSub: _summariesSub,
+    summariesEnriching: _summariesEnriching,
+    searchesCount: _searchesCount,
+    heatmapDays: _heatmapData?.days,
+    heatmapByProject: _heatmapData?.byProject,
+    projects: _heatmapProjects,
+    selectedProject: _heatmapProject,
+    onProjectSelect: (p) => { selectHeatmapProject(p); },
+    heatmapMetric: _heatmapMetric,
+    onMetricSelect: (id) => { selectHeatmapMetric(id); },
+    footerText: _heatmapData ? `${_heatmapData.total.toLocaleString()} ${m.units} · ${_heatmapData.active_days} active days` : undefined,
+  });
 }
 
 function selectHeatmapMetric(metricId) {
@@ -834,15 +851,6 @@ function selectHeatmapProject(project) {
   loadRecentSessions();
 }
 
-function renderHeatmapProjectFilter() {
-  const el = document.getElementById('heatmap-project-filter');
-  if (!el || !window.QrecUI?.renderHeatmapProjectFilter) return;
-  window.QrecUI.renderHeatmapProjectFilter(el, {
-    projects: _heatmapProjects,
-    selected: _heatmapProject,
-    onSelect: (p) => { selectHeatmapProject(p); },
-  });
-}
 
 function renderHeatmap(containerId, days, opts = {}) {
   const container = document.getElementById(containerId);
@@ -1013,35 +1021,13 @@ async function fetchAndRenderHeatmap() {
       const pr = await fetch('/projects');
       if (pr.ok) _heatmapProjects = (await pr.json()).projects ?? [];
     }
-    renderHeatmapProjectFilter();
 
     const params = new URLSearchParams({ weeks: '15', metric: _heatmapMetric });
     if (_heatmapProject) params.set('project', _heatmapProject);
     const res = await fetch(`/stats/heatmap?${params}`);
     if (!res.ok) return;
     _heatmapData = await res.json();
-
-    // Dashboard
-    const dashSection = document.getElementById('dashboard-heatmap-section');
-    if (dashSection) {
-      renderHeatmapMetricBtns();
-      const heatmapEl = document.getElementById('dashboard-heatmap');
-      if (heatmapEl) {
-        window.QrecUI.renderHeatmapGrid(heatmapEl, {
-          days: _heatmapData.days,
-          byProject: _heatmapData.byProject,
-          metric: _heatmapMetric,
-          project: _heatmapProject || undefined,
-          onCellClick: filterByDate,
-        });
-      }
-      const footer = document.getElementById('dashboard-heatmap-footer');
-      if (footer) {
-        const m = HEATMAP_METRICS.find(m => m.id === _heatmapMetric) || HEATMAP_METRICS[0];
-        footer.textContent = `${_heatmapData.total.toLocaleString()} ${m.units} · ${_heatmapData.active_days} active days`;
-      }
-      dashSection.style.display = '';
-    }
+    renderDashboard();
   } catch {}
 }
 

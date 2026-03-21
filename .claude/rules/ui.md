@@ -75,12 +75,19 @@ paths:
 
 ## React Component Library (ui-react/)
 
-- **`ui-react/` is the shared component library** — SessionCard, HeatmapGrid, EnrichBlock, TagBadge, StatCard. Build: `cd ui-react && bun run build.ts` → `ui/components.js` (328 KB IIFE). Also runs automatically via `scripts/build.js` after the main esbuild step.
+- **`ui-react/` is the shared component library** — two tiers:
+  - `src/components/` — primitives: SessionCard, HeatmapGrid, EnrichBlock, TagBadge, StatCard, HeatmapProjectFilter, ActivityFeed
+  - `src/sections/` — page subsections that compose multiple primitives + own their CSS: `DashboardSection` (stats grid + heatmap). Use sections when a full UI region is shared between the web app and Remotion.
+  - Build: `cd ui-react && bun run build.ts` → `ui/components.js` (IIFE). Also runs automatically via `scripts/build.js` after the main esbuild step.
+
+- **Section components are controlled** — `selectedProject`, `heatmapMetric`, and similar state are **props**, not internal state. The caller (app.js or Remotion scene) owns the state and provides `onProjectSelect`/`onMetricSelect` callbacks. Never move selection state inside a section component.
+
+- **`renderDashboard()` pattern in app.js** — module-level vars (`_sessionsCount`, `_sessionsIndexing`, `_summariesCount`, `_summariesSub`, `_summariesEnriching`, `_searchesCount`) are the source of truth. `showDashboardPanel()` updates them; `fetchAndRenderHeatmap()` updates `_heatmapData`; both funnel into a single `renderDashboard()` call that passes everything to `window.QrecUI.renderDashboard(el, props)`.
+
+- **`DashboardSection` owns stats grid + heatmap only** — `loadRecentSessions()` (vanilla `innerHTML`, `.dashboard-session-card` design) and `renderActivityFeed()` (separate React mount into `#run-list`) remain as independent calls below the section. Do not absorb them into `DashboardSection`.
 
 - **Bun IIFE build naming quirk** — `format: 'iife'` with `naming: '[name].[ext]'` emits `web-entry.js` + `web-entry.css`. `build.ts` renames `web-entry.js` → `components.js` and deletes the extracted CSS file (CSS vars are already in `ui/styles.css`). The size displayed in build output shows 0.0 KB due to the rename happening after size capture — the file on disk is correct.
 
 - **`window.QrecUI` unmount before clearing innerHTML** — before any `container.innerHTML = ''` that may contain React-mounted cards, call: `container.querySelectorAll('[data-qrec-mount]').forEach(el => window.QrecUI?.unmount(el))`. The `data-qrec-mount="1"` attribute is added to container divs in `app.js`, not inside the React component.
 
-- **`loadRecentSessions()` is NOT migrated to React** — dashboard recent sessions use `.dashboard-session-card` (different design). Only the Search tab's session cards and the heatmap use `window.QrecUI.*`.
-
-- **Remotion demo imports directly from `ui-react/src/`** — not from the built `components.js`. Use relative path: `import { SessionCard } from '../../../ui-react/src/components/SessionCard'`. CSS vars load via `import '../../ui-react/src/styles/variables.css'` in `Root.tsx` (Remotion's esbuild injects as `<style>`). Shared components have no Remotion dependencies — animation stays in `<SlideUp start={N}>` wrappers in the demo scenes.
+- **Remotion demo imports directly from `ui-react/src/`** — not from the built `components.js`. Use relative paths: `import { DashboardSection } from '../../../ui-react/src/sections/DashboardSection'`. CSS custom properties (`--accent`, `--text`, etc.) are set globally by `Root.tsx → import '../../ui-react/src/styles/variables.css'` — do NOT add an inline `CSS_VARS` style object to each scene. It is redundant (values are identical to `variables.css`) and was the pre-sections workaround. Shared components and sections have no Remotion dependencies — animation stays in the demo scenes themselves.
