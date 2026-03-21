@@ -9,11 +9,13 @@ import {SessionCard} from '../../../ui-react/src/components/SessionCard';
 export const ClaudeRecall: React.FC = () => {
   const frame = useCurrentFrame();
 
-  // Label fades in at 0, terminal at 20, results at 100+
-  const resultsOpacity = interpolate(frame, [95, 115], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+  const query = 'race condition indexer';
+  const typedChars = Math.floor(
+    interpolate(frame, [10, 35], [0, query.length], {
+      extrapolateLeft: 'clamp',
+      extrapolateRight: 'clamp',
+    }),
+  );
 
   return (
     <SceneFade durationInFrames={510} fadeIn={20} fadeOut={30}>
@@ -22,136 +24,87 @@ export const ClaudeRecall: React.FC = () => {
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
-          padding: '0 60px',
-          gap: 48,
+          padding: '0 50px',
+          gap: 40,
         }}
       >
-        {/* Left: label + chat bubble + terminal */}
-        <div style={{flex: 1, display: 'flex', flexDirection: 'column', gap: 20}}>
-          <SlideUp start={0}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                background: theme.blueDim,
-                border: `1px solid ${theme.blueBorder}`,
-                borderRadius: 6,
-                padding: '5px 12px',
-                marginBottom: 4,
-              }}
-            >
-              <div
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: theme.blue,
-                }}
-              />
-              <span
-                style={{
-                  color: theme.blue,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                  fontFamily: theme.mono,
-                }}
-              >
-                For Claude
-              </span>
-            </div>
-          </SlideUp>
-
-          <SlideUp start={5}>
-            <h2
-              style={{
-                color: theme.text,
-                fontSize: 36,
-                fontWeight: 700,
-                margin: 0,
-                lineHeight: 1.2,
-                letterSpacing: -1,
-              }}
-            >
-              Instant recall
-              <br />
-              across every session
-            </h2>
-          </SlideUp>
-
-          {/* Claude chat bubble */}
-          <SlideUp start={15}>
-            <div
-              style={{
-                background: theme.bg3,
-                border: `1px solid ${theme.border}`,
-                borderRadius: '12px 12px 12px 4px',
-                padding: '12px 16px',
-                maxWidth: 340,
-              }}
-            >
-              <p
-                style={{
-                  color: theme.text,
-                  fontSize: 14,
-                  margin: 0,
-                  lineHeight: 1.5,
-                  fontStyle: 'italic',
-                }}
-              >
-                "How did we handle the race condition in the indexer?"
-              </p>
-            </div>
-          </SlideUp>
-
-          {/* Terminal */}
-          <SlideUp start={30}>
-            <TerminalWindow
-              width={440}
-              lines={[
-                {
-                  text: '$ qrec search "race condition indexer" --k 5',
-                  color: theme.text,
-                  startFrame: 35,
-                  typewriter: true,
-                  typeFrames: 50,
-                },
-                {
-                  text: '↳ 3 sessions found  [52ms]',
-                  color: theme.blue,
-                  startFrame: 90,
-                },
-              ]}
-            />
-          </SlideUp>
-        </div>
-
-        {/* Right: search results */}
+        {/* Left: Web UI Search (browser chrome frame) */}
         <div
           style={{
             flex: 1,
-            opacity: resultsOpacity,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
+            background: 'rgba(255,255,255,0.04)',
+            border: `1px solid ${theme.border}`,
+            borderRadius: 12,
+            padding: 20,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
           }}
         >
+          {/* App label */}
           <div
             style={{
               color: theme.textMuted,
-              fontSize: 13,
+              fontSize: 12,
               fontFamily: theme.mono,
               letterSpacing: 1,
               textTransform: 'uppercase',
               marginBottom: 12,
+              opacity: interpolate(frame, [5, 18], [0, 1], {
+                extrapolateLeft: 'clamp',
+                extrapolateRight: 'clamp',
+              }),
             }}
           >
-            Top results
+            qrec search
           </div>
 
-          <SlideUp start={100}>
+          {/* Search bar */}
+          <div
+            style={{
+              background: theme.bg2,
+              border: `1px solid ${theme.blue}`,
+              borderRadius: 8,
+              padding: '10px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              marginBottom: 16,
+              opacity: interpolate(frame, [0, 12], [0, 1], {
+                extrapolateLeft: 'clamp',
+                extrapolateRight: 'clamp',
+              }),
+            }}
+          >
+            <span style={{color: theme.textMuted, fontSize: 16}}>⌕</span>
+            <span style={{color: theme.text, fontSize: 15, fontFamily: theme.mono}}>
+              {query.slice(0, typedChars)}
+              {frame < 36 && (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 2,
+                    height: 13,
+                    background: theme.blue,
+                    marginLeft: 1,
+                    verticalAlign: 'middle',
+                  }}
+                />
+              )}
+            </span>
+            {frame >= 36 && (
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  color: theme.blue,
+                  fontSize: 13,
+                  fontFamily: theme.mono,
+                }}
+              >
+                3 results [52ms]
+              </span>
+            )}
+          </div>
+
+          <SlideUp start={45}>
             <SessionCard
               id="session-race"
               title="Fixed race condition in mtime pre-filter"
@@ -165,7 +118,7 @@ export const ClaudeRecall: React.FC = () => {
               showTags
             />
           </SlideUp>
-          <SlideUp start={118}>
+          <SlideUp start={63}>
             <SessionCard
               id="session-mtime"
               title="Indexer mtime filter + cron scan optimization"
@@ -179,18 +132,50 @@ export const ClaudeRecall: React.FC = () => {
               showTags
             />
           </SlideUp>
-          <SlideUp start={136}>
-            <SessionCard
-              id="session-archive"
-              title="Archive JSONL on index for durability"
-              project="qrec"
-              date="Mar 12"
-              tags={['indexer', 'archive']}
-              score={0.614}
-              showScore
-              showTags
-            />
-          </SlideUp>
+        </div>
+
+        {/* Right: Terminal (Claude querying qrec) */}
+        <div style={{flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center'}}>
+          <TerminalWindow
+            title="Claude Code"
+            lines={[
+              {
+                text: '$ qrec search "race condition indexer" --k 3',
+                color: '#e2e8f0',
+                startFrame: 10,
+                typewriter: true,
+                typeFrames: 25,
+              },
+              {
+                text: '',
+                color: '#e2e8f0',
+                startFrame: 37,
+              },
+              {
+                text: '↳ 3 sessions found  [52ms]',
+                color: '#60a5fa',
+                startFrame: 38,
+              },
+              {
+                text: 'Fixed race condition in mtime pre-filter   0.842',
+                color: '#94a3b8',
+                startFrame: 45,
+                indent: 1,
+              },
+              {
+                text: 'Indexer mtime filter + cron scan           0.761',
+                color: '#94a3b8',
+                startFrame: 63,
+                indent: 1,
+              },
+              {
+                text: 'Archive JSONL on index for durability      0.614',
+                color: '#94a3b8',
+                startFrame: 75,
+                indent: 1,
+              },
+            ]}
+          />
         </div>
       </AbsoluteFill>
     </SceneFade>

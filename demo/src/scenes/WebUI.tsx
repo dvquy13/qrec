@@ -40,41 +40,6 @@ const Panel: React.FC<{
         {/* Left label column */}
         <div style={{width: 240, flexShrink: 0}}>
           <SlideUp start={5}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                background: theme.blueDim,
-                border: `1px solid ${theme.blueBorder}`,
-                borderRadius: 6,
-                padding: '5px 12px',
-                marginBottom: 16,
-              }}
-            >
-              <div
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: theme.blue,
-                }}
-              />
-              <span
-                style={{
-                  color: theme.blue,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                  fontFamily: theme.mono,
-                }}
-              >
-                For You
-              </span>
-            </div>
-          </SlideUp>
-          <SlideUp start={10}>
             <h2
               style={{
                 color: theme.text,
@@ -88,7 +53,7 @@ const Panel: React.FC<{
               {heading}
             </h2>
           </SlideUp>
-          <SlideUp start={20}>
+          <SlideUp start={15}>
             <p
               style={{
                 color: theme.textMuted,
