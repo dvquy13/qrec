@@ -7,6 +7,9 @@ import { EnrichBlock, EnrichBlockProps } from './src/components/EnrichBlock';
 import { HeatmapProjectFilter, HeatmapProjectFilterProps } from './src/components/HeatmapProjectFilter';
 import { ActivityFeed, ActivityFeedProps } from './src/components/ActivityFeed';
 import { DashboardSection, DashboardSectionProps } from './src/sections/DashboardSection';
+import { RecentSessionsSection, RecentSessionsSectionProps } from './src/sections/RecentSessionsSection';
+import { SessionsSection, SessionsSectionProps } from './src/sections/SessionsSection';
+import { SessionDetailSection, SessionDetailSectionProps } from './src/sections/SessionDetailSection';
 
 interface ElementWithRoot extends HTMLElement {
   __qrec_root__?: ReturnType<typeof ReactDOM.createRoot>;
@@ -27,6 +30,9 @@ declare global {
       renderHeatmapProjectFilter: (el: HTMLElement, props: HeatmapProjectFilterProps) => void;
       renderActivityFeed: (el: HTMLElement, props: ActivityFeedProps) => void;
       renderDashboard: (el: HTMLElement, props: DashboardSectionProps) => void;
+      renderRecentSessions: (el: HTMLElement, props: RecentSessionsSectionProps) => void;
+      renderSessions: (el: HTMLElement, props: SessionsSectionProps) => void;
+      renderSessionDetail: (el: HTMLElement, props: SessionDetailSectionProps) => void;
       unmount: (el: HTMLElement) => void;
     };
   }
@@ -39,6 +45,9 @@ window.QrecUI = {
   renderHeatmapProjectFilter: (el, props) => mount(HeatmapProjectFilter, el as ElementWithRoot, props),
   renderActivityFeed: (el, props) => mount(ActivityFeed, el as ElementWithRoot, props),
   renderDashboard: (el, props) => mount(DashboardSection, el as ElementWithRoot, props),
+  renderRecentSessions: (el, props) => mount(RecentSessionsSection, el as ElementWithRoot, props),
+  renderSessions: (el, props) => mount(SessionsSection, el as ElementWithRoot, props),
+  renderSessionDetail: (el, props) => mount(SessionDetailSection, el as ElementWithRoot, props),
   unmount: (el) => {
     const e = el as ElementWithRoot;
     e.__qrec_root__?.unmount();

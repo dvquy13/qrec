@@ -71,10 +71,10 @@ ui/
 ui-react/         # Shared React TSX component library (built → ui/components.js)
   src/
     components/   # SessionCard, HeatmapGrid, EnrichBlock, TagBadge, StatCard, HeatmapProjectFilter, ActivityFeed
-    sections/     # Page subsections (compose components + own CSS): DashboardSection (stats grid + heatmap)
+    sections/     # Page subsections (compose components + own CSS): DashboardSection (stats grid + heatmap), RecentSessionsSection, SessionsSection (results grid + infinite scroll), SessionDetailSection (turns + markdown + thinking/tools)
     utils/        # formatRelative.ts, heatmap.ts (heatmapIntensity, projectColor, etc.)
     styles/       # variables.css — CSS custom properties (loaded globally by demo/Root.tsx)
-  web-entry.ts    # IIFE entry: exports window.QrecUI { renderSessionCard, renderHeatmapGrid, renderEnrichBlock, renderDashboard, unmount }
+  web-entry.ts    # IIFE entry: exports window.QrecUI { renderSessionCard, renderHeatmapGrid, renderEnrichBlock, renderDashboard, renderRecentSessions, renderSessions, renderSessionDetail, unmount }
   build.ts        # Bun IIFE build → renames web-entry.js → components.js; deletes extracted CSS (vars in ui/styles.css)
 demo/                 # Remotion animation demo; imports components directly from ui-react/src/ (not the built bundle)
 scripts/

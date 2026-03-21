@@ -31,10 +31,7 @@
     <div id="dashboard-panel"></div>
 
     <div class="dashboard-recent">
-      <div class="dashboard-recent-header">
-        <span class="section-heading" style="cursor:pointer;" onclick="showTab('search')">Recent Sessions</span>
-      </div>
-      <div id="dashboard-recent-list"></div>
+      <div id="recent-sessions-panel"></div>
     </div>
 
     <div class="activity-section" id="db-activity-feed">
@@ -116,9 +113,7 @@
       </div>
     </div>
   </div>
-  <div id="search-content">
-    <div class="loading-state"><span class="spinner"></span></div>
-  </div>
+  <div id="sessions-panel"></div>
 </main>
 </div>
 
@@ -128,11 +123,7 @@
   <div id="detail-loading" class="loading-state"><span class="spinner"></span></div>
   <div id="detail-error" class="error-state" style="display:none;"></div>
   <div id="detail-content" style="display:none;">
-    <div class="detail-header">
-      <div class="detail-title" id="detail-title"></div>
-    </div>
-    <div class="detail-meta" id="detail-meta"></div>
-    <div class="turns" id="detail-turns"></div>
+    <div id="session-detail-panel"></div>
   </div>
 </main>
 </div>
