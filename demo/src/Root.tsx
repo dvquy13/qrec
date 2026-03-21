@@ -5,6 +5,7 @@ import {staticFile} from 'remotion';
 import '../../ui-react/src/styles/variables.css';
 import {QrecDemo} from './QrecDemo';
 import {Opening} from './scenes/Opening';
+import {Onboard} from './scenes/Onboard';
 
 const OpeningLogo: React.FC = () => <Opening showLogo />;
 
@@ -38,7 +39,15 @@ export const Root: React.FC = () => {
       <Composition
         id="QrecDemo"
         component={QrecDemo}
-        durationInFrames={1920}
+        durationInFrames={2310}
+        fps={30}
+        width={1280}
+        height={720}
+      />
+      <Composition
+        id="Onboard"
+        component={Onboard}
+        durationInFrames={420}
         fps={30}
         width={1280}
         height={720}
