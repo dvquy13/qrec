@@ -83,3 +83,7 @@ paths:
 - **`json_each(NULL)` returns 0 rows** — unenriched sessions have `tags=NULL`; they never match a tag filter. This is correct behavior: tag filter only applies to enriched sessions. Do not add a fallback.
 - **`POST /query_db` security guard** — string-based: `toUpperCase().startsWith("SELECT")` + no semicolons. Intentional — endpoint is localhost-only (debug UI), a full SQL parser would be overkill. Returns `{ rows, count }`.
 - **JSONL thinking blocks** — `type: "thinking"` blocks carry the content in a `thinking` field (not `text`); extracted into `Turn.thinking: string[]` by `parser.ts`. Note: connector phrases before tool calls ("Now let me read…") are `type: "text"` in `type: "assistant"` entries — no field distinguishes them from final response text.
+
+## Build & Release
+
+- **`plugin/scripts/qrec.cjs` must be committed whenever `ui/index.html` changes** — `index.html` is inlined at build time via `__UI_HTML__` in `scripts/build.js`. If the bundle isn't rebuilt and committed alongside HTML changes, npm-installed users get stale HTML (e.g. missing React mount points). Dev-mode users (`bun link`) are unaffected since they run `src/cli.ts` directly. Always run `node scripts/build.js` and commit `qrec.cjs` before `bash scripts/release.sh`.
