@@ -487,6 +487,36 @@ export const SEARCH_RESULTS: Record<string, SearchResult[]> = {
     },
   ],
 
+  'archive JSONL': [
+    {
+      id: 'c0ffee04',
+      title: 'Archive JSONL on index for session durability',
+      project: 'qrec',
+      date: 'Mar 13',
+      summary: 'Claude Code deletes old JSONL files after ~30 days. Added archiveJsonl() in indexer.ts to copy each ingested file to ~/.qrec/archive/<project>/ before indexing.',
+      tags: ['indexer', 'durability', 'archive'],
+      score: 0.943,
+    },
+    {
+      id: 'c0ffee01',
+      title: 'Fixed mtime pre-filter bug in indexer',
+      project: 'qrec',
+      date: 'Mar 10',
+      summary: 'Mtime pre-filter skips unchanged JSONL files; reduces embedding work on cron scans from O(n) to stat-only.',
+      tags: ['indexer', 'performance'],
+      score: 0.812,
+    },
+    {
+      id: 'c0ffee03',
+      title: 'Embedder singleton + dispose lifecycle',
+      project: 'qrec',
+      date: 'Mar 12',
+      summary: 'Lazy singleton model load; disposeEmbedder() required before exit to avoid Bun hang.',
+      tags: ['embeddings', 'lifecycle'],
+      score: 0.741,
+    },
+  ],
+
   'embedding performance': [
     {
       id: 'c0ffee03',

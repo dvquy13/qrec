@@ -16,8 +16,10 @@ export const TerminalWindow: React.FC<{
   lines: TerminalLine[];
   title?: string;
   width?: number;
-}> = ({lines, title = 'zsh', width = 560}) => {
+  variant?: 'light' | 'dark';
+}> = ({lines, title = 'zsh', width = 560, variant = 'dark'}) => {
   const frame = useCurrentFrame();
+  const isLight = variant === 'light';
 
   return (
     <div
@@ -34,25 +36,29 @@ export const TerminalWindow: React.FC<{
       {/* Title bar */}
       <div
         style={{
-          background: '#2a2a3e',
+          background: isLight ? '#ffffff' : '#2a2a3e',
           padding: '10px 16px',
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          borderBottom: isLight ? `1px solid ${theme.border}` : '1px solid rgba(255,255,255,0.08)',
         }}
       >
         <div style={{display: 'flex', gap: 6}}>
-          {['#ff5f57', '#febc2e', '#28c840'].map((c) => (
-            <div
-              key={c}
-              style={{width: 12, height: 12, borderRadius: '50%', background: c}}
-            />
-          ))}
+          {isLight
+            ? [1, 0.55, 0.28].map((alpha, i) => (
+                <div key={i} style={{width: 12, height: 12, borderRadius: '50%', background: `rgba(0,98,168,${alpha})`}} />
+              ))
+            : ['#ff5f57', '#febc2e', '#28c840'].map((c) => (
+                <div
+                  key={c}
+                  style={{width: 12, height: 12, borderRadius: '50%', background: c}}
+                />
+              ))}
         </div>
         <span
           style={{
-            color: 'rgba(255,255,255,0.4)',
+            color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)',
             fontSize: 12,
             marginLeft: 'auto',
             marginRight: 'auto',

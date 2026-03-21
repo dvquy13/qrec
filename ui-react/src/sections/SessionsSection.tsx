@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import './SessionsSection.css';
 import { SessionCard, SessionCardProps } from '../components/SessionCard';
+import { SearchBar } from '../components/SearchBar';
 
 export interface SessionsSectionProps {
   // Search bar (for Remotion — web app keeps its own search bar in index.html)
@@ -78,18 +79,11 @@ export const SessionsSection: React.FC<SessionsSectionProps> = ({
     <>
       {/* Optional search bar — shown in Remotion scenes, hidden in web app (handled by index.html) */}
       {onSearch && (
-        <div className="search-bar" style={{ marginBottom: 16 }}>
-          <input
-            type="text"
-            value={query ?? ''}
-            placeholder="Search sessions…"
-            readOnly
-          />
-          <button onClick={onSearch}>Search</button>
-          {onClearSearch && query && (
-            <button onClick={onClearSearch}>✕</button>
-          )}
-        </div>
+        <SearchBar
+          query={query}
+          onSearch={onSearch}
+          onClearSearch={onClearSearch}
+        />
       )}
 
       {/* Latency bar — for Remotion scenes */}
