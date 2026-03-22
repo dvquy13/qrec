@@ -249,7 +249,7 @@ export const EnrichDetail: React.FC = () => {
   const cursorY = interpolate(cursorMoveSp, [0, 1], [153, 545]);
   const clickProgress = interpolate(frame, [35, 43], [0, 1], CLAMP);
   const cursorScale = interpolate(clickProgress, [0, 0.35, 1], [1, 0.82, 1]);
-  const cursorOpacity = interpolate(frame, [0, 8, 75, 90], [0, 1, 1, 0], CLAMP);
+  const cursorOpacity = interpolate(frame, [0, 75, 90], [1, 1, 0], CLAMP);
 
   // ── Sessions phase ──────────────────────────────────────────────────────────
   const sessionsOpacity = interpolate(frame, [43, 63], [1, 0], CLAMP);
