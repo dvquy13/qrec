@@ -38,3 +38,15 @@ Use remotion-best-practices skill for creating videos with Remotion.
 **Never apply two independent animations to the same CSS property simultaneously.** If an entrance spring controls Y offset, don't also shift `top` via a tracking factor during the same window — the two Y forces compound into a circular/looping path. Either gate the second animation to start after the spring settles, or collapse both into a single computed value (see live arm position pattern above).
 
 **`SessionsSection` `isLoading` replaces the entire component.** The `isLoading` early-return fires before the search bar renders — using it to suppress the empty state also hides the search bar. To suppress empty states in Remotion scenes without losing the search bar: set `isEmpty={false}` and inject `<style>{'.empty-state { display: none !important; }'}</style>` into the scene. Both `isEmpty` and `sessions.length === 0` trigger `.empty-state`; the injected style suppresses both.
+
+**Shared demo components — do not redefine inline.** The following are exported from shared locations; import them rather than writing new local versions:
+- `TrafficDots` (`demo/src/components/TrafficDots.tsx`) — blue-monochrome traffic lights, accepts `dark?: boolean` for white variant.
+- `MouseCursor` (`demo/src/components/MouseCursor.tsx`) — white SVG cursor, accepts `x, y, scale, opacity`.
+- `TerminalWindow` (`demo/src/components/TerminalWindow.tsx`) — dark/light variant terminal with typewriter support.
+- `BrowserFrame` (`demo/src/components/BrowserFrame.tsx`) — dark-themed browser chrome (macOS traffic lights). Note: production FullDemo scenes use a white-themed browser chrome inlined in each scene (not this component); `BrowserFrame` is for prototype/standalone scenes.
+- Session c0ffee04 data (`demo/src/data/sessionC0ffee04.ts`) — `SESSION_ID`, `RAW_TITLE`, `SESSION_TITLE`, `SESSION_PROJECT`, `SESSION_DATE`, `SESSION_SUMMARY`, `SESSION_TAGS`, `SESSION_LEARNINGS`, `SESSION_QUESTIONS`, `MOCK_TURNS`, `ENRICH_ANIMATED_CSS`.
+- QREC filtered heatmap (`demo/src/data/index.ts`) — `QREC_FILTERED_DAYS`, `QREC_SESSION_COUNT`, `QREC_ACTIVE_DAYS`.
+
+**`useMemo` on searchResults is wrong if animated values are captured in the closure.** Wrapping `results.map(...)` in `useMemo([revealedCount])` silently freezes any per-frame animated value (e.g. `underlineDash`) that the map closure captures — the memoized value never updates even though the animation is running. Before memoizing a computation that builds React nodes, trace *all* variables captured in the closure; if any depend on `frame`, either exclude them from the memo or restructure to separate the frame-driven part.
+
+**Verify Remotion changes by running `npx remotion studio` in `demo/`.** Open `localhost:3000`, step through each affected composition at key frames, and confirm animations render correctly. TypeScript clean + studio visual check is sufficient; no automated tests exist for scene output.

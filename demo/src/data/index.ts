@@ -560,3 +560,18 @@ export const SEARCH_RESULTS: Record<string, SearchResult[]> = {
     },
   ],
 };
+
+// ---------------------------------------------------------------------------
+// QREC project heatmap — last 30 days animated, older days zeroed out
+// (Claude Code only retains ~30 days of JSONL files; older weeks show empty)
+// Shared by ProjectFilter and EnrichDetail scenes.
+// ---------------------------------------------------------------------------
+
+const _QREC_15W = HEATMAP_BY_PROJECT['qrec'].slice(-105);
+const _QREC_30_OFFSET = _QREC_15W.length - 30;
+
+export const QREC_FILTERED_DAYS: DayEntry[] = _QREC_15W.map((d, i) =>
+  i >= _QREC_30_OFFSET ? d : {...d, count: 0},
+);
+export const QREC_SESSION_COUNT = QREC_FILTERED_DAYS.reduce((s, d) => s + d.count, 0);
+export const QREC_ACTIVE_DAYS = QREC_FILTERED_DAYS.filter((d) => d.count > 0).length;

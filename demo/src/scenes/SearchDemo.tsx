@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {measureText} from '@remotion/layout-utils';
 import {theme} from '../theme';
@@ -13,15 +13,27 @@ import {
   SessionDetailHeader,
   SessionDetailMeta,
   SessionTurns,
-  type Turn,
 } from '../../../ui-react/src/sections/SessionDetailSection';
 import {SessionsSection} from '../../../ui-react/src/sections/SessionsSection';
 import {NavBar} from '../../../ui-react/src/components/NavBar/NavBar';
 import {MouseCursor} from '../components/MouseCursor';
+import {TrafficDots} from '../components/TrafficDots';
 import {TerminalWindow} from '../components/TerminalWindow';
 import {QrecLogo} from '../components/QrecLogo';
 import {ClawdMascot} from '../components/ClawdMascot';
 import {SEARCH_RESULTS} from '../data/index';
+import {
+  SESSION_ID,
+  SESSION_TITLE,
+  SESSION_PROJECT,
+  SESSION_DATE,
+  SESSION_SUMMARY,
+  SESSION_TAGS,
+  SESSION_LEARNINGS,
+  SESSION_QUESTIONS,
+  MOCK_TURNS,
+  ENRICH_ANIMATED_CSS,
+} from '../data/sessionC0ffee04';
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
 //   0– 12f:  fade in — browser with session detail + NavBar (activeTab="dashboard")
@@ -41,54 +53,7 @@ import {SEARCH_RESULTS} from '../data/index';
 // 215–270f:  hold on completed dual view
 // 270–290f:  fade out
 
-// ── Session data (same session as EnrichDetail) ───────────────────────────────
-const SESSION_ID = 'c0ffee04';
-const SESSION_TITLE = 'Archive JSONL on index for session durability';
-const SESSION_PROJECT = 'qrec';
-const SESSION_DATE = '2026-03-13';
-const SESSION_SUMMARY =
-  'Added archiveJsonl() in indexer.ts to copy each JSONL to ~/.qrec/archive/ before indexing.';
-const SESSION_TAGS = ['indexer', 'durability', 'archive'];
-const SESSION_LEARNINGS = [
-  'JSONL files disappear silently — never assume source files are durable.',
-  'Self-copy guard is essential: if source is already inside ARCHIVE_DIR, skip to avoid ENOENT.',
-];
-const SESSION_QUESTIONS = [
-  'What happens when archiveJsonl() is called on a path already inside ARCHIVE_DIR?',
-];
-
-const ENRICH_ANIMATED_CSS = `
-  .enrich-animated .summary-block-label {
-    color: rgb(0, 98, 168) !important;
-    opacity: 1 !important;
-  }
-  .enrich-animated .summary-block p,
-  .enrich-animated .summary-block-list li {
-    color: rgb(0, 98, 168) !important;
-  }
-  .enrich-animated .enrich-tag {
-    background: rgba(0, 98, 168, 0.08) !important;
-    color: rgb(0, 98, 168) !important;
-    border-color: rgba(0, 98, 168, 0.25) !important;
-  }
-`;
-
-const MOCK_TURNS: Turn[] = [
-  {
-    role: 'user',
-    text: 'How can we ensure old sessions stay queryable after Claude Code deletes their source JSONL files?',
-    tools: [],
-    thinking: [],
-    timestamp: '2026-03-13T11:00:00Z',
-  },
-  {
-    role: 'assistant',
-    text: 'Added `archiveJsonl()` to `indexer.ts` — copies each JSONL to `~/.qrec/archive/<project>/` before indexing.',
-    tools: ['Read: src/indexer.ts', 'Edit: src/indexer.ts'],
-    thinking: [],
-    timestamp: '2026-03-13T11:05:00Z',
-  },
-];
+// ── Session data (same session as EnrichDetail — imported from data/sessionC0ffee04)
 
 // ── Search results ────────────────────────────────────────────────────────────
 const SEARCH_QUERY = 'archive JSONL';
@@ -149,18 +114,6 @@ const CURSOR_START_X = 961;
 const CURSOR_START_Y = 153;
 const CURSOR_END_X   = 1052; // measured via DevTools getBoundingClientRect at frame 35
 const CURSOR_END_Y   = 106;  // measured via DevTools getBoundingClientRect at frame 35
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-const TrafficDots: React.FC = () => (
-  <div style={{display: 'flex', gap: 6, alignItems: 'center', width: 56}}>
-    {[1, 0.55, 0.28].map((alpha, i) => (
-      <div key={i} style={{
-        width: 12, height: 12, borderRadius: '50%',
-        background: `rgba(0,98,168,${alpha})`,
-      }} />
-    ))}
-  </div>
-);
 
 // ── Main scene ────────────────────────────────────────────────────────────────
 export const SearchDemo: React.FC = () => {

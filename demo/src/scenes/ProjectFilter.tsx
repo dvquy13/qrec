@@ -6,11 +6,15 @@ import {DashboardSection} from '../../../ui-react/src/sections/DashboardSection'
 import {RecentActivitySection} from '../../../ui-react/src/sections/RecentActivitySection';
 import {RecentSessionsSection} from '../../../ui-react/src/sections/RecentSessionsSection';
 import {RunGroup} from '../../../ui-react/src/components/ActivityFeed/ActivityFeed';
+import {MouseCursor} from '../components/MouseCursor';
+import {TrafficDots} from '../components/TrafficDots';
 import {
   HEATMAP_DAYS,
   HEATMAP_BYPROJECT_BREAKDOWN,
-  HEATMAP_BY_PROJECT,
   PROJECTS,
+  QREC_FILTERED_DAYS,
+  QREC_SESSION_COUNT,
+  QREC_ACTIVE_DAYS,
 } from '../data/index';
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
@@ -46,15 +50,6 @@ const ONBOARD_DAYS = HEATMAP_15W.map((d, i) =>
 );
 const ONBOARD_ACTIVE_DAYS = ONBOARD_DAYS.filter((d) => d.count > 0).length;
 
-// ── qrec-filtered heatmap (same 15-week window, only last 30 days) ────────────
-const QREC_15W = HEATMAP_BY_PROJECT['qrec'].slice(-105);
-const QREC_30_OFFSET = QREC_15W.length - 30;
-const QREC_FILTERED_DAYS = QREC_15W.map((d, i) =>
-  i >= QREC_30_OFFSET ? d : {...d, count: 0},
-);
-const QREC_SESSION_COUNT = QREC_FILTERED_DAYS.reduce((s, d) => s + d.count, 0);
-const QREC_ACTIVE_DAYS = QREC_FILTERED_DAYS.filter((d) => d.count > 0).length;
-
 // ── Completed activity groups (Onboard frame 197 state) ───────────────────────
 const NOW = Date.now();
 const COMPLETED_GROUPS: RunGroup[] = [
@@ -64,56 +59,10 @@ const COMPLETED_GROUPS: RunGroup[] = [
   {type: 'model_download', running: false, ts: NOW, events: []},
 ];
 
-// ── Traffic dots (same as Onboard) ──────────────────────────────────────────
-const TrafficDots: React.FC<{dark?: boolean}> = ({dark}) => (
-  <div style={{display: 'flex', gap: 6, alignItems: 'center', width: 56}}>
-    {[1, 0.55, 0.28].map((alpha, i) => (
-      <div
-        key={i}
-        style={{
-          width: 12,
-          height: 12,
-          borderRadius: '50%',
-          background: dark
-            ? `rgba(255,255,255,${alpha})`
-            : `rgba(0,98,168,${alpha})`,
-        }}
-      />
-    ))}
-  </div>
-);
-
-// ── Mouse cursor SVG ──────────────────────────────────────────────────────────
-const MouseCursor: React.FC<{x: number; y: number; scale: number}> = ({x, y, scale}) => (
-  <div
-    style={{
-      position: 'absolute',
-      left: x,
-      top: y,
-      pointerEvents: 'none',
-      transform: `scale(${scale})`,
-      transformOrigin: '0 0',
-      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.35))',
-    }}
-  >
-    <svg width="22" height="28" viewBox="0 0 22 28" fill="none">
-      <path
-        d="M2 2L20 13L12 14.5L8 26L2 2Z"
-        fill="white"
-        stroke="#1a1a1a"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  </div>
-);
 
 export const ProjectFilter: React.FC = () => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
-
-  // ── Scene opacity ─────────────────────────────────────────────────────────
-  const sceneOpacity = interpolate(frame, [0, 168], [1, 1], CLAMP);
 
   // ── Activity → Sessions transition ────────────────────────────────────────
   const transitionSp = spring({frame: frame - 12, fps, config: SPRING_BOUNCY});
@@ -188,7 +137,6 @@ export const ProjectFilter: React.FC = () => {
         background: theme.blue,
         fontFamily: theme.sans,
         overflow: 'hidden',
-        opacity: sceneOpacity,
       }}
     >
       {/* ── Browser ── */}
@@ -332,9 +280,7 @@ export const ProjectFilter: React.FC = () => {
 
       {/* ── Mouse cursor ── */}
       {cursorVisible && (
-        <div style={{opacity: cursorOpacity}}>
-          <MouseCursor x={cursorX} y={cursorY} scale={cursorScale} />
-        </div>
+        <MouseCursor x={cursorX} y={cursorY} scale={cursorScale} opacity={cursorOpacity} />
       )}
     </AbsoluteFill>
   );

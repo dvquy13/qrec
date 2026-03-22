@@ -14,14 +14,29 @@ import {
   SessionDetailHeader,
   SessionDetailMeta,
   SessionTurns,
-  type Turn,
 } from '../../../ui-react/src/sections/SessionDetailSection';
 import {
   HEATMAP_BYPROJECT_BREAKDOWN,
-  HEATMAP_BY_PROJECT,
   PROJECTS,
+  QREC_FILTERED_DAYS,
+  QREC_SESSION_COUNT,
+  QREC_ACTIVE_DAYS,
 } from '../data/index';
 import {MouseCursor} from '../components/MouseCursor';
+import {TrafficDots} from '../components/TrafficDots';
+import {
+  SESSION_ID,
+  RAW_TITLE,
+  SESSION_TITLE,
+  SESSION_PROJECT,
+  SESSION_DATE,
+  SESSION_SUMMARY,
+  SESSION_TAGS,
+  SESSION_LEARNINGS,
+  SESSION_QUESTIONS,
+  MOCK_TURNS,
+  ENRICH_ANIMATED_CSS,
+} from '../data/sessionC0ffee04';
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
 //   0–  8f:  fade in
@@ -47,42 +62,10 @@ import {MouseCursor} from '../components/MouseCursor';
 // 525–545f:  scene fade out
 
 // ── Session data ──────────────────────────────────────────────────────────────
-const SESSION_ID = 'c0ffee04';
-// RAW_TITLE: truncated first user message — what qrec shows before enrichment
-const RAW_TITLE = 'How can we ensure old sessions stay\u2026';
-const SESSION_TITLE = 'Archive JSONL on index for session durability';
-const SESSION_PROJECT = 'qrec';
-const SESSION_DATE = '2026-03-13';
-const SESSION_SUMMARY =
-  'Added archiveJsonl() in indexer.ts to copy each JSONL to ~/.qrec/archive/ before indexing.';
-const SESSION_TAGS = ['indexer', 'durability', 'archive'];
-const SESSION_LEARNINGS = [
-  'JSONL files disappear silently — never assume source files are durable.',
-  'Self-copy guard is essential: if source is already inside ARCHIVE_DIR, skip to avoid ENOENT.',
-];
-const SESSION_QUESTIONS = [
-  'What happens when archiveJsonl() is called on a path already inside ARCHIVE_DIR?',
-];
+// (imported from ../data/sessionC0ffee04)
 const SUMMARY_LEN = SESSION_SUMMARY.length;
 const RAW_TITLE_LEN = RAW_TITLE.length;
 const SESSION_TITLE_LEN = SESSION_TITLE.length;
-
-const MOCK_TURNS: Turn[] = [
-  {
-    role: 'user',
-    text: 'How can we ensure old sessions stay queryable after Claude Code deletes their source JSONL files?',
-    tools: [],
-    thinking: [],
-    timestamp: '2026-03-13T11:00:00Z',
-  },
-  {
-    role: 'assistant',
-    text: 'Added `archiveJsonl()` to `indexer.ts` — copies each JSONL to `~/.qrec/archive/<project>/` before indexing. Self-copy guard: skips if source is already inside `ARCHIVE_DIR` to prevent ENOENT.',
-    tools: ['Read: src/indexer.ts', 'Edit: src/indexer.ts'],
-    thinking: [],
-    timestamp: '2026-03-13T11:05:00Z',
-  },
-];
 
 // ── Layout constants (detail-div coords) ─────────────────────────────────────
 // TEXT_BLOCK_LEFT: centering offset inside the detail div
@@ -133,13 +116,7 @@ const FADE_START = 458;
 const FADE_END = 478;
 
 // ── Heatmap data ──────────────────────────────────────────────────────────────
-const QREC_15W = HEATMAP_BY_PROJECT['qrec'].slice(-105);
-const QREC_30_OFFSET = QREC_15W.length - 30;
-const QREC_FILTERED_DAYS = QREC_15W.map((d, i) =>
-  i >= QREC_30_OFFSET ? d : {...d, count: 0},
-);
-const QREC_SESSION_COUNT = QREC_FILTERED_DAYS.reduce((s, d) => s + d.count, 0);
-const QREC_ACTIVE_DAYS = QREC_FILTERED_DAYS.filter((d) => d.count > 0).length;
+// (QREC_FILTERED_DAYS, QREC_SESSION_COUNT, QREC_ACTIVE_DAYS imported from data/index)
 const SESSIONS_TOTAL = 50;
 const SUMMARIES_TOTAL = 50;
 
@@ -161,23 +138,6 @@ const SESSION_HOVER_CSS = `
 // Figma cursor entry position (detail-div coords — right side, mid-height)
 const POS_ENTER = {x: 1370, y: 250} as const;
 
-// ── CSS injected into .enrich-animated ───────────────────────────────────────
-const ENRICH_ANIMATED_CSS = `
-  .enrich-animated .summary-block-label {
-    color: rgb(0, 98, 168) !important;
-    opacity: 1 !important;
-  }
-  .enrich-animated .summary-block p,
-  .enrich-animated .summary-block-list li {
-    color: rgb(0, 98, 168) !important;
-  }
-  .enrich-animated .enrich-tag {
-    background: rgba(0, 98, 168, 0.08) !important;
-    color: rgb(0, 98, 168) !important;
-    border-color: rgba(0, 98, 168, 0.25) !important;
-  }
-`;
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function measureTitleText(text: string): number {
   return measureText({
@@ -191,17 +151,6 @@ function measureTitleText(text: string): number {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-const TrafficDots: React.FC = () => (
-  <div style={{display: 'flex', gap: 6, alignItems: 'center', width: 56}}>
-    {[1, 0.55, 0.28].map((alpha, i) => (
-      <div key={i} style={{
-        width: 12, height: 12, borderRadius: '50%',
-        background: `rgba(0,98,168,${alpha})`,
-      }} />
-    ))}
-  </div>
-);
-
 // Figma-style AI cursor. labelOpacity controls the "Qwen3-1.7B" pill separately
 // from the arrow so we can show the arrow first (blink), then reveal the label.
 const FigmaCursor: React.FC<{
@@ -235,11 +184,17 @@ export const EnrichDetail: React.FC = () => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
 
-  // Pre-measure the raw title end position (for cursor entry target)
-  const rawTitleEndX = useMemo(() => TEXT_BLOCK_LEFT + measureTitleText(RAW_TITLE), []);
-
-  // ── Scene opacity ────────────────────────────────────────────────────────────
-  const sceneOpacity = 1;
+  // Pre-compute per-character widths for both titles so cursor tracking is O(1) per frame.
+  // RAW_TITLE_LEN+1 entries cover indices 0..RAW_TITLE_LEN; SESSION_TITLE_LEN+1 for the new title.
+  const rawTitleWidths = useMemo(
+    () => Array.from({length: RAW_TITLE_LEN + 1}, (_, i) => measureTitleText(RAW_TITLE.substring(0, i))),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const newTitleWidths = useMemo(
+    () => Array.from({length: SESSION_TITLE_LEN + 1}, (_, i) => measureTitleText(SESSION_TITLE.substring(0, i))),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const rawTitleEndX = TEXT_BLOCK_LEFT + rawTitleWidths[RAW_TITLE_LEN];
 
   // ── Browser cursor ──────────────────────────────────────────────────────────
   const cursorMoveSp = spring({frame: frame - 8, fps,
@@ -256,15 +211,13 @@ export const EnrichDetail: React.FC = () => {
 
   // ── Detail phase ────────────────────────────────────────────────────────────
   const detailOpacity = frame < 43 ? 0 : 1;
-  const detailScale = 1;
-
   // ── Title zoom in/out ────────────────────────────────────────────────────────
   const titleZoomInSp  = Math.min(1, spring({frame: frame - TITLE_ZOOM_IN_FRAME, fps,
     config: {damping: 26, stiffness: 80, overshootClamping: true}}));
   const titleZoomOutSp = Math.min(1, spring({frame: frame - TITLE_ZOOM_OUT_START, fps,
     config: {damping: 26, stiffness: 80, overshootClamping: true}}));
   const titleZoomLevel = Math.max(0, titleZoomInSp - titleZoomOutSp);
-  const zoomScale = detailScale * (1 + (TITLE_ZOOM_SCALE - 1) * titleZoomLevel);
+  const zoomScale = 1 + (TITLE_ZOOM_SCALE - 1) * titleZoomLevel;
   const totalTx = TITLE_TX * titleZoomLevel;
   const totalTy = TITLE_TY * titleZoomLevel;
 
@@ -406,7 +359,7 @@ export const EnrichDetail: React.FC = () => {
     figmaY = figmaEntryY;
   } else if (frame <= TITLE_DEL_END) {
     // Delete phase: cursor retreats left with remaining text
-    figmaX = TEXT_BLOCK_LEFT + measureTitleText(RAW_TITLE.substring(0, rawDelChars));
+    figmaX = TEXT_BLOCK_LEFT + rawTitleWidths[rawDelChars];
     figmaY = TITLE_BOTTOM_Y;
   } else if (frame < TITLE_TYPE_START) {
     // Gap: cursor at left edge of title
@@ -414,11 +367,11 @@ export const EnrichDetail: React.FC = () => {
     figmaY = TITLE_BOTTOM_Y;
   } else if (frame <= TITLE_TYPE_END) {
     // Type phase: cursor advances right
-    figmaX = TEXT_BLOCK_LEFT + measureTitleText(SESSION_TITLE.substring(0, titleTypeChars));
+    figmaX = TEXT_BLOCK_LEFT + newTitleWidths[titleTypeChars];
     figmaY = TITLE_BOTTOM_Y;
   } else {
     // Hold: cursor at end of new enriched title
-    figmaX = TEXT_BLOCK_LEFT + measureTitleText(SESSION_TITLE);
+    figmaX = TEXT_BLOCK_LEFT + newTitleWidths[SESSION_TITLE_LEN];
     figmaY = TITLE_BOTTOM_Y;
   }
 
@@ -431,14 +384,13 @@ export const EnrichDetail: React.FC = () => {
   );
 
   // Label appears with the cursor (no separate delay — cursor enters with label)
-  const figmaLabelOpacity = figmaOpacity;
 
   const cssAnimVars = remotionCSSAnimVars(frame, fps);
 
   return (
     <AbsoluteFill style={{
       background: theme.blue, fontFamily: theme.sans,
-      overflow: 'hidden', opacity: sceneOpacity,
+      overflow: 'hidden',
     }}>
       {/* ── Browser shell ── */}
       <div style={{
@@ -593,7 +545,7 @@ export const EnrichDetail: React.FC = () => {
                 x={figmaX}
                 y={figmaY}
                 opacity={figmaOpacity}
-                labelOpacity={figmaLabelOpacity}
+                labelOpacity={figmaOpacity}
               />
 
             </div>

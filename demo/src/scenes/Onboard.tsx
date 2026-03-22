@@ -1,7 +1,8 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {theme} from '../theme';
 import {CLAMP, SPRING_BOUNCY, SPRING_SNAPPY, getTyped, cursorBlink, remotionCSSAnimVars, REMOTION_ANIM_OVERRIDES} from '../animUtils';
+import {TrafficDots} from '../components/TrafficDots';
 import {DashboardSection} from '../../../ui-react/src/sections/DashboardSection';
 import {RunGroup} from '../../../ui-react/src/components/ActivityFeed/ActivityFeed';
 import {RecentActivitySection} from '../../../ui-react/src/sections/RecentActivitySection';
@@ -30,23 +31,6 @@ const SUMMARIES_TOTAL = 50;
 // 149–189f:  summaries count 0→50 + enriching in activity feed
 // 192–198f:  (no fade out — hard cut to ProjectFilter)
 
-const TrafficDots: React.FC<{dark?: boolean}> = ({dark}) => (
-  <div style={{display: 'flex', gap: 6, alignItems: 'center', width: 56}}>
-    {[1, 0.55, 0.28].map((alpha, i) => (
-      <div
-        key={i}
-        style={{
-          width: 12,
-          height: 12,
-          borderRadius: '50%',
-          background: dark
-            ? `rgba(255,255,255,${alpha})`
-            : `rgba(0,98,168,${alpha})`,
-        }}
-      />
-    ))}
-  </div>
-);
 
 export const Onboard: React.FC = () => {
   const frame = useCurrentFrame();
@@ -89,22 +73,24 @@ export const Onboard: React.FC = () => {
   // Full 15-week grid matches the real qrec UI; only the last 30 days animate
   // (Claude only retains the last 30 days of sessions).
   const HEATMAP_15W = HEATMAP_DAYS.slice(-105);
-  const LAST30_OFFSET = HEATMAP_15W.length - 30; // index into HEATMAP_15W where the 30d window starts
+  const LAST30_OFFSET = HEATMAP_15W.length - 30;
   const heatmap30 = HEATMAP_15W.slice(LAST30_OFFSET);
   // Distribute exactly sessionsCount sessions across the last 30 days (largest-remainder rounding).
-  const weightTotal = heatmap30.reduce((s, d) => s + d.count, 0);
-  const exact = heatmap30.map((d) => (d.count / weightTotal) * sessionsCount);
-  const floors = exact.map(Math.floor);
-  const remaining = sessionsCount - floors.reduce((s, v) => s + v, 0);
-  exact
-    .map((v, i) => ({i, frac: v % 1}))
-    .sort((a, b) => b.frac - a.frac)
-    .slice(0, remaining)
-    .forEach(({i}) => floors[i]++);
-  // Older days are empty (outside Claude's 30d retention); last 30 days animate
-  const animatedDays = HEATMAP_15W.map((d, i) =>
-    i >= LAST30_OFFSET ? {...d, count: floors[i - LAST30_OFFSET]} : {...d, count: 0},
-  );
+  // useMemo avoids recreating 105+ day objects on every frame — only recomputes when count changes.
+  const animatedDays = useMemo(() => {
+    const weightTotal = heatmap30.reduce((s, d) => s + d.count, 0);
+    const exact = heatmap30.map((d) => (d.count / weightTotal) * sessionsCount);
+    const floors = exact.map(Math.floor);
+    const remaining = sessionsCount - floors.reduce((s, v) => s + v, 0);
+    exact
+      .map((v, i) => ({i, frac: v % 1}))
+      .sort((a, b) => b.frac - a.frac)
+      .slice(0, remaining)
+      .forEach(({i}) => floors[i]++);
+    return HEATMAP_15W.map((d, i) =>
+      i >= LAST30_OFFSET ? {...d, count: floors[i - LAST30_OFFSET]} : {...d, count: 0},
+    );
+  }, [sessionsCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeDays = animatedDays.filter((d) => d.count > 0).length;
   const footerText = `${sessionsCount} sessions · ${activeDays} active days`;
