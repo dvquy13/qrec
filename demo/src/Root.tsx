@@ -10,8 +10,6 @@ import {EnrichDetail} from './scenes/EnrichDetail';
 import {SearchDemo} from './scenes/SearchDemo';
 import {Closing} from './scenes/Closing';
 
-const OpeningLogo: React.FC = () => <Opening showLogo />;
-
 loadFont({
   family: 'Google Sans Flex',
   url: staticFile('fonts/GoogleSansFlex-latin-ext.woff2'),
@@ -41,8 +39,8 @@ export const Root: React.FC = () => {
       <style>{globalStyles}</style>
       <Composition
           id="OpeningLogo"
-          component={OpeningLogo}
-          durationInFrames={270}
+          component={Opening}
+          durationInFrames={250}
           fps={30}
           width={1280}
           height={720}

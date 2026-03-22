@@ -273,7 +273,7 @@ import {Closing} from './scenes/Closing';        // new
 ## Completion Checklist
 
 - [x] Task 4: Closing.tsx created — Clawd+logo + tagline + CTA
-- [ ] Task 1: Opening.tsx rewritten — cascade + lens + "Meet qrec." + fade out (~185f)
+- [x] Task 1: Opening.tsx rewritten — cascade + lens + "Meet qrec." + fade out (~185f)
 - [ ] Task 2: Onboard.tsx modified — terminal entrance is slide-up from bottom
 - [ ] Task 3: SearchDemo.tsx — Clawd peek added at frames 82–120 (with `frame`+`fps` props)
 - [ ] Task 5: Root.tsx updated — OpeningLogo wrapper removed, Opening duration → 185, Closing composition added (280f)
