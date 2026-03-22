@@ -1,7 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {theme} from '../theme';
-import {CLAMP} from '../animUtils';
+import {CLAMP, SPRING_SNAPPY} from '../animUtils';
 import {ClawdMascot} from '../components/ClawdMascot';
 import {QrecLogo} from '../components/QrecLogo';
 
@@ -59,6 +59,15 @@ export const Closing: React.FC = () => {
   const logoOffsetY = interpolate(logoArcSp, [0, 1], [30, 0]);
   const logoEnterScale = interpolate(logoArcSp, [0, 1], [0.3, 1]);
   const logoOp = interpolate(frame, [15, 24], [0, 1], CLAMP);
+
+  // ── CTA entrance — staggered spring slide-up ─────────────────────────────
+  const installSp = spring({frame: frame - 8, fps, config: SPRING_SNAPPY});
+  const installY = interpolate(installSp, [0, 1], [28, 0]);
+  const installOp = interpolate(frame, [8, 20], [0, 1], CLAMP);
+
+  const githubSp = spring({frame: frame - 18, fps, config: SPRING_SNAPPY});
+  const githubY = interpolate(githubSp, [0, 1], [28, 0]);
+  const githubOp = interpolate(frame, [18, 30], [0, 1], CLAMP);
 
   return (
     <AbsoluteFill
@@ -122,9 +131,11 @@ export const Closing: React.FC = () => {
         yours and Claude's. On-device.
       </div>
 
-      {/* Install command — white pill */}
+      {/* Install command — white pill, spring slide-up */}
       <div
         style={{
+          opacity: installOp,
+          transform: `translateY(${installY}px)`,
           background: '#ffffff',
           borderRadius: 10,
           padding: '14px 36px',
@@ -137,9 +148,11 @@ export const Closing: React.FC = () => {
         $ npm install -g @dvquys/qrec
       </div>
 
-      {/* GitHub URL — white pill with GitHub mark */}
+      {/* GitHub URL — white pill, spring slide-up staggered */}
       <div
         style={{
+          opacity: githubOp,
+          transform: `translateY(${githubY}px)`,
           background: '#ffffff',
           borderRadius: 10,
           padding: '14px 36px',
