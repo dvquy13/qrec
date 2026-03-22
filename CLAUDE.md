@@ -79,6 +79,20 @@ ui-react/         # Shared React TSX component library (built → ui/components.
   web-entry.ts    # IIFE entry: exports window.QrecUI { renderSessionCard, renderHeatmapGrid, renderEnrichBlock, renderDashboard, renderRecentSessions, renderSessions, renderSessionDetail, unmount }
   build.ts        # Bun IIFE build → renames web-entry.js → components.js; deletes extracted CSS (vars in ui/styles.css)
 demo/                 # Remotion animation demo; imports components directly from ui-react/src/ (not the built bundle)
+  src/
+    Root.tsx          # Registers all Remotion compositions (FullDemo + individual scenes)
+    animUtils.ts      # Shared animation helpers: remotionCSSAnimVars, REMOTION_ANIM_OVERRIDES, apportionment
+    voiceover.ts      # sceneAudioFile() + getAudioDuration() — scene → MP3 path helpers (mediabunny)
+    theme.ts          # Demo color tokens
+    scenes/           # FullDemo (glue composition), Opening, Onboard, ProjectFilter, EnrichDetail, SearchDemo, Closing + legacy scenes
+    components/       # Shared: TrafficDots, MouseCursor, TerminalWindow, BrowserFrame, ClawdMascot, QrecLogo, FadeIn, SceneFade, SlideUp
+    data/
+      sessionC0ffee04.ts  # Mock session fixture (id, title, summary, tags, turns, CSS) shared across scenes
+      index.ts            # QREC_FILTERED_DAYS, QREC_SESSION_COUNT, QREC_ACTIVE_DAYS for heatmap scenes
+    styles/           # Demo-specific CSS (separate from ui-react/src/styles/)
+  generate-voiceover.ts   # One-shot ElevenLabs TTS script; writes demo/public/voiceover/<scene-id>.mp3; run before rendering
+  STORYBOARD.md       # Scene-by-scene narrative storyboard
+  public/voiceover/   # Generated MP3s (gitignored — regenerate with generate-voiceover.ts)
 scripts/
   reset.sh              # Wipe ~/.qrec/ DB/log/pid/activity.jsonl (keeps model cache)
   smoke-test.sh         # Build → start CJS daemon (QREC_EMBED_PROVIDER=stub) → health/search/UI asset checks → stop
