@@ -110,6 +110,8 @@ const SEARCH_TYPE_START = 135;
 // Terminal typing (same start frame as browser bar)
 const T_CMD_START = 135;
 const T_CMD_FRAMES = 40;
+// Search button click fires when query finishes typing (13 chars @ 1.4/f → frame 145)
+const SEARCH_BTN_CLICK_FRAME = 145;
 // Results appear after command finishes typing
 const T_FOUND_START = 175;  // = T_CMD_START + T_CMD_FRAMES
 const CARD0_FRAME = 175;
@@ -174,6 +176,17 @@ export const SearchDemo: React.FC = () => {
 
   // Show latency only after first card appears
   const showLatency = frame >= CARD0_FRAME;
+
+  // ── Search button hover + click animation ─────────────────────────────────────
+  // Hover state: button lights up 3 frames before click, holds until results appear
+  const searchBtnHovered = frame >= SEARCH_BTN_CLICK_FRAME - 3 && frame < CARD0_FRAME;
+  // Press: scale dip at click frame (simulates :active — no :active defined in SearchBar.css)
+  const searchBtnScale = interpolate(
+    frame,
+    [SEARCH_BTN_CLICK_FRAME, SEARCH_BTN_CLICK_FRAME + 5, SEARCH_BTN_CLICK_FRAME + 14],
+    [1, 0.88, 1],
+    CLAMP,
+  );
 
   // ── Mouse cursor ──────────────────────────────────────────────────────────────
   const cursorMoveSp = spring({frame: frame - CURSOR_MOVE_START, fps,
@@ -412,14 +425,26 @@ export const SearchDemo: React.FC = () => {
                 position: 'absolute', inset: 0, opacity: searchOpacity,
                 padding: '20px 28px 24px', overflowY: 'hidden',
               }}>
-                <div style={{maxWidth: 900, margin: '0 auto', width: '100%'}}>
+                <style>{`
+                  .empty-state { display: none !important; }
+                  .search-bar-btn { transform: scale(var(--search-btn-scale, 1)) !important; transition: none !important; }
+                  [data-search-hovered="true"] .search-bar-btn {
+                    background: var(--accent) !important;
+                    color: white !important;
+                    border-color: var(--accent) !important;
+                  }
+                `}</style>
+                <div
+                  data-search-hovered={searchBtnHovered ? 'true' : 'false'}
+                  style={{maxWidth: 900, margin: '0 auto', width: '100%', ['--search-btn-scale' as string]: String(searchBtnScale)}}
+                >
                   <SessionsSection
                     query={typedQuery}
                     onSearch={() => {}}
                     sessions={searchResults}
                     total={searchResults.length}
                     isLoading={false}
-                    isEmpty={typedQuery.length > 0 && revealedCount === 0}
+                    isEmpty={false}
                     latency={showLatency ? SEARCH_LATENCY : undefined}
                     showFields={{
                       summary: true,

@@ -76,7 +76,7 @@ export function remotionCSSAnimVars(
 // The companion <style> block to inject alongside remotionCSSAnimVars().
 // Drop this into any scene that renders live ui-react components.
 export const REMOTION_ANIM_OVERRIDES = `
-  .af-spinner { animation: none !important; transform: rotate(var(--remotion-spin-angle, 0deg)); }
+  .af-spinner, .spinner { animation: none !important; transform: rotate(var(--remotion-spin-angle, 0deg)); }
   .af-progress-fill--indeterminate { animation: none !important; transform: translateX(var(--remotion-indeterminate-x, -100%)); }
   .stat-indexing-dot.visible, .activity-live-dot { animation: none !important; opacity: var(--remotion-pulse-opacity, 1); }
 `;

@@ -51,6 +51,7 @@ export const NavBar: React.FC<NavBarProps> = ({logo, activeTab}) => {
               padding: '5px 10px',
               borderRadius: 6,
               cursor: 'pointer',
+              fontFamily: 'inherit', // browsers reset font-family on <button>; must inherit explicitly
             }}
           >
             {tabLabel(tab)}
