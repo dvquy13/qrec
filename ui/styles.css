@@ -38,6 +38,7 @@
 
 /* ── Reset ──────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+mark { background: var(--accent-light); color: var(--accent); border-radius: 2px; padding: 0 2px; }
 
 :root {
   --bg: #ffffff;
