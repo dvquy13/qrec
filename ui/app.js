@@ -54,7 +54,7 @@ function navigate(hash, push = true) {
   }
 }
 
-function showTab(name, push = true) {
+function showTab(name, push = true, reloadSessions = true) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   const panel = document.getElementById('tab-' + name);
@@ -62,14 +62,14 @@ function showTab(name, push = true) {
   const btn = document.getElementById('nav-' + name);
   if (btn) btn.classList.add('active');
   if (push) history.pushState(null, '', '#' + name);
-  onTabActivated(name);
+  onTabActivated(name, reloadSessions);
 }
 
-function onTabActivated(name) {
+function onTabActivated(name, reloadSessions = true) {
   if (name === 'dashboard') { loadDashboard(); }
   if (name === 'search') {
     document.getElementById('query')?.focus();
-    loadSessions();
+    if (reloadSessions) loadSessions();
   }
   if (name === 'debug') { fetchStats(); fetchLog(); fetchConfig(); }
   if (name === 'settings') { fetchSettings(); }
@@ -308,7 +308,12 @@ async function loadRecentSessions(sessionCount) {
       sessions: sessions.slice(0, 5),
       total,
       onSessionClick: (id) => openSession(id),
-      onViewAll: () => showTab('search'),
+      onViewAll: () => {
+        if (_heatmapProject) {
+          document.getElementById('filter-project').value = _heatmapProject;
+        }
+        showTab('search');
+      },
     });
     _lastRenderedSessionCount = sessionCount ?? total;
   } catch (_) { /* silently skip — not critical */ }
@@ -1184,7 +1189,7 @@ async function loadSessionDetail(id) {
 
 
 function goBack() {
-  showTab('search');
+  showTab('search', true, false);  // preserve existing results + filters
 }
 
 
