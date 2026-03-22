@@ -19,7 +19,7 @@ export const FullDemo: React.FC = () => {
       <Series.Sequence durationInFrames={180}>
         <ProjectFilter />
       </Series.Sequence>
-      <Series.Sequence durationInFrames={591}>
+      <Series.Sequence durationInFrames={490}>
         <EnrichDetail />
       </Series.Sequence>
       <Series.Sequence durationInFrames={310}>

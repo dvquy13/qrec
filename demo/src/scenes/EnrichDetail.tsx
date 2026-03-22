@@ -120,18 +120,19 @@ const TITLE_TYPE_START = 253;    // 20f pause — beat before rewriting
 const TITLE_TYPE_END = 288;      // 35f for 46 chars ≈ 1.31 chars/f (deliberate)
 const TITLE_ZOOM_OUT_START = 303; // 15f hold on finished title before zoom-out
 // Post-zoom: summary block types fast (zoom settles ~frame 328)
-const SL_START = 333, SL_END = 337;   // "Summary" label (7 chars, ~2 chars/f)
-const S_FRAMES = [340, 365] as const; // summary content: 93 chars @ ~3.75 chars/f
+// All sections use ~4 chars/frame; 2f gaps between sections (no intermittent pauses)
+const SL_START = 330, SL_END = 333;   // "Summary" label: 7 chars @ ~3.5 chars/f
+const S_FRAMES = [335, 358] as const; // summary content: ~93 chars @ ~4 chars/f
 const S_CHARS  = [0, SUMMARY_LEN] as const;
-const TAGS_START = 379;               // +14f from S end
-const LL_START = 397, LL_END = 402;   // "Learnings" label (9 chars, ~2 chars/f)
-const L0_START = 405, L0_END = 424;
-const L1_START = 438, L1_END = 461;
-const QL_START = 474, QL_END = 492;   // "Questions answered" (18 chars)
-const Q0_START = 495, Q0_END = 514;
+const TAGS_START = 360;               // 4f stagger → all 3 tags by frame 368
+const LL_START = 370, LL_END = 373;   // "Learnings" label: 9 chars @ 3 chars/f
+const L0_START = 375, L0_END = 393;   // L0: ~72 chars @ 4 chars/f
+const L1_START = 395, L1_END = 418;   // L1: ~94 chars @ ~4 chars/f
+const QL_START = 420, QL_END = 425;   // "Questions answered": 18 chars @ 3.6 chars/f
+const Q0_START = 427, Q0_END = 448;   // Q0: ~82 chars @ ~4 chars/f
 // scene fade
-const FADE_START = 525;
-const FADE_END = 545;
+const FADE_START = 458;
+const FADE_END = 478;
 
 // ── Heatmap data ──────────────────────────────────────────────────────────────
 const QREC_15W = HEATMAP_BY_PROJECT['qrec'].slice(-105);
@@ -388,7 +389,7 @@ export const EnrichDetail: React.FC = () => {
 
   // ── Tags reveal ──────────────────────────────────────────────────────────────
   const tagCount = frame >= TAGS_START
-    ? Math.min(SESSION_TAGS.length, Math.ceil((frame - TAGS_START) / 6))
+    ? Math.min(SESSION_TAGS.length, Math.ceil((frame - TAGS_START) / 4))
     : 0;
   const displayTags = SESSION_TAGS.slice(0, tagCount);
 
