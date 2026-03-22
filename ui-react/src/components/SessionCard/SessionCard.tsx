@@ -22,6 +22,7 @@ export interface SessionCardProps {
   showEntities?: boolean;
   showLearnings?: boolean;
   showQuestions?: boolean;
+  titleNode?: React.ReactNode;
   onClick?: () => void;
   onProjectClick?: (project: string) => void;
   onTagClick?: (tag: string) => void;
@@ -42,6 +43,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   score,
   showScore = false,
   preview,
+  titleNode,
   showSummary = false,
   showTags = false,
   showEntities = false,
@@ -78,7 +80,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
       style={style}
     >
       <div className="session-card-body">
-        <div className="session-card-title">{title || '(untitled)'}</div>
+        <div className="session-card-title">{titleNode ?? title ?? '(untitled)'}</div>
         <div className="session-card-meta">
           <span
             className="tag clickable-tag"

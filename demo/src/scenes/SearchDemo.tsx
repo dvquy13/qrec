@@ -1,5 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {measureText} from '@remotion/layout-utils';
 import {theme} from '../theme';
 import {
   CLAMP,
@@ -94,6 +95,20 @@ const SEARCH_QUERY = 'archive JSONL';
 const RESULTS = SEARCH_RESULTS['archive JSONL'];
 const SEARCH_LATENCY = {bm25Ms: 1.2, embedMs: 0, knnMs: 3.8, fusionMs: 0.4, totalMs: 5.4};
 
+// ── Hand-drawn underline for "Archive JSONL" in first search result ───────────
+const UL_TEXT = 'Archive JSONL';
+const UL_W = measureText({
+  text: UL_TEXT,
+  fontFamily: 'Google Sans Flex',
+  fontSize: 18,
+  fontWeight: '500',
+  validateFontIsLoaded: false,
+}).width;
+// Two-hump wavy path — hand-drawn feel
+const UL_PATH = `M 1,2 C ${UL_W*0.15},-1 ${UL_W*0.35},3.5 ${UL_W*0.5},1.5 C ${UL_W*0.65},-0.5 ${UL_W*0.85},3 ${UL_W-1},1.5`;
+const UL_LEN = UL_W * 1.08; // approximate arc length of the wavy path
+const UNDERLINE_START = 183;  // 8f after CARD0_FRAME
+
 // ── Layout constants ──────────────────────────────────────────────────────────
 // BROWSER_FULL: width 1200, centered (left 40), top 40, height 640
 // BROWSER_SPLIT: left 30, width 600, top 40, height 640
@@ -177,6 +192,13 @@ export const SearchDemo: React.FC = () => {
 
   // Show latency only after first card appears
   const showLatency = frame >= CARD0_FRAME;
+
+  // ── Hand-drawn underline on "Archive JSONL" ───────────────────────────────────
+  const underlineSp = spring({
+    frame: frame - UNDERLINE_START, fps,
+    config: {damping: 26, stiffness: 280, mass: 1, overshootClamping: true},
+  });
+  const underlineDash = interpolate(underlineSp, [0, 1], [UL_LEN, 0], CLAMP);
 
   // ── Search button hover + click animation ─────────────────────────────────────
   // Hover state: button lights up 3 frames before click, holds until results appear
@@ -304,9 +326,34 @@ export const SearchDemo: React.FC = () => {
     },
   ];
 
-  const searchResults = revealedCount > 0 ? RESULTS.slice(0, revealedCount).map(r => ({
+  const searchResults = revealedCount > 0 ? RESULTS.slice(0, revealedCount).map((r, i) => ({
     id: r.id,
     title: r.title,
+    titleNode: i === 0
+      ? (
+        <>
+          <span style={{position: 'relative', display: 'inline-block'}}>
+            <span style={{color: '#0062a8'}}>Archive JSONL</span>
+            <svg
+              style={{position: 'absolute', left: 0, bottom: -4, pointerEvents: 'none', overflow: 'visible'}}
+              width={UL_W} height={6}
+            >
+              <path
+                d={UL_PATH}
+                stroke="#0062a8"
+                strokeWidth={3.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                strokeDasharray={UL_LEN}
+                strokeDashoffset={underlineDash}
+              />
+            </svg>
+          </span>
+          {' on index for session durability'}
+        </>
+      )
+      : undefined,
     project: r.project as string,
     date: r.date,
     summary: r.summary,
@@ -438,6 +485,7 @@ export const SearchDemo: React.FC = () => {
                 <style>{`
                   .empty-state { display: none !important; }
                   .search-bar-btn { transform: scale(var(--search-btn-scale, 1)) !important; transition: none !important; }
+                  [data-qrec-card="c0ffee04"] .session-card-title { overflow: visible !important; }
                   [data-search-hovered="true"] .search-bar-btn {
                     background: var(--accent) !important;
                     color: white !important;
