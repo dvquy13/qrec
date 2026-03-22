@@ -5,12 +5,15 @@
   "scripts": {
     "start": "remotion studio",
     "render": "remotion render out/qrec-demo.mp4",
-    "render:gif": "remotion render out/qrec-demo.gif --frames=0-299"
+    "render:gif": "remotion render out/qrec-demo.gif --frames=0-299",
+    "gen:voiceover": "bun --env-file=../.env generate-voiceover.ts"
   },
   "dependencies": {
     "@remotion/cli": "4.0.438",
     "@remotion/fonts": "^4.0.438",
     "@remotion/layout-utils": "4.0.438",
+    "@remotion/media": "^4.0.438",
+    "mediabunny": "^1.40.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "remotion": "4.0.438"

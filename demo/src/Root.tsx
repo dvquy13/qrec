@@ -1,5 +1,5 @@
 import React from 'react';
-import {Composition} from 'remotion';
+import {Composition, CalculateMetadataFunction} from 'remotion';
 import {loadFont} from '@remotion/fonts';
 import {staticFile} from 'remotion';
 import '../../ui-react/src/styles/variables.css';
@@ -9,7 +9,8 @@ import {ProjectFilter} from './scenes/ProjectFilter';
 import {EnrichDetail} from './scenes/EnrichDetail';
 import {SearchDemo} from './scenes/SearchDemo';
 import {Closing} from './scenes/Closing';
-import {FullDemo} from './scenes/FullDemo';
+import {FullDemo, FullDemoProps, ORIGINAL_SCENE_DURATIONS} from './scenes/FullDemo';
+import {SCENE_IDS, sceneAudioFile, getAudioDuration} from './voiceover';
 
 loadFont({
   family: 'Google Sans Flex',
@@ -33,6 +34,30 @@ loadFont({
 });
 
 const globalStyles = `* { box-sizing: border-box; margin: 0; padding: 0; }`;
+
+const FPS = 30;
+
+const calculateFullDemoMetadata: CalculateMetadataFunction<FullDemoProps> =
+  async () => {
+    try {
+      const durations = await Promise.all(
+        SCENE_IDS.map((id) => getAudioDuration(sceneAudioFile(id))),
+      );
+      const sceneDurationsInFrames = durations.map((secs, i) =>
+        Math.max(Math.ceil(secs * FPS), ORIGINAL_SCENE_DURATIONS[i]),
+      );
+      return {
+        durationInFrames: sceneDurationsInFrames.reduce((a, b) => a + b, 0),
+        props: {sceneDurationsInFrames},
+      };
+    } catch {
+      // Audio files not yet generated — fall back to original visual durations
+      return {
+        durationInFrames: ORIGINAL_SCENE_DURATIONS.reduce((a, b) => a + b, 0),
+        props: {sceneDurationsInFrames: ORIGINAL_SCENE_DURATIONS},
+      };
+    }
+  };
 
 export const Root: React.FC = () => {
   return (
@@ -89,10 +114,12 @@ export const Root: React.FC = () => {
       <Composition
         id="FullDemo"
         component={FullDemo}
-        durationInFrames={1649}
-        fps={30}
+        durationInFrames={ORIGINAL_SCENE_DURATIONS.reduce((a, b) => a + b, 0)}
+        fps={FPS}
         width={1280}
         height={720}
+        defaultProps={{sceneDurationsInFrames: ORIGINAL_SCENE_DURATIONS}}
+        calculateMetadata={calculateFullDemoMetadata}
       />
     </>
   );
