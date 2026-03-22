@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Favicon-tuned: thicker ring wall (r=143 outer, r=62 hole), no halos -->
+    <mask id="favicon-ring">
+      <rect width="512" height="512" fill="white"/>
+      <circle cx="248" cy="248" r="62" fill="black"/>
+    </mask>
+  </defs>
+  <circle cx="248" cy="248" r="143" fill="#0062a8" mask="url(#favicon-ring)"/>
+  <line x1="349" y1="349" x2="484" y2="484" stroke="#0062a8" stroke-width="51" stroke-linecap="round"/>
+</svg>

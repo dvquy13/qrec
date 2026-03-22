@@ -32,7 +32,7 @@ Extracted from the **auto-recall-cc** plugin, which handles Claude Code JSONL �
 
 **qrec DB as long-term session archive** — Claude Code prunes `~/.claude/projects/` JSONL files after ~30 days. The qrec DB (`~/.qrec/qrec.db`) retains indexed sessions indefinitely: metadata, chunks, and vectors persist even after the source file is deleted. The `sessions.path` column becomes stale for pruned sessions, but search and recall still work from the stored chunks. This makes qrec the only durable record of conversations older than 30 days.
 
-**Plugin MCP as daemon proxy** — The plugin's MCP server (`qrec-mcp.cjs`) does not load the embedding model or open the database. It proxies all tool calls (`search`, `get`, `status`) to the running daemon at `http://localhost:25927`. The daemon's already-loaded model handles embedding; the MCP process is lightweight and starts in <100ms. This avoids the sqlite-vec native dependency problem in the plugin cache (see `plugin.md` rules) and eliminates double model loading.
+**Plugin recall via CLI** — The Claude Code plugin recalls sessions by shelling out to `qrec search` / `qrec get` directly. There is no MCP server or proxy process — the recall skill uses Bash tool calls to the CLI. `qrec search` queries the daemon over HTTP and returns a plain JSON array; `qrec get` prints a session's full markdown. This eliminates the sqlite-vec native dependency problem and avoids a separate MCP process entirely.
 
 **M6 distribution (v0.1.2)** — Two channels: Claude Code marketplace plugin (primary) and npm package. The plugin ships `qrec.cjs` (pre-built esbuild CJS bundle); `smart-install.js` runs on SessionStart to install Bun if missing, then on first run **detaches a background process** (bun install + model download + initial index) and exits immediately so the hook doesn't block Claude Code startup. The SessionStart hook then starts `qrec serve --daemon`. Users get `qrec` CLI at `~/.bun/bin/qrec` and localhost:25927 automatically.
 
@@ -94,4 +94,3 @@ cache_key = f"{query_gen_fingerprint}_{sha256(session_body)}"
 | `node-llama-cpp` | 3.17.1 (pinned) | Embedding model inference |
 | `sqlite-vec` | latest | Cosine KNN via SQLite extension |
 | `bun:sqlite` | built-in | SQLite (not better-sqlite3 — Node native, unsupported in Bun) |
-| `@modelcontextprotocol/sdk` | ^1.0.0 | MCP server (Phase 4) |

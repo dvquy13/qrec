@@ -4,12 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>qrec</title>
+<link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
 <link rel="stylesheet" href="/ui/styles.css">
+<link rel="stylesheet" href="/ui/components.css">
 <script src="https://cdn.jsdelivr.net/npm/marked@13/marked.min.js"></script>
 </head>
 <body>
 <header>
-  <div class="logo" onclick="showTab('dashboard')" style="cursor:pointer;">q</div>
+  <img class="logo" src="/public/logo.svg" alt="qrec" onclick="showTab('dashboard')" style="cursor:pointer;">
   <h1 onclick="showTab('dashboard')" style="cursor:pointer;">qrec</h1>
   <nav>
     <button id="nav-dashboard" onclick="showTab('dashboard')">Dashboard</button>
@@ -26,58 +28,13 @@
   <div id="db-error" class="error-state" style="display:none;"></div>
 
   <div class="dashboard-wrap" id="dashboard">
-    <div class="dashboard-header">
-      <h2 class="section-heading">Dashboard</h2>
-    </div>
-
-    <div class="dashboard-top">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Sessions <span class="stat-indexing-dot" id="stat-sessions-dot"></span></div>
-          <div class="stat-value" id="stat-sessions">—</div>
-          <div class="stat-sub">indexed</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">AI Summaries <span class="stat-indexing-dot" id="stat-enrich-dot"></span></div>
-          <div class="stat-value" id="info-ai-summaries">—</div>
-          <div class="stat-sub" id="info-ai-summaries-sub"></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Searches</div>
-          <div class="stat-value" id="stat-searches">—</div>
-          <div class="stat-sub">queries run</div>
-        </div>
-      </div>
-      <div class="dashboard-heatmap-col" id="dashboard-heatmap-section" style="display:none;">
-        <div class="heatmap-controls">
-          <div id="heatmap-metric-btns"></div>
-          <div class="filter-wrap">
-            <button class="btn heatmap-project-btn" id="heatmap-project-btn"
-                    onclick="toggleHeatmapProjectDropdown()"
-                    onblur="hideHeatmapProjectDropdown()">All projects ▾</button>
-            <div class="filter-dropdown" id="heatmap-dropdown-project" onmousedown="return false;"></div>
-          </div>
-        </div>
-        <div id="dashboard-heatmap"></div>
-        <div class="heatmap-footer" id="dashboard-heatmap-footer"></div>
-      </div>
-    </div>
+    <div id="dashboard-panel"></div>
 
     <div class="dashboard-recent">
-      <div class="dashboard-recent-header">
-        <span class="section-heading" style="cursor:pointer;" onclick="showTab('search')">Recent Sessions</span>
-      </div>
-      <div id="dashboard-recent-list"></div>
+      <div id="recent-sessions-panel"></div>
     </div>
 
-    <div class="activity-section" id="db-activity-feed">
-      <div class="activity-section-header">
-        <span class="section-heading">Recent Activity</span>
-        <span class="activity-live-dot" id="activity-live-dot"></span>
-      </div>
-      <div class="run-list" id="run-list"></div>
-      <button class="show-more-btn" id="activity-show-more" style="display:none;" onclick="showMoreRuns()">Show older entries</button>
-    </div>
+    <div id="db-activity-feed"></div>
 
     <div class="last-updated" id="db-last-updated"></div>
   </div> <!-- /.dashboard-wrap -->
@@ -149,9 +106,7 @@
       </div>
     </div>
   </div>
-  <div id="search-content">
-    <div class="loading-state"><span class="spinner"></span></div>
-  </div>
+  <div id="sessions-panel"></div>
 </main>
 </div>
 
@@ -161,11 +116,7 @@
   <div id="detail-loading" class="loading-state"><span class="spinner"></span></div>
   <div id="detail-error" class="error-state" style="display:none;"></div>
   <div id="detail-content" style="display:none;">
-    <div class="detail-header">
-      <div class="detail-title" id="detail-title"></div>
-    </div>
-    <div class="detail-meta" id="detail-meta"></div>
-    <div class="turns" id="detail-turns"></div>
+    <div id="session-detail-panel"></div>
   </div>
 </main>
 </div>
@@ -316,6 +267,7 @@
 </main>
 </div>
 
+<script src="/ui/components.js"></script>
 <script src="/ui/activity-groups.js"></script>
 <script src="/ui/app.js"></script>
 </body>

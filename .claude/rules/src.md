@@ -78,8 +78,18 @@ paths:
 
 ## API & Protocol
 
-- **`GET /sessions` response format** — returns `{ sessions, total, offset, limit }` (full metadata, sorted date DESC). Supports `?offset=N` for pagination (page size 100). Filter params: `?dateFrom=YYYY-MM-DD`, `?dateTo=YYYY-MM-DD`, `?project=<substring>`, `?tag=<substring>` — all server-side via dynamic WHERE clause. `?date=X` shorthand sets both `dateFrom` and `dateTo`. `tags`/`entities` are parsed arrays (null when unenriched). `/sessions/:id` also includes `summary`, `tags`, `entities`.
+- **`GET /sessions` response format** — returns `{ sessions, total, offset, limit }` (full metadata, sorted `COALESCE(last_message_at, indexed_at) DESC`). Supports `?limit=N` (default 100, max 100) and `?offset=N` for pagination. Filter params: `?dateFrom=YYYY-MM-DD`, `?dateTo=YYYY-MM-DD`, `?project=<substring>`, `?tag=<substring>` — all server-side via dynamic WHERE clause. `?date=X` shorthand sets both `dateFrom` and `dateTo`. `tags`/`entities` are parsed arrays (null when unenriched). Note: the CLI `qrec search` (browse mode) passes `?limit=k` and prints a **plain array** — not the `{ sessions, total }` envelope — to avoid a misleading total count.
 - **`POST /search` filters** — accepts optional `dateFrom`, `dateTo`, `project`, `tag` in JSON body. Pre-filters the `rankMap` (after BM25+KNN population, before RRF scoring) by running one SQL query with dynamic WHERE clauses against `sessions` and deleting non-matching chunk entries. Ensures all filters are server-side — client-side filtering on a truncated top-k set misses valid results ranked beyond the cutoff.
 - **`json_each(NULL)` returns 0 rows** — unenriched sessions have `tags=NULL`; they never match a tag filter. This is correct behavior: tag filter only applies to enriched sessions. Do not add a fallback.
 - **`POST /query_db` security guard** — string-based: `toUpperCase().startsWith("SELECT")` + no semicolons. Intentional — endpoint is localhost-only (debug UI), a full SQL parser would be overkill. Returns `{ rows, count }`.
 - **JSONL thinking blocks** — `type: "thinking"` blocks carry the content in a `thinking` field (not `text`); extracted into `Turn.thinking: string[]` by `parser.ts`. Note: connector phrases before tool calls ("Now let me read…") are `type: "text"` in `type: "assistant"` entries — no field distinguishes them from final response text.
+
+## CLI (citty)
+
+- **`--port` and `-v`/`--version` must be pre-processed before `runMain`** — strip them from `rawArgv` and set `process.env.QREC_PORT` before calling `runMain(main, { rawArgs: rawArgv })`. citty has no knowledge of these flags; more importantly, `--port` must set the env var before any subcommand code runs so `getQrecPort()` sees it. Do not define `--port` as a citty arg — it won't fire early enough.
+- **Search command: use `args._` for the query, not `type: "positional"`** — `args._` is citty's positional accumulator and contains all non-flag words. `args._.join(" ").trim()` handles multi-word queries correctly and returns `""` when only flags are passed (browse mode). A named `type: "positional"` arg only captures the first word — `"hello world"` becomes `"hello"`.
+- **Test CLI arg parsing with `citty.parseArgs` directly** — `test/cli-search-args.test.ts` imports `parseArgs` from citty and uses the same `argsDef` shape as the real command. This tests the actual parsing path; don't reimplement arg parsing logic in tests.
+
+## Build & Release
+
+- **`plugin/scripts/qrec.cjs` must be committed whenever `ui/index.html` changes** — `index.html` is inlined at build time via `__UI_HTML__` in `scripts/build.js`. If the bundle isn't rebuilt and committed alongside HTML changes, npm-installed users get stale HTML (e.g. missing React mount points). Dev-mode users (`bun link`) are unaffected since they run `src/cli.ts` directly. Always run `node scripts/build.js` and commit `qrec.cjs` before `bash scripts/release.sh`.

@@ -28,6 +28,9 @@ const UI_DIR = _metaDir
   ? join(_metaDir, "..", "ui")            // dev: src/ → ui/
   : join(__dirname, "..", "..", "ui");    // CJS: plugin/scripts/ → ui/
 const UI_HTML_PATH = join(UI_DIR, "index.html");
+const PUBLIC_DIR = _metaDir
+  ? join(_metaDir, "..", "public")        // dev: src/ → public/
+  : join(__dirname, "..", "..", "public"); // CJS: plugin/scripts/ → public/
 
 async function serveUiHtml(): Promise<Response> {
   if (UI_HTML_INLINE !== null) {
@@ -40,12 +43,12 @@ async function serveUiHtml(): Promise<Response> {
   return new Response(content, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
-async function serveStaticFile(pathname: string): Promise<Response> {
-  const rel = pathname.slice("/ui/".length);
+async function serveStaticFile(pathname: string, baseDir: string, prefix: string): Promise<Response> {
+  const rel = pathname.slice(prefix.length);
   if (rel.includes("..") || rel.startsWith("/")) {
     return new Response("Forbidden", { status: 403 });
   }
-  const filePath = join(UI_DIR, rel);
+  const filePath = join(baseDir, rel);
   const file = Bun.file(filePath);
   if (!await file.exists()) {
     return new Response("Not found", { status: 404 });
@@ -54,6 +57,7 @@ async function serveStaticFile(pathname: string): Promise<Response> {
   const contentType =
     ext === "css"   ? "text/css; charset=utf-8" :
     ext === "js"    ? "text/javascript; charset=utf-8" :
+    ext === "svg"   ? "image/svg+xml" :
     ext === "woff2" ? "font/woff2" :
     ext === "woff"  ? "font/woff" :
     ext === "ttf"   ? "font/ttf" :
@@ -99,7 +103,8 @@ async function main() {
       if (method === "POST" && pathname === "/settings") return handleSettingsUpdate(req);
       if (method === "GET" && pathname === "/audit/entries") return handleAuditEntries(db, url);
       if (method === "GET" && pathname === "/activity/entries") return handleActivityEntries(url);
-      if (method === "GET" && pathname.startsWith("/ui/")) return serveStaticFile(pathname);
+      if (method === "GET" && pathname.startsWith("/ui/")) return serveStaticFile(pathname, UI_DIR, "/ui/");
+      if (method === "GET" && pathname.startsWith("/public/")) return serveStaticFile(pathname, PUBLIC_DIR, "/public/");
       if (method === "GET" && (
         pathname === "/" ||
         pathname === "/search" ||

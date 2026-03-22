@@ -1,0 +1,13 @@
+.heatmap { display: flex; flex-direction: column; gap: 2px; }
+.heatmap-day-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: left;
+  flex-shrink: 0;
+  line-height: 12px;
+}
+.heatmap-month-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.heatmap-cell { flex-shrink: 0; }
+.heatmap-cell--clickable { cursor: pointer; transition: opacity 0.1s; }
+.heatmap-cell--clickable:hover { opacity: 0.7; }
+.heatmap-weekly-bar { border-radius: 2px; }

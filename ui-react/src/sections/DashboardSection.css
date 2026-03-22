@@ -1,0 +1,43 @@
+@import '../styles/shared.css';
+
+/* ── Stat indexing dot ─────────────────────────────────────────────────── */
+.stat-indexing-dot { display: none; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.5s infinite; vertical-align: middle; margin-left: 4px; }
+.stat-indexing-dot.visible { display: inline-block; }
+
+/* ── Dashboard layout ──────────────────────────────────────────────────── */
+.dashboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; }
+.dashboard-top { display: flex; gap: 40px; align-items: flex-start; margin-bottom: 28px; }
+.dashboard-heatmap-col { flex-shrink: 0; }
+
+/* ── Stat cards ────────────────────────────────────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 12px; row-gap: 20px; flex: 1; align-self: center; }
+.stat-label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+.stat-value { font-size: 32px; font-weight: 400; letter-spacing: -0.04em; line-height: 1; color: var(--text); }
+.stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* ── Heatmap controls ──────────────────────────────────────────────────── */
+.heatmap-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.heatmap-controls .heatmap-metrics { margin-bottom: 0; }
+.heatmap-metrics { display: flex; gap: 0; margin-bottom: 10px; }
+.heatmap-metric {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-right: none;
+  color: var(--text);
+  border-radius: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.heatmap-metrics .heatmap-metric:first-child { border-radius: 6px 0 0 6px; }
+.heatmap-metrics .heatmap-metric:last-child { border-radius: 0 6px 6px 0; border-right: 1px solid var(--border); }
+.heatmap-metric:hover { color: var(--accent); border-color: var(--accent); }
+.heatmap-metric--active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.heatmap-metric--active:hover { color: #fff; border-color: var(--accent); }
+.heatmap-metrics .heatmap-metric--active:last-child { border-right-color: var(--accent); }
+
+/* ── Heatmap footer ────────────────────────────────────────────────────── */
+.heatmap-footer { font-size: 12px; color: var(--text-muted); margin-top: 8px; }

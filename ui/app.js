@@ -5,7 +5,6 @@ let _liveIndexing = null; // { indexed, total, current } from /status while inde
 let _embedModel = null;  // model name for indexing runs
 let _enrichModel = null; // model name for enrich runs
 const RUNS_INITIAL = 5;
-let _visibleRunCount = RUNS_INITIAL;
 let _lastRenderedSessionCount = -1;
 let _lastRenderedEnrichedCount = -1;
 
@@ -15,7 +14,6 @@ let _allSessions = [];
 let _sessionsTotal = 0;
 let _sessionsOffset = 0;
 let _sessionsLoading = false;
-let _scrollObserver = null;
 let _filterDateRange = null; // { from: string, to: string, label: string } | null
 let _filterOptions = { project: [], tag: [] };
 let _filterDebounceTimer = null;
@@ -33,6 +31,14 @@ let _heatmapMetric = (() => {
 })();
 let _heatmapProject = null;
 let _heatmapProjects = [];
+
+// ── Dashboard stat state ───────────────────────────────────────────────────
+let _sessionsCount = 0;
+let _sessionsIndexing = false;
+let _summariesCount = null;
+let _summariesSub = '';
+let _summariesEnriching = false;
+let _searchesCount = 0;
 
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
@@ -60,7 +66,7 @@ function showTab(name, push = true) {
 }
 
 function onTabActivated(name) {
-  if (name === 'dashboard') { _visibleRunCount = RUNS_INITIAL; loadDashboard(); }
+  if (name === 'dashboard') { loadDashboard(); }
   if (name === 'search') {
     document.getElementById('query')?.focus();
     loadSessions();
@@ -162,19 +168,6 @@ async function loadDashboard() {
   }
 }
 
-function buildRunProgressHtml(progress) {
-  const pct = progress.percent;
-  return `<div class="run-progress">
-    <div class="progress-label">
-      <span>${escHtml(progress.label)}</span>
-      ${pct != null ? `<strong>${pct}%</strong>` : ''}
-    </div>
-    <div class="progress-track">
-      <div class="progress-fill ${pct == null ? 'indeterminate' : ''}" style="width:${pct ?? 40}%"></div>
-    </div>
-  </div>`;
-}
-
 // Shared Phase 2 helper: find a *_model_downloaded activity event and return a
 // permanent completed group entry. Returns null if no such event exists yet.
 function buildCompletedDownloadGroup(actEntries, eventType, groupType, syntheticLabel) {
@@ -237,31 +230,24 @@ function showDashboardPanel(data, actEntries) {
   if (data.embedModel) _embedModel = data.embedModel;
   if (data.enrichModel) _enrichModel = data.enrichModel;
 
-  // Indexing dot on Sessions stat card
-  const sessionsDot = document.getElementById('stat-sessions-dot');
-  if (sessionsDot) sessionsDot.classList.toggle('visible', phase === 'indexing');
-
-  document.getElementById('stat-sessions').textContent = data.sessions.toLocaleString();
-  document.getElementById('stat-searches').textContent = data.searches.toLocaleString();
+  // Update stat state
+  _sessionsCount = data.sessions ?? 0;
+  _sessionsIndexing = phase === 'indexing';
+  _searchesCount = data.searches ?? 0;
   const enrichTotal = data.sessions ?? 0;
   const enrichDone = data.enrichedCount ?? 0;
   const enrichPending = data.pendingCount ?? 0;
-  const aiEl = document.getElementById('info-ai-summaries');
-  const aiSubEl = document.getElementById('info-ai-summaries-sub');
-  const enrichDot = document.getElementById('stat-enrich-dot');
-  if (enrichDot) enrichDot.classList.toggle('visible', !!data.enriching);
-  if (aiEl) {
-    if (!data.enrichEnabled) {
-      aiEl.innerHTML = '<span style="color:var(--text-muted)">—</span>';
-      if (aiSubEl) aiSubEl.textContent = 'disabled';
-    } else if (data.enriching) {
-      const pct = enrichTotal > 0 ? Math.round((enrichDone / enrichTotal) * 100) : 0;
-      aiEl.textContent = enrichDone.toLocaleString();
-      if (aiSubEl) aiSubEl.textContent = `${pct}% enriched`;
-    } else {
-      aiEl.textContent = enrichDone.toLocaleString();
-      if (aiSubEl) aiSubEl.textContent = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
-    }
+  _summariesEnriching = !!data.enriching;
+  if (!data.enrichEnabled) {
+    _summariesCount = null;
+    _summariesSub = 'disabled';
+  } else if (data.enriching) {
+    const pct = enrichTotal > 0 ? Math.round((enrichDone / enrichTotal) * 100) : 0;
+    _summariesCount = enrichDone;
+    _summariesSub = `${pct}% enriched`;
+  } else {
+    _summariesCount = enrichDone;
+    _summariesSub = enrichPending > 0 ? `${enrichPending} pending` : 'enriched';
   }
 
   // Activity runs
@@ -295,18 +281,22 @@ function showDashboardPanel(data, actEntries) {
       g.events.some(e => e.type === 'session_enriched')
     );
   }
-  renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
+  renderActivityFeed();
 
   if (data.sessions !== _lastRenderedSessionCount || (data.enrichedCount ?? -1) !== _lastRenderedEnrichedCount) {
     _lastRenderedEnrichedCount = data.enrichedCount ?? -1;
     loadRecentSessions(data.sessions);
   }
-  if (data.sessions !== _lastRenderedSessionCount || !_heatmapData) fetchAndRenderHeatmap();
+  if (data.sessions !== _lastRenderedSessionCount || !_heatmapData) {
+    fetchAndRenderHeatmap(); // calls renderDashboard() after updating _heatmapData
+  } else {
+    renderDashboard();
+  }
 }
 
 async function loadRecentSessions(sessionCount) {
-  const container = document.getElementById('dashboard-recent-list');
-  if (!container) return;
+  const el = document.getElementById('recent-sessions-panel');
+  if (!el || !window.QrecUI?.renderRecentSessions) return;
   try {
     const projectParam = _heatmapProject ? `&project=${encodeURIComponent(_heatmapProject)}` : '';
     const res = await fetch(`/sessions?offset=0${projectParam}`);
@@ -314,28 +304,12 @@ async function loadRecentSessions(sessionCount) {
     const data = await res.json();
     const sessions = data.sessions;
     const total = data.total ?? sessions.length;
-    const recent = sessions.slice(0, 5);
-    if (recent.length === 0) {
-      container.innerHTML = '<div style="padding:20px 0;color:var(--text-muted);font-size:13px;">No sessions indexed yet.</div>';
-      _lastRenderedSessionCount = sessionCount ?? 0;
-      return;
-    }
-    container.innerHTML = recent.map(s => {
-      const summary = s.summary ? escHtml(s.summary.slice(0, 180)) : '';
-      const relTime = s.last_message_at ? formatRelative(s.last_message_at) : (s.date || '—');
-      return `<div class="dashboard-session-card" onclick="openSession('${escHtml(s.id)}')">
-          <div class="dashboard-session-title">${escHtml(s.title || '(untitled)')}</div>
-          <div class="dashboard-session-meta">
-            <span>${escHtml(s.project || '—')}</span>
-            <span>·</span>
-            <span style="font-family:var(--mono);font-size:11px;">${escHtml(s.id)}</span>
-            <span>·</span>
-            <span class="dashboard-session-ts">${relTime}</span>
-          </div>
-          ${summary ? `<div class="dashboard-session-summary">${summary}</div>` : ''}
-      </div>`;
-    }).join('');
-    container.insertAdjacentHTML('beforeend', `<button class="dashboard-recent-footer" onclick="showTab('search')">All ${total.toLocaleString()} sessions →</button>`);
+    window.QrecUI.renderRecentSessions(el, {
+      sessions: sessions.slice(0, 5),
+      total,
+      onSessionClick: (id) => openSession(id),
+      onViewAll: () => showTab('search'),
+    });
     _lastRenderedSessionCount = sessionCount ?? total;
   } catch (_) { /* silently skip — not critical */ }
 }
@@ -345,160 +319,37 @@ async function loadRecentSessions(sessionCount) {
 // fmtDuration, groupActivityEvents, isZeroIndexRun, collapseZeroIndexRuns,
 // groupSummary are all defined there as globals.
 
-function runIcon(type) {
-  if (type === 'index' || type === 'index_collapsed') return '⊙';
-  if (type === 'enrich' || type === 'enrich_collapsed') return '✦';
-  if (type === 'model_download') return '⬇';
-  if (type === 'model_loading') return '◎';
-  if (type === 'enrich_model_download') return '⬇';
-  return '◉';
-}
+function renderActivityFeed() {
+  const el = document.getElementById('db-activity-feed');
+  if (!el || !window.QrecUI?.renderRecentActivity) return;
 
-function renderRunGroup(group) {
-  const { label, detail } = groupSummary(group, _liveIndexing);
-  const subEvents = group.events.filter(e =>
-    e.type === 'session_indexed' || e.type === 'session_enriched'
-  );
+  const syntheticArr = Array.isArray(_currentSyntheticGroup)
+    ? _currentSyntheticGroup
+    : (_currentSyntheticGroup ? [_currentSyntheticGroup] : []);
+  const displayGroups = [...syntheticArr, ..._allRunGroups].sort((a, b) => b.ts - a.ts);
 
-  const iconHtml = group.running
-    ? `<span class="run-spinner-wrap"><span class="spinner run-spinner"></span></span>`
-    : `<span class="run-icon-badge ${group.type === 'index_collapsed' ? 'index' : group.type === 'enrich_collapsed' ? 'enrich' : group.type}">${runIcon(group.type)}</span>`;
-
-  const detailHtml = detail ? `<span class="run-detail">${escHtml(detail)}</span>` : '';
-  const tsHtml = `<span class="run-ts">${formatRelative(group.ts)}</span>`;
-  const progressHtml = group.syntheticProgress && group.running ? buildRunProgressHtml(group.syntheticProgress) : '';
-
-  if (subEvents.length === 0) {
-    return `<div class="run-group no-expand"><div class="run-header">
-      ${tsHtml}<span class="run-chevron-spacer"></span>${iconHtml}
-      <span class="run-label">${escHtml(label)}</span>${detailHtml}
-    </div>${progressHtml}</div>`;
-  }
-
-  const sessionIds = subEvents.map(e => e.data?.sessionId ?? '').filter(Boolean);
-
-  const eventsHtml = subEvents.map(e => {
-    const sid = escHtml(e.data?.sessionId ?? '');
-    const ms = e.data?.latencyMs != null ? escHtml(fmtDuration(e.data.latencyMs)) : '';
-    const timeStr = new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    return `<div class="run-event" data-session-id="${sid}">
-      <span class="run-event-ts">${timeStr}</span>
-      <span class="run-event-id">${sid}</span>
-      ${ms ? `<span class="run-event-meta">${ms}</span>` : ''}
-    </div>`;
-  }).join('');
-
-  const modelName = group.type === 'index' ? _embedModel : group.type === 'enrich' ? _enrichModel : null;
-  const modelHtml = modelName
-    ? `<div class="run-model-info"><span class="run-model-name">model: ${escHtml(modelName)}</span></div>`
-    : '';
-
-  return `<details class="run-group" data-run-ts="${group.ts}" data-session-ids="${escHtml(sessionIds.join(','))}">
-    <summary class="run-header">
-      ${tsHtml}${iconHtml}<span class="run-label">${escHtml(label)}</span>${detailHtml}
-    </summary>
-    <div class="run-events">${modelHtml}${eventsHtml}</div>
-  </details>`;
-}
-
-function renderActivityRuns(groups, syntheticGroups = []) {
-  const runList = document.getElementById('run-list');
-  const showMoreBtn = document.getElementById('activity-show-more');
-  const liveDot = document.getElementById('activity-live-dot');
-  if (!runList) return;
-
-  const syntheticArr = Array.isArray(syntheticGroups) ? syntheticGroups : (syntheticGroups ? [syntheticGroups] : []);
-  // Merge synthetic and real groups by timestamp (newest first) so ordering is chronological.
-  const displayGroups = [...syntheticArr, ...groups].sort((a, b) => b.ts - a.ts);
-
-  // Preserve open state across re-renders
-  const openTs = new Set();
-  runList.querySelectorAll('details.run-group').forEach(d => {
-    if (d.open) openTs.add(d.dataset.runTs);
-  });
-
-  const visible = displayGroups.slice(0, _visibleRunCount);
-  const hidden = displayGroups.length - visible.length;
   const anyRunning = displayGroups.slice(0, 3).some(g => g.running);
 
-  if (groups.length === 0) {
-    runList.innerHTML = '<div style="padding:20px 0;color:var(--text-muted);font-size:13px;">No activity yet.</div>';
-  } else {
-    runList.innerHTML = visible.map(g => renderRunGroup(g)).join('');
-  }
-
-  // Restore open state — always re-enrich since DOM was rebuilt
-  runList.querySelectorAll('details.run-group').forEach(d => {
-    if (openTs.has(d.dataset.runTs)) {
-      d.setAttribute('open', '');
-      enrichRunGroup(d);
-    }
+  window.QrecUI.renderRecentActivity(el, {
+    groups: displayGroups,
+    modelName: _embedModel,
+    enrichModelName: _enrichModel,
+    maxVisible: RUNS_INITIAL,
+    isLive: anyRunning,
+    onSessionClick: (id) => openSession(id),
+    onSessionsLoad: async (ids) => {
+      const idList = ids.map(id => `'${id}'`).join(',');
+      const res = await fetch('/query_db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql: `SELECT id, title, summary FROM sessions WHERE id IN (${idList})` }),
+      });
+      if (!res.ok) return [];
+      const { rows } = await res.json();
+      return rows;
+    },
   });
-
-  if (liveDot) liveDot.classList.toggle('visible', anyRunning);
-
-  if (showMoreBtn) {
-    if (hidden > 0) {
-      showMoreBtn.textContent = `Show ${hidden} older run${hidden === 1 ? '' : 's'}`;
-      showMoreBtn.style.display = '';
-    } else {
-      showMoreBtn.style.display = 'none';
-    }
-  }
 }
-
-function showMoreRuns() {
-  _visibleRunCount = Infinity;
-  renderActivityRuns(_allRunGroups, _currentSyntheticGroup);
-}
-
-async function enrichRunGroup(detailsEl) {
-  detailsEl.dataset.enriched = '1';
-  const ids = (detailsEl.dataset.sessionIds || '').split(',').filter(Boolean);
-  if (ids.length === 0) return;
-
-  try {
-    const idList = ids.map(id => `'${id}'`).join(',');
-    const res = await fetch('/query_db', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql: `SELECT id, title, project, summary FROM sessions WHERE id IN (${idList})` }),
-    });
-    if (!res.ok) return;
-    const { rows } = await res.json();
-    const byId = Object.fromEntries(rows.map(r => [r.id, r]));
-
-    detailsEl.querySelectorAll('.run-event[data-session-id]').forEach(row => {
-      const session = byId[row.dataset.sessionId];
-      if (!session) return;
-      const tsEl = row.querySelector('.run-event-ts');
-      const metaEl = row.querySelector('.run-event-meta');
-      const title = escHtml(session.title || 'Untitled session');
-      const project = escHtml(session.project || '');
-      const summary = session.summary
-        ? escHtml(session.summary.slice(0, 120)) + (session.summary.length > 120 ? '…' : '')
-        : '';
-      row.innerHTML = `
-        ${tsEl ? tsEl.outerHTML : ''}
-        <div class="run-event-info">
-          <div class="run-event-header">
-            <span class="run-event-title">${title}</span>
-            ${project ? `<span class="run-event-project">${project}</span>` : ''}
-          </div>
-          ${summary ? `<div class="run-event-summary">${summary}</div>` : ''}
-        </div>
-        ${metaEl ? metaEl.outerHTML : ''}
-      `;
-    });
-  } catch { /* silently fail — IDs remain as fallback */ }
-}
-
-// Lazy-enrich session rows when a run group is expanded
-document.addEventListener('toggle', e => {
-  const details = e.target;
-  if (!details.matches('details.run-group') || !details.open || details.dataset.enriched) return;
-  enrichRunGroup(details);
-}, true);
 
 // ── Search ──────────────────────────────────────────────────────────────────
 
@@ -554,7 +405,21 @@ async function doSearch() {
     }
     document.getElementById('clear-search-btn').style.display = '';
     document.getElementById('search-count').textContent = `${_lastSearchResults.length} results`;
-    renderSearchResults(_lastSearchResults);
+    const normalizedResults = _lastSearchResults.map(r => ({
+      id: r.session_id,
+      title: r.title || r.session_id,
+      project: r.project,
+      date: r.date,
+      last_message_at: r.last_message_at,
+      summary: r.summary,
+      tags: r.tags,
+      showScore: true,
+      score: r.score,
+      preview: (r.highlightedPreview ?? r.preview) ? renderText(r.highlightedPreview ?? r.preview) : undefined,
+      showSummary: !!r.summary,
+      showTags: (r.tags ?? []).length > 0,
+    }));
+    renderSessions(normalizedResults);
     const hasFilter = _filterDateRange || fp || ft;
     document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
   } catch (err) {
@@ -566,41 +431,21 @@ async function doSearch() {
   }
 }
 
-function renderSearchResults(results) {
-  const content = document.getElementById('search-content');
-  if (!results || results.length === 0) {
-    content.innerHTML = '<div class="empty-state">No results found.</div>';
-    return;
-  }
-  content.innerHTML = `<div class="search-grid">${results.map(r => {
-    const tagPills = (r.tags ?? []).map(t =>
-      `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
-    ).join('');
-    const summaryHtml = r.summary
-      ? `<div class="session-card-summary">${escHtml(r.summary)}</div>` : '';
-    const snippetText = r.highlightedPreview ?? r.preview;
-    const previewHtml = snippetText
-      ? `<div class="result-snippet">
-           <span class="result-snippet-score">${r.score.toFixed(4)}</span>
-           <div class="result-snippet-body">${renderText(snippetText)}</div>
-         </div>` : '';
-    return `
-    <div class="session-card" onclick="openSession('${escHtml(r.session_id)}')">
-      <div class="session-card-body">
-        <div class="session-card-title">${escHtml(r.title || r.session_id)}</div>
-        <div class="session-card-meta">
-          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(r.project || '')}')">${escHtml(r.project || '—')}</span>
-          <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(r.date || '')}')">${escHtml(r.date || '—')}</span>
-          ${r.last_message_at ? `<span class="session-ts">${formatRelative(r.last_message_at)}</span>` : ''}
-          <span class="session-id">${escHtml(r.session_id)}</span>
-          ${tagPills}
-        </div>
-        ${summaryHtml}
-        ${previewHtml}
-      </div>
-      <div class="session-card-arrow">›</div>
-    </div>`;
-  }).join('')}</div>`;
+function renderSessions(sessions, opts = {}) {
+  const el = document.getElementById('sessions-panel');
+  if (!el || !window.QrecUI?.renderSessions) return;
+  window.QrecUI.renderSessions(el, {
+    sessions,
+    total: _sessionsTotal,
+    isLoading: opts.isLoading ?? false,
+    isEmpty: !opts.isLoading && sessions.length === 0,
+    showFields: _cardFields,
+    hasMore: _sessionsOffset < _sessionsTotal,
+    onSessionClick: (id) => openSession(id),
+    onProjectClick: (p) => filterByProject(p),
+    onTagClick: (tag) => filterByTag(tag),
+    onLoadMore: () => loadMoreSessions(),
+  });
 }
 
 function clearSearch() {
@@ -658,8 +503,25 @@ function onFieldChange() {
   }
   saveCardFields();
   // Re-render visible sessions with updated fields
-  const filtered = getFilteredSessions();
-  renderSessionsList(filtered);
+  if (_lastSearchResults !== null) {
+    const normalizedResults = _lastSearchResults.map(r => ({
+      id: r.session_id,
+      title: r.title || r.session_id,
+      project: r.project,
+      date: r.date,
+      last_message_at: r.last_message_at,
+      summary: r.summary,
+      tags: r.tags,
+      showScore: true,
+      score: r.score,
+      preview: (r.highlightedPreview ?? r.preview) ? renderText(r.highlightedPreview ?? r.preview) : undefined,
+      showSummary: !!r.summary,
+      showTags: (r.tags ?? []).length > 0,
+    }));
+    renderSessions(normalizedResults);
+  } else {
+    renderSessions(_allSessions);
+  }
 }
 
 document.addEventListener('click', e => {
@@ -670,25 +532,13 @@ document.addEventListener('click', e => {
   }
 });
 
-function setupScrollObserver() {
-  if (_scrollObserver) _scrollObserver.disconnect();
-  const sentinel = document.getElementById('search-sentinel');
-  if (!sentinel) return;
-  _scrollObserver = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting && _sessionsOffset < _sessionsTotal && !_sessionsLoading) {
-      loadMoreSessions();
-    }
-  }, { rootMargin: '300px' });
-  _scrollObserver.observe(sentinel);
-}
 
 async function loadSessions() {
   if (_sessionsLoading) return;
   _sessionsLoading = true;
   _allSessions = [];
   _sessionsOffset = 0;
-  const content = document.getElementById('search-content');
-  content.innerHTML = '<div class="loading-state"><span class="spinner"></span></div>';
+  renderSessions([], { isLoading: true });
   try {
     const params = new URLSearchParams({ offset: '0' });
     if (_filterDateRange) { params.set('dateFrom', _filterDateRange.from); params.set('dateTo', _filterDateRange.to); }
@@ -712,10 +562,11 @@ async function loadSessions() {
     const hasFilter = _filterDateRange || fp || ft;
     document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
     document.getElementById('search-count').textContent = `${total} results`;
-    renderSessionsList(sessions);
+    renderSessions(sessions);
     if (!_heatmapData) fetchAndRenderHeatmap();
   } catch (err) {
-    content.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
+    const el = document.getElementById('sessions-panel');
+    if (el) el.innerHTML = `<div class="error-state">Failed to load sessions: ${escHtml(String(err))}</div>`;
   } finally {
     _sessionsLoading = false;
   }
@@ -742,22 +593,7 @@ async function loadMoreSessions() {
     // Incrementally update filter options from the new batch only — O(batch) not O(total)
     updateFilterOptions(sessions);
 
-    // Server already filtered — append all returned sessions directly
-    const matching = sessions;
-
-    const grid = document.getElementById('search-grid');
-    if (grid && matching.length > 0) {
-      grid.insertAdjacentHTML('beforeend', matching.map(sessionCardHtml).join(''));
-    }
-
-    // Update count
-    const countEl = document.getElementById('search-count');
-    if (countEl && _lastSearchResults === null) {
-      const visibleCount = (grid ? grid.children.length : 0);
-      countEl.textContent = String(visibleCount);
-    }
-
-    setupScrollObserver();
+    renderSessions(_allSessions);
   } catch (_) {
     // silently ignore append errors — user can scroll again to retry
   } finally {
@@ -918,14 +754,26 @@ function heatmapCurrentWeek(days) {
   return result;
 }
 
-function renderHeatmapMetricBtns() {
-  const el = document.getElementById('heatmap-metric-btns');
-  if (!el || HEATMAP_METRICS.length <= 1) return;
-  el.innerHTML = '<div class="heatmap-metrics">' +
-    HEATMAP_METRICS.map(m => {
-      const active = m.id === _heatmapMetric ? ' heatmap-metric--active' : '';
-      return `<button class="heatmap-metric${active}" onclick="selectHeatmapMetric('${m.id}')">${m.label}</button>`;
-    }).join('') + '</div>';
+function renderDashboard() {
+  const el = document.getElementById('dashboard-panel');
+  if (!el || !window.QrecUI?.renderDashboard) return;
+  const m = HEATMAP_METRICS.find(m => m.id === _heatmapMetric) || HEATMAP_METRICS[0];
+  window.QrecUI.renderDashboard(el, {
+    sessionsCount: _sessionsCount,
+    sessionsIndexing: _sessionsIndexing,
+    summariesCount: _summariesCount,
+    summariesSub: _summariesSub,
+    summariesEnriching: _summariesEnriching,
+    searchesCount: _searchesCount,
+    heatmapDays: _heatmapData?.days,
+    heatmapByProject: _heatmapData?.byProject,
+    projects: _heatmapProjects,
+    selectedProject: _heatmapProject,
+    onProjectSelect: (p) => { selectHeatmapProject(p); },
+    heatmapMetric: _heatmapMetric,
+    onMetricSelect: (id) => { selectHeatmapMetric(id); },
+    footerText: _heatmapData ? `${_heatmapData.total.toLocaleString()} ${m.units} · ${_heatmapData.active_days} active days` : undefined,
+  });
 }
 
 function selectHeatmapMetric(metricId) {
@@ -936,35 +784,12 @@ function selectHeatmapMetric(metricId) {
 
 function selectHeatmapProject(project) {
   _heatmapProject = project || null;
-  const btn = document.getElementById('heatmap-project-btn');
-  if (btn) {
-    if (project) {
-      btn.innerHTML = `${projectDot(project, 8)} <span style="margin-left:5px;">${escHtml(project)}</span> ▾`;
-    } else {
-      btn.textContent = 'All projects ▾';
-    }
-  }
-  document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
   fetchAndRenderHeatmap();
   _lastRenderedSessionCount = -1; // force recent sessions to reload with new project filter
   _lastRenderedEnrichedCount = -1;
   loadRecentSessions();
 }
 
-function toggleHeatmapProjectDropdown() {
-  const el = document.getElementById('heatmap-dropdown-project');
-  if (el.classList.contains('open')) { el.classList.remove('open'); return; }
-  const items = [{ label: 'All projects', value: '' }, ..._heatmapProjects.map(p => ({ label: p, value: p }))];
-  el.innerHTML = items.map(({ label, value }) => {
-    const dot = value ? `${projectDot(value, 8)}&nbsp;` : '';
-    return `<div class="filter-dropdown-item${value === (_heatmapProject ?? '') ? ' filter-dropdown-item--active' : ''}" style="display:flex;align-items:center;gap:4px;" onclick="selectHeatmapProject('${escHtml(value)}')">${dot}${escHtml(label)}</div>`;
-  }).join('');
-  el.classList.add('open');
-}
-
-function hideHeatmapProjectDropdown() {
-  document.getElementById('heatmap-dropdown-project')?.classList.remove('open');
-}
 
 function renderHeatmap(containerId, days, opts = {}) {
   const container = document.getElementById(containerId);
@@ -1141,19 +966,7 @@ async function fetchAndRenderHeatmap() {
     const res = await fetch(`/stats/heatmap?${params}`);
     if (!res.ok) return;
     _heatmapData = await res.json();
-
-    // Dashboard
-    const dashSection = document.getElementById('dashboard-heatmap-section');
-    if (dashSection) {
-      renderHeatmapMetricBtns();
-      renderHeatmap('dashboard-heatmap', _heatmapData.days, { clickable: true, byProject: _heatmapData.byProject });
-      const footer = document.getElementById('dashboard-heatmap-footer');
-      if (footer) {
-        const m = HEATMAP_METRICS.find(m => m.id === _heatmapMetric) || HEATMAP_METRICS[0];
-        footer.textContent = `${_heatmapData.total.toLocaleString()} ${m.units} · ${_heatmapData.active_days} active days`;
-      }
-      dashSection.style.display = '';
-    }
+    renderDashboard();
   } catch {}
 }
 
@@ -1297,83 +1110,9 @@ function clearFilters() {
   }
 }
 
-function enrichBlockHtml(s, compact = false) {
-  const hasAny = !compact || Object.keys(_cardFields).some(k => k !== 'tags' && _cardFields[k] && s[k]);
-  if (!hasAny) return '';
-
-  // In compact (card) mode, only show fields the user has toggled on.
-  // Tags are handled in the meta row for cards, so they're excluded from the block.
-  const showField = k => !compact || (k !== 'tags' && _cardFields[k]);
-
-  const summarySection = showField('summary') && s.summary
-    ? `<div class="summary-block-section">
-         <span class="summary-block-label">Summary</span>
-         <p style="margin-top:4px;">${escHtml(s.summary)}</p>
-       </div>` : '';
-
-  // Tags only appear in the block for the detail view
-  const tagPills = !compact
-    ? (s.tags ?? []).map(t =>
-        `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}');showTab('search')">${escHtml(t)}</span>`
-      ).join('')
-    : '';
-  const entityPills = showField('entities')
-    ? (s.entities ?? []).map(e =>
-        `<span class="tag" style="font-family:var(--mono);font-size:11px;">${escHtml(e)}</span>`
-      ).join('')
-    : '';
-  const tagsHtml = (tagPills || entityPills)
-    ? `<div class="summary-block-tags">${tagPills}${entityPills}</div>` : '';
-
-  const learningsHtml = showField('learnings') && (s.learnings ?? []).length > 0
-    ? `<div class="summary-block-section">
-         <span class="summary-block-label">Learnings</span>
-         <ul class="summary-block-list">${(s.learnings ?? []).map(l => `<li>${escHtml(l)}</li>`).join('')}</ul>
-       </div>` : '';
-
-  const questionsHtml = showField('questions') && (s.questions ?? []).length > 0
-    ? `<div class="summary-block-section">
-         <span class="summary-block-label">Questions answered</span>
-         <ul class="summary-block-list">${(s.questions ?? []).map(q => `<li>${escHtml(q)}</li>`).join('')}</ul>
-       </div>` : '';
-
-  const inner = summarySection + tagsHtml + learningsHtml + questionsHtml;
-  if (!inner.trim()) return '';
-  return `<div class="summary-block${compact ? ' summary-block--compact' : ''}">${inner}</div>`;
-}
-
-function sessionCardHtml(s) {
-  const metaTagPills = _cardFields.tags
-    ? (s.tags ?? []).map(t =>
-        `<span class="enrich-tag" onclick="event.stopPropagation();filterByTag('${escHtml(t)}')">${escHtml(t)}</span>`
-      ).join('')
-    : '';
-  return `
-  <div class="session-card" onclick="openSession('${escHtml(s.id)}')">
-    <div class="session-card-body">
-      <div class="session-card-title">${escHtml(s.title || '(untitled)')}</div>
-      <div class="session-card-meta">
-        <span class="tag clickable-tag" onclick="event.stopPropagation();filterByProject('${escHtml(s.project || '')}')">${escHtml(s.project || '—')}</span>
-        <span class="tag clickable-tag" onclick="event.stopPropagation();filterByDate('${escHtml(s.date || '')}')">${escHtml(s.date || '—')}</span>
-        ${s.last_message_at ? `<span class="session-ts">${formatRelative(s.last_message_at)}</span>` : ''}
-        <span class="session-id">${escHtml(s.id)}</span>
-        ${metaTagPills}
-      </div>
-      ${enrichBlockHtml(s, true)}
-    </div>
-    <div class="session-card-arrow">›</div>
-  </div>`;
-}
 
 function renderSessionsList(sessions) {
-  const content = document.getElementById('search-content');
-  if (!sessions || sessions.length === 0) {
-    content.innerHTML = '<div class="empty-state">No sessions found.</div>';
-    setupScrollObserver();
-    return;
-  }
-  content.innerHTML = `<div class="search-grid" id="search-grid">${sessions.map(sessionCardHtml).join('')}</div><div id="search-sentinel"></div>`;
-  setupScrollObserver();
+  renderSessions(sessions ?? []);
 }
 
 function openSession(id) {
@@ -1411,25 +1150,24 @@ async function loadSessionDetail(id) {
     const session = await res.json();
     document.getElementById('detail-loading').style.display = 'none';
 
-    document.getElementById('detail-title').textContent = session.title || '(untitled)';
     const fullUuid = session.path ? session.path.replace(/.*\//, '').replace(/\.jsonl$/, '') : session.id;
-    document.getElementById('detail-meta').innerHTML = `
-      <span class="tag clickable-tag" onclick="filterByProject('${escHtml(session.project || '')}')">${escHtml(session.project || '—')}</span>
-      <span class="tag clickable-tag" onclick="filterByDate('${escHtml(session.date || '')}')">${escHtml(session.date || '—')}</span>
-      <span class="tag session-id">${escHtml(fullUuid)}<button class="copy-btn" title="Copy session UUID" onclick="navigator.clipboard.writeText('${escHtml(fullUuid)}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='⎘',1200)})">⎘</button></span>
-      <span class="tag">${session.turns ? session.turns.length + ' turns' : ''}</span>
-    `;
-
-    // Summary block (shown above turns when enriched) — remove all, not just first
-    document.querySelectorAll('.summary-block').forEach(el => el.remove());
-    const turnsEl = document.getElementById('detail-turns');
-    const blockHtml = enrichBlockHtml(session, false);
-    if (blockHtml) turnsEl.insertAdjacentHTML('beforebegin', blockHtml);
-
-    if (!session.turns || session.turns.length === 0) {
-      turnsEl.innerHTML = '<div class="empty-state">No turns found in this session.</div>';
-    } else {
-      turnsEl.innerHTML = groupTurns(session.turns).map(g => renderGroup(g)).join('');
+    const panel = document.getElementById('session-detail-panel');
+    if (panel && window.QrecUI?.renderSessionDetail) {
+      window.QrecUI.renderSessionDetail(panel, {
+        id: fullUuid,
+        title: session.title,
+        project: session.project,
+        date: session.date,
+        durationSeconds: session.duration_seconds,
+        summary: session.summary,
+        tags: session.tags,
+        entities: session.entities,
+        learnings: session.learnings,
+        questions: session.questions,
+        turns: session.turns ?? [],
+        onProjectClick: (p) => filterByProject(p),
+        onTagClick: (tag) => filterByTag(tag),
+      });
     }
 
     document.getElementById('detail-content').style.display = '';
@@ -1441,83 +1179,6 @@ async function loadSessionDetail(id) {
   }
 }
 
-/** Group flat turn list: consecutive assistant turns → one agent group. */
-function groupTurns(turns) {
-  const groups = [];
-  let i = 0;
-  while (i < turns.length) {
-    if (turns[i].role === 'user') {
-      groups.push({ type: 'user', turn: turns[i] });
-      i++;
-    } else {
-      const agentTurns = [];
-      while (i < turns.length && turns[i].role === 'assistant') {
-        agentTurns.push(turns[i]);
-        i++;
-      }
-      groups.push({ type: 'agent', turns: agentTurns });
-    }
-  }
-  return groups;
-}
-
-function renderGroup(group) {
-  if (group.type === 'user') {
-    const t = group.turn;
-    const tsHtml = t.timestamp
-      ? `<div class="turn-ts">${escHtml(new Date(t.timestamp).toLocaleString())}</div>`
-      : '';
-    return `
-      <div class="turn user">
-        <div class="turn-role">User</div>
-        <div class="turn-text">${renderText(t.text)}</div>
-        ${tsHtml}
-      </div>`;
-  }
-
-  // Agent group: collect all tools, thinking, and text across consecutive turns
-  const allTools = group.turns.flatMap(t => t.tools ?? []);
-  const allThinking = group.turns.flatMap(t => t.thinking ?? []);
-  const texts = group.turns.map(t => t.text).filter(Boolean);
-  const lastTs = group.turns.map(t => t.timestamp).filter(Boolean).at(-1);
-
-  const textHtml = texts.length
-    ? `<div class="turn-text">${texts.map(renderText).join('<hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">')}</div>`
-    : '';
-
-  const thinkingHtml = allThinking.length
-    ? `<details class="agent-thinking">
-        <summary>Thinking (${allThinking.length})</summary>
-        <div class="agent-thinking-body">${allThinking.map(t => escHtml(t)).join('\n\n---\n\n')}</div>
-      </details>`
-    : '';
-
-  const actionsHtml = allTools.length
-    ? `<details class="agent-actions">
-        <summary>${allTools.length} tool call${allTools.length === 1 ? '' : 's'}</summary>
-        <div class="agent-actions-body">
-          ${allTools.map(tool => `
-            <details class="tool-detail">
-              <summary>${escHtml(tool)}</summary>
-              <div class="tool-content">${escHtml(tool)}</div>
-            </details>`).join('')}
-        </div>
-      </details>`
-    : '';
-
-  const tsHtml = lastTs
-    ? `<div class="turn-ts">${escHtml(new Date(lastTs).toLocaleString())}</div>`
-    : '';
-
-  return `
-    <div class="turn assistant">
-      <div class="turn-role">Agent</div>
-      ${textHtml}
-      ${thinkingHtml}
-      ${actionsHtml}
-      ${tsHtml}
-    </div>`;
-}
 
 function goBack() {
   showTab('search');

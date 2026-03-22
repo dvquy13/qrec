@@ -1,0 +1,40 @@
+{
+  "skill_name": "recall",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "pick up context from the latest session",
+      "expected_output": "Uses browse mode: runs qrec search --k 10 with no query string, picks the most recent session matching the current project, then gets it with qrec get",
+      "files": [],
+      "expectations": [
+        "First qrec command is browse mode: 'qrec search --k 10' with no positional query argument",
+        "Uses --k 10 (not --k 5 or other value)",
+        "Follows up with qrec get <session_id> to fetch the full session",
+        "Does NOT run a semantic search query as the first command"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "how did we implement the FTS5 query sanitization in qrec?",
+      "expected_output": "Uses semantic search with a concrete query string, tries up to 2 phrasings if needed, then gets the relevant session",
+      "files": [],
+      "expectations": [
+        "First qrec command includes a query string (semantic search mode)",
+        "Uses --k 10",
+        "Query string contains relevant terms like 'FTS5' or 'sanitiz'",
+        "Follows up with qrec get to fetch session content"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "what were we working on with the remotion demo? continue from the latest session on that",
+      "expected_output": "Treats this as a recency request (latest session on a topic), uses browse mode first, scans project/title fields, picks the matching session",
+      "files": [],
+      "expectations": [
+        "First qrec command is browse mode: 'qrec search --k 10' with no positional query argument",
+        "Does NOT immediately fire a semantic search query as the first command",
+        "Follows up with qrec get to retrieve the session"
+      ]
+    }
+  ]
+}

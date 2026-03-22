@@ -1,0 +1,28 @@
+{
+  "name": "qrec-demo",
+  "version": "1.0.0",
+  "description": "qrec demo video",
+  "scripts": {
+    "start": "remotion studio",
+    "render": "remotion render FullDemo out/qrec-demo.mp4 --timeout=60000",
+    "render:gif": "remotion render out/qrec-demo.gif --frames=0-299",
+    "gen:voiceover": "bun --env-file=../.env generate-voiceover.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.438",
+    "@remotion/fonts": "^4.0.438",
+    "@remotion/layout-utils": "4.0.438",
+    "@remotion/media": "^4.0.438",
+    "mediabunny": "^1.40.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "remotion": "4.0.438"
+  },
+  "devDependencies": {
+    "@types/react": "18.2.0",
+    "typescript": "5.4.5"
+  },
+  "remotion": {
+    "entryPoint": "src/index.ts"
+  }
+}

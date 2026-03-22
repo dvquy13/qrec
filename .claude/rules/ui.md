@@ -1,36 +1,17 @@
 ---
 paths:
   - ui/**
+  - ui-react/**
+  - demo/**
 ---
 
 # UI Rules (ui/)
 
-## Design System
-
-**Typography**
-- Page headings: `.section-heading` — 32px, weight 700, letter-spacing -0.04em. Every tab gets one at the top.
-- Stat values on dashboard: 32px, weight 400, letter-spacing -0.04em (large numbers feel light).
-- Session card titles: 18px, weight 500. Turn accent blue on card hover.
-
-**Color philosophy: black/white at rest, primary blue on interaction**
-- Interactive elements are neutral by default and reveal `var(--accent)` (#0062a8) only on hover — never pre-colored except when actively selected/active.
-- Tags (`.enrich-tag`): transparent background, dark border + dark text at rest → border + text turn accent on hover. No fill ever.
-- Clickable metadata (project, date chips in cards): text turns accent on hover, no background change.
-- Buttons (Search, filter actions): transparent background + dark border at rest → accent fill + white text on hover.
-- Card titles: inherit text color at rest → turn accent on parent card hover.
-
-**Minimal chrome**
-- No card shadows or backgrounds. Cards are transparent; hover may add a subtle bg (`var(--bg)`) but never a shadow.
-- Borders are structural only (separating content regions), not decorative. Default border color: `var(--border)` (#e2e8f0).
-- Avoid vertical borders inside components (e.g. `.stat-item` column separators) — use spacing instead.
-
-**Alignment: one left axis**
-- All block elements — page heading, search bar, filter row, cards, section headers — share the same left edge (no horizontal padding offset). Two competing left edges is a defect.
-- `.section-header`: `padding: 11px 0` (no horizontal indent).
-- `.session-card`: `padding: 14px 0` (no horizontal indent).
-- Any new component that introduces a left indent will misalign with the page heading above it.
+> Visual design tokens, component specs, and layout rules → **[docs/DESIGN_SYSTEM.md](../../docs/DESIGN_SYSTEM.md)**
 
 ---
+
+## Behavioral Gotchas (app.js)
 
 - **Sessions tab is NOT polled** — the 5s `setInterval` in `app.js` refreshes dashboard and activity only. Do NOT add `sessions` back to the polling interval: `loadSessions()` resets `_allSessions`, replaces `innerHTML` with a spinner, and resets scroll to top — destroying infinite scroll state mid-browse.
 
@@ -66,7 +47,7 @@ paths:
 
 - **Don't reuse `.session-id` for non-ID text** — `.session-id` has `font-family: var(--mono)`, so any text rendered in it (e.g. relative timestamps) will appear in Menlo. Use a dedicated class (e.g. `.session-ts`) that inherits the page font instead.
 
-- **Page-level headings and section content must share one left alignment line** — `.section-header` uses `padding: 11px 0` (no horizontal indent) so section titles align with `.section-heading` page titles. Session cards use `padding: 14px 0` (no horizontal indent) so card titles align with the heading above. Any horizontal padding on these elements creates a competing vertical line and looks misaligned.
+- **One left alignment axis** — `.section-header` uses `padding: 11px 0` (no horizontal indent) so section titles align with `.section-heading` page titles. Session cards use `padding: 14px 0` (no horizontal indent) so card titles align with the heading above. Any horizontal padding on these elements creates a competing vertical line and looks misaligned.
 
 - **Onboarding is integrated into the dashboard — no separate banner** — There is no `onboarding-wrap` or `updateOnboardingBanner()`. Startup state is surfaced via three embedded signals: (1) a pulsing blue dot (`stat-indexing-dot`) on the Sessions stat card label when `phase === 'indexing'`; (2) a synthetic model-loading/downloading activity entry (with progress bar) injected at the top of Recent Activity when `phase` is `model_download`, `model_loading`, or `starting` — built by `buildModelSyntheticGroup()`; (3) a `search-ready-hint` span next to the "Recent Sessions" heading, shown when `sessions > 0 && phase === 'ready' && searches === 0`, that navigates to the Sessions tab on click. Do not reintroduce a banner or onboarding-wrap — the dashboard always shows full content even during startup.
 
@@ -89,3 +70,32 @@ paths:
 - **`collapseZeroEnrichRuns` mirrors `collapseZeroIndexRuns`** — zero-enrich runs ("Enrich run 0 sessions") flood Recent Activity the same way zero-index runs did before collapse was added. `isZeroEnrichRun` checks `enrich_complete.data.enriched` (falling back to `session_enriched` event count); multiple consecutive zero-enrich runs collapse into one `enrich_collapsed` group. `groupSummary` handles `enrich_collapsed` → `"Enrich run N× nothing to enrich"`.
 
 - **Settings tab: runtime vs restart-required** — `enrichEnabled`/`enrichIdleMs` apply on the next daemon tick (live-read); `indexIntervalMs` requires a restart (`setInterval` is called once at startup). Save feedback is green for runtime changes, amber for restart-required ones.
+
+---
+
+## React Component Library (ui-react/)
+
+- **`ui-react/` is the shared component library** — two tiers:
+  - `src/components/` — primitives: SessionCard, HeatmapGrid, EnrichBlock, TagBadge, StatCard, HeatmapProjectFilter, ActivityFeed
+  - `src/sections/` — page subsections that compose multiple primitives + own their CSS: `DashboardSection` (stats grid + heatmap). Use sections when a full UI region is shared between the web app and Remotion.
+  - Build: `cd ui-react && bun run build.ts` → `ui/components.js` (IIFE). Also runs automatically via `scripts/build.js` after the main esbuild step.
+
+- **Section components are controlled** — `selectedProject`, `heatmapMetric`, and similar state are **props**, not internal state. The caller (app.js or Remotion scene) owns the state and provides `onProjectSelect`/`onMetricSelect` callbacks. Never move selection state inside a section component.
+
+- **`renderDashboard()` pattern in app.js** — module-level vars (`_sessionsCount`, `_sessionsIndexing`, `_summariesCount`, `_summariesSub`, `_summariesEnriching`, `_searchesCount`) are the source of truth. `showDashboardPanel()` updates them; `fetchAndRenderHeatmap()` updates `_heatmapData`; both funnel into a single `renderDashboard()` call that passes everything to `window.QrecUI.renderDashboard(el, props)`.
+
+- **`DashboardSection` owns stats grid + heatmap only** — `loadRecentSessions()` (vanilla `innerHTML`, `.dashboard-session-card` design) and `renderActivityFeed()` (separate React mount into `#run-list`) remain as independent calls below the section. Do not absorb them into `DashboardSection`.
+
+- **Bun IIFE build naming quirk** — `format: 'iife'` with `naming: '[name].[ext]'` emits `web-entry.js` + `web-entry.css`. `build.ts` renames both: `web-entry.js` → `components.js`, `web-entry.css` → `components.css`. The size displayed in build output shows 0.0 KB due to the rename happening after size capture — the file on disk is correct.
+
+- **`ui-react/src/styles/shared.css` is the canonical source for cross-component utility classes** — `.tag`, `.clickable-tag`, `.enrich-tag`, `.session-id`, `.session-ts`, `.copy-btn`, `.section-heading`, `.stat-card`, `.search-grid`, `.latency-bar`, `.empty-state`, `.loading-state`, `.spinner` / `@keyframes spin` all live here. Every component and section CSS file that uses any of these classes has `@import '../../styles/shared.css'` (components) or `@import '../styles/shared.css'` (sections) at the top. `ui/styles.css` does NOT define these classes — they arrive in the browser app via `ui/components.css` (loaded before `styles.css` in `index.html`). Do not add them back to `styles.css`.
+
+- **`window.QrecUI` unmount before clearing innerHTML** — before any `container.innerHTML = ''` that may contain React-mounted cards, call: `container.querySelectorAll('[data-qrec-mount]').forEach(el => window.QrecUI?.unmount(el))`. The `data-qrec-mount="1"` attribute is added to container divs in `app.js`, not inside the React component.
+
+- **React component props: `null` !== `undefined` for array defaults** — TypeScript default parameter syntax (`tags = []`) only guards against `undefined`. The `/sessions` and `/search` APIs return `tags: null`, `entities: null`, `learnings: null`, `questions: null` for unenriched sessions. A prop typed `tags?: string[]` with default `= []` will receive `null` and `.map()` throws "Cannot read properties of null". Fix: rename the destructured prop (`tagsProp`) and apply `const tags = tagsProp ?? []` in the component body. This pattern is required in any component that receives nullable array fields from the API. `SessionCard` normalizes before passing down to `EnrichBlock`, so `EnrichBlock` itself is protected.
+
+- **Remotion demo imports directly from `ui-react/src/`** — not from the built `components.js`. Use relative paths: `import { DashboardSection } from '../../../ui-react/src/sections/DashboardSection'`. CSS custom properties (`--accent`, `--text`, etc.) are set globally by `Root.tsx → import '../../ui-react/src/styles/variables.css'` — do NOT add an inline `CSS_VARS` style object to each scene. It is redundant (values are identical to `variables.css`) and was the pre-sections workaround. Shared components and sections have no Remotion dependencies — animation stays in the demo scenes themselves.
+
+- **Section components must spread `style` onto their own root element** — a `style` prop passed to a section (e.g. `style={{ flex: 1, overflow: 'hidden' }}`) must be applied to the section's own root `div`, not forwarded to a grandchild component. Misrouting `style` to a grandchild (e.g. passing it to `ActivityFeed`) is a silent failure: `flex: 1` is meaningless on a block child of a block parent, and `overflow: hidden` has no clip effect on an unconstrained grandchild. Convention: destructure `style` in the section props and spread it on the root div; bake in any required layout defaults (e.g. `minHeight: 0`) as a base before the caller's overrides.
+
+- **`overflow: hidden` clips at the border edge — `paddingBottom` does NOT create breathing room for overflowing content** — In CSS, `overflow: hidden` clips at the border edge, which includes the padding area. When content overflows a flex container that has `overflow: hidden`, it bleeds into the padding area and is clipped at the border — so `paddingBottom` on that container does NOT produce visible white space below the content. The only reliable bottom gap is padding on a **containing ancestor** that sits outside the clipping element. Concretely: if an inner wrapper (flex column) is missing `overflow: hidden`, content overflows its boundary into the outer div's padding area, and the outer div's `overflow: hidden` clips at its border — making all `paddingBottom` attempts on the outer div silently fail. Fix: add `overflow: hidden` to the inner flex wrapper so it clips first, then the outer div's `paddingBottom` becomes visible white space.
