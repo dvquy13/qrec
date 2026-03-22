@@ -4,7 +4,7 @@
   "description": "qrec demo video",
   "scripts": {
     "start": "remotion studio",
-    "render": "remotion render out/qrec-demo.mp4",
+    "render": "remotion render FullDemo out/qrec-demo.mp4 --timeout=60000",
     "render:gif": "remotion render out/qrec-demo.gif --frames=0-299",
     "gen:voiceover": "bun --env-file=../.env generate-voiceover.ts"
   },

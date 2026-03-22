@@ -15,6 +15,7 @@ import {SCENE_IDS, sceneAudioFile, getAudioDuration} from './voiceover';
 loadFont({
   family: 'Google Sans Flex',
   url: staticFile('fonts/GoogleSansFlex-latin-ext.woff2'),
+  format: 'woff2',
   weight: '100 900',
   display: 'block',
 });
@@ -22,6 +23,7 @@ loadFont({
 loadFont({
   family: 'Google Sans Flex',
   url: staticFile('fonts/GoogleSansFlex-latin.woff2'),
+  format: 'woff2',
   weight: '100 900',
   display: 'block',
 });
@@ -29,6 +31,7 @@ loadFont({
 loadFont({
   family: 'Google Sans Code',
   url: staticFile('fonts/GoogleSansCode-VariableFont_wght.ttf'),
+  format: 'truetype',
   weight: '100 900',
   display: 'block',
 });
