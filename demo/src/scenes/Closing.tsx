@@ -107,7 +107,7 @@ export const Closing: React.FC = () => {
           armsUp={revealArmsUp}
           frame={frame}
           fps={fps}
-          color="#ffffff"
+          color="#D77757"
         />
         <div
           style={{
