@@ -67,7 +67,8 @@ npx --yes conventional-changelog-cli -p angular -i CHANGELOG.md -s
 # 4. Commit all changes
 echo "[release] Committing..."
 git add package.json .claude-plugin/marketplace.json plugin/.claude-plugin/plugin.json \
-        plugin/scripts/qrec.cjs CHANGELOG.md
+        plugin/scripts/qrec.cjs CHANGELOG.md \
+        ui/components.js ui/components.css
 git commit -m "chore: release v${VERSION}"
 
 # 5. Tag
