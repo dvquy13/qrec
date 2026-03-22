@@ -4,7 +4,6 @@ import {measureText} from '@remotion/layout-utils';
 import {theme} from '../theme';
 import {
   CLAMP,
-  SPRING_SNAPPY,
   remotionCSSAnimVars,
   REMOTION_ANIM_OVERRIDES,
   cursorBlink,
@@ -28,8 +27,7 @@ import {MouseCursor} from '../components/MouseCursor';
 //   0–  8f:  fade in
 //   8– 35f:  browser cursor moves to session title
 //  30– 43f:  hover effect + click
-//  43– 65f:  sessions fade out
-//  55– 78f:  detail fades in (shows RAW_TITLE)
+//  43f:      hard cut — sessions out, detail in (shows RAW_TITLE)
 //  78– 90f:  browser cursor fades out
 //  90–112f:  Figma cursor slides in → end of RAW_TITLE text; label appears with cursor
 // 112–205f:  cursor blinks (thinking, ~5 blinks); zoom-in starts at 112
@@ -253,14 +251,12 @@ export const EnrichDetail: React.FC = () => {
   const cursorOpacity = interpolate(frame, [0, 75, 90], [1, 1, 0], CLAMP);
 
   // ── Sessions phase ──────────────────────────────────────────────────────────
-  const sessionsOpacity = interpolate(frame, [43, 63], [1, 0], CLAMP);
-  const sessionsScale = interpolate(frame, [43, 65], [1, 1.04], CLAMP);
-  const titleHovered = frame >= 30 && frame < 55;
+  const sessionsOpacity = frame < 43 ? 1 : 0;
+  const titleHovered = frame >= 30 && frame < 43;
 
   // ── Detail phase ────────────────────────────────────────────────────────────
-  const detailOpacity = interpolate(frame, [55, 76], [0, 1], CLAMP);
-  const detailScaleSp = spring({frame: frame - 55, fps, config: SPRING_SNAPPY});
-  const detailScale = interpolate(detailScaleSp, [0, 1], [0.97, 1]);
+  const detailOpacity = frame < 43 ? 0 : 1;
+  const detailScale = 1;
 
   // ── Title zoom in/out ────────────────────────────────────────────────────────
   const titleZoomInSp  = Math.min(1, spring({frame: frame - TITLE_ZOOM_IN_FRAME, fps,
@@ -483,7 +479,6 @@ export const EnrichDetail: React.FC = () => {
             <div style={{
               position: 'absolute', inset: 0,
               opacity: sessionsOpacity,
-              transform: `scale(${sessionsScale})`, transformOrigin: 'center center',
               padding: '20px 28px 24px',
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
               ...cssAnimVars,
