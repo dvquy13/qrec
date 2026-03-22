@@ -1,7 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {theme} from '../theme';
-import {CLAMP, SPRING_BOUNCY, getTyped, cursorBlink, remotionCSSAnimVars, REMOTION_ANIM_OVERRIDES} from '../animUtils';
+import {CLAMP, SPRING_BOUNCY, SPRING_SNAPPY, getTyped, cursorBlink, remotionCSSAnimVars, REMOTION_ANIM_OVERRIDES} from '../animUtils';
 import {DashboardSection} from '../../../ui-react/src/sections/DashboardSection';
 import {RunGroup} from '../../../ui-react/src/components/ActivityFeed/ActivityFeed';
 import {RecentActivitySection} from '../../../ui-react/src/sections/RecentActivitySection';
@@ -71,7 +71,12 @@ export const Onboard: React.FC = () => {
   const daemon3Opacity = interpolate(frame, [94, 100], [0, 1], CLAMP);
 
   // ── Terminal / browser transitions ────────────────────────────────────────
-  const terminalOpacity = interpolate(frame, [0, 8, 108, 112], [0, 1, 1, 0], CLAMP);
+  const terminalSlideY = interpolate(
+    spring({frame, fps, config: SPRING_SNAPPY}),
+    [0, 1],
+    [600, 0],
+  );
+  const terminalOpacity = interpolate(frame, [108, 112], [1, 0], CLAMP);
   const browserSp = spring({frame: frame - 109, fps, config: SPRING_BOUNCY});
   const browserScale = interpolate(browserSp, [0, 1], [0.88, 1]);
   const browserOpacity = interpolate(frame, [109, 115], [0, 1], CLAMP);
@@ -179,6 +184,7 @@ export const Onboard: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'center',
           opacity: terminalOpacity,
+          transform: `translateY(${terminalSlideY}px)`,
         }}
       >
         <div
