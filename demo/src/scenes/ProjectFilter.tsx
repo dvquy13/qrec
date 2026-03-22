@@ -160,11 +160,11 @@ export const ProjectFilter: React.FC = () => {
     ? [
         {
           id: 'c0ffee04',
-          title: 'Archive JSONL on index for session durability',
+          title: 'How can we ensure old sessions stay\u2026',
           project: 'qrec',
           last_message_at: new Date('2026-03-13T11:00:00Z').getTime(),
           summary:
-            'Claude Code deletes old JSONL files after ~30 days. Added archiveJsonl() in indexer.ts to copy each ingested file to ~/.qrec/archive/<project>/ before indexing, ensuring sessions remain queryable after source deletion.',
+            'Added archiveJsonl() in indexer.ts to copy each JSONL to ~/.qrec/archive/ before indexing.',
         },
       ]
     : [
