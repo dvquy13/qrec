@@ -8,6 +8,7 @@ import {Onboard} from './scenes/Onboard';
 import {ProjectFilter} from './scenes/ProjectFilter';
 import {EnrichDetail} from './scenes/EnrichDetail';
 import {SearchDemo} from './scenes/SearchDemo';
+import {Closing} from './scenes/Closing';
 
 const OpeningLogo: React.FC = () => <Opening showLogo />;
 
@@ -74,6 +75,14 @@ export const Root: React.FC = () => {
         id="SearchDemo"
         component={SearchDemo}
         durationInFrames={310}
+        fps={30}
+        width={1280}
+        height={720}
+      />
+      <Composition
+        id="Closing"
+        component={Closing}
+        durationInFrames={120}
         fps={30}
         width={1280}
         height={720}
