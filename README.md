@@ -1,4 +1,7 @@
-# qrec
+<p align="center">
+  <img src="public/logo-transparent.svg" alt="qrec" width="100" /><br/>
+  <strong style="font-size:2em">qrec</strong>
+</p>
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/dvquy13?style=flat&logo=github&label=Sponsor)](https://github.com/sponsors/dvquy13)
 
