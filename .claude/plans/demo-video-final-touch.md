@@ -275,8 +275,8 @@ import {Closing} from './scenes/Closing';        // new
 - [x] Task 4: Closing.tsx created — Clawd+logo + tagline + CTA
 - [x] Task 1: Opening.tsx rewritten — cascade + lens + "Meet qrec." + fade out (~185f)
 - [x] Task 2: Onboard.tsx modified — terminal entrance is slide-up from bottom
-- [ ] Task 3: SearchDemo.tsx — Clawd peek added at frames 82–120 (with `frame`+`fps` props)
-- [ ] Task 5: Root.tsx updated — OpeningLogo wrapper removed, Opening duration → 185, Closing composition added (280f)
+- [x] Task 3: SearchDemo.tsx — Clawd peek added at frames 82–120 (with `frame`+`fps` props)
+- [x] Task 5: Root.tsx updated — OpeningLogo wrapper removed, Opening duration → 185, Closing composition added (280f)
 - [ ] Verify: preview all scenes in Remotion studio at localhost:3000
 - [ ] Verify: Opening → Onboard visual handoff looks seamless (terminal slides in at Onboard start)
 - [ ] Verify: cursor coordinates in SearchDemo still correct after Clawd addition (no layout shift)

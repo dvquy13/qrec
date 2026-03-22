@@ -66,6 +66,14 @@ export const ClawdMascot: React.FC<ClawdMascotProps> = ({
     ? interpolate(frame, [62, 76], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})
     : 0;
   const bubScale = interpolate(bubSp, [0, 1], [0.2, 1]);
+  // ── Eye blink (two blinks: frames 25 and 80, relative to passed frame) ─────
+  // Eyes are gaps at col 5 (x=60) and col 12 (x=144) in row 1 (y=PH).
+  // Overlay same-color rects that grow downward to "close" the eye.
+  const BLINK = {extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const};
+  const blink1 = interpolate(frame, [90, 92, 96], [0, 1, 0], BLINK);
+  const blink2 = interpolate(frame, [110, 112, 116], [0, 1, 0], BLINK);
+  const blinkH = Math.max(blink1, blink2) * PH;
+
   const bubbleGroupOp = !showThoughtBubble
     ? 0
     : frame < 140
@@ -138,6 +146,10 @@ export const ClawdMascot: React.FC<ClawdMascotProps> = ({
             <rect x={13 * PW} y={PH} width={2 * PW} height={PH} fill={color} />
           </>
         )}
+
+        {/* ── blink overlay: covers eye gaps (col 5 and col 12) ── */}
+        <rect x={5 * PW} y={PH} width={PW} height={blinkH} fill={color} />
+        <rect x={12 * PW} y={PH} width={PW} height={blinkH} fill={color} />
 
         {/* ── row 2: body top ── */}
         {armsUp ? (

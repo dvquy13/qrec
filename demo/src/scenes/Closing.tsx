@@ -5,13 +5,18 @@ import {CLAMP, SPRING_SNAPPY} from '../animUtils';
 import {ClawdMascot} from '../components/ClawdMascot';
 import {QrecLogo} from '../components/QrecLogo';
 
-// ── Clawd arm position geometry (verbatim from Opening.tsx) ──────────────────
+// ── Clawd arm position geometry ───────────────────────────────────────────────
 // ClawdMascot SVG: width=216, height=220, transformOrigin='center bottom'=(108,220)
-// armsUp row 1 left arm:  div coords x=12 (left edge), center-y=143
 // At scale S: visual_x = 108 + (x-108)*S,  visual_y = 220 + (y-220)*S
+// armsUp:   row 1 left arm, x=12 (left edge), center-y=143
+// armsDown: row 2 left arm, x=12 (left edge), center-y=165
 const armVisualPos = (scale: number) => ({
   x: 108 + (12 - 108) * scale,
   y: 220 + (143 - 220) * scale,
+});
+const armVisualPosDown = (scale: number) => ({
+  x: 108 + (12 - 108) * scale,
+  y: 220 + (165 - 220) * scale,
 });
 
 // GitHub mark — official SVG path, rendered at given size/color
@@ -39,20 +44,22 @@ export const Closing: React.FC = () => {
   const revealClawdSp = spring({frame: frame - 13, fps, config: {damping: 12, stiffness: 160}});
   const revealClawdScale = interpolate(revealClawdSp, [0, 1], [0.4, 1.2]);
   const revealClawdOp = interpolate(frame, [13, 22], [0, 1], CLAMP);
-  // Wave pattern compressed: up/down cycles ~6f each, settle at ~50
+  // Arms static until logo spring settles (~frame 50), then 2 up-down cycles, then settle
   const revealArmsUp =
-    (frame >= 24 && frame < 30) || // wave 1 up
-    (frame >= 36 && frame < 42) || // wave 2 up
-    frame >= 50;                   // settle up
+    (frame >= 50 && frame < 58) || // wave 1 up
+    (frame >= 66 && frame < 74) || // wave 2 up
+    frame >= 82;                   // settle up
 
   // ── Logo arc ──────────────────────────────────────────────────────────────
   const LOGO_SIZE = 92;
-  const REVEAL_SCALE = 1.2;
-  const arm = armVisualPos(REVEAL_SCALE);
-  const handleFrac = 484 / 512;
+  const handleFrac = 484 / 512; // SVG coords of magnifying glass leg tip / viewBox size
   const handlePx = handleFrac * LOGO_SIZE;
-  const logoRestLeft = arm.x - handlePx;
-  const logoRestTop = arm.y - handlePx;
+
+  // Live arm position — derived from current scale spring + arm state.
+  // No fixed REVEAL_SCALE snapshot; logo tracks the arm frame-perfectly.
+  const armNow = revealArmsUp
+    ? armVisualPos(revealClawdScale)
+    : armVisualPosDown(revealClawdScale);
 
   const logoArcSp = spring({frame: frame - 15, fps, config: {damping: 11, stiffness: 140}});
   const logoOffsetX = interpolate(logoArcSp, [0, 1], [-140, 0]);
@@ -105,8 +112,8 @@ export const Closing: React.FC = () => {
         <div
           style={{
             position: 'absolute',
-            top: logoRestTop,
-            left: logoRestLeft,
+            top: armNow.y - handlePx,
+            left: armNow.x - handlePx,
             opacity: logoOp,
             transform: `translate(${logoOffsetX}px, ${logoOffsetY}px) scale(${logoEnterScale})`,
             transformOrigin: 'right bottom',

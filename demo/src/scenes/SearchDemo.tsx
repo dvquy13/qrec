@@ -19,6 +19,7 @@ import {NavBar} from '../../../ui-react/src/components/NavBar/NavBar';
 import {MouseCursor} from '../components/MouseCursor';
 import {TerminalWindow} from '../components/TerminalWindow';
 import {QrecLogo} from '../components/QrecLogo';
+import {ClawdMascot} from '../components/ClawdMascot';
 import {SEARCH_RESULTS} from '../data/index';
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
@@ -208,6 +209,15 @@ export const SearchDemo: React.FC = () => {
   // Terminal panel: slides in from right
   const terminalTranslateX = interpolate(splitSp, [0, 1], [650, 0]);
   const terminalOpacity = interpolate(frame, [SPLIT_START, SPLIT_START + 20], [0, 1], CLAMP);
+
+  // ── Clawd curious peek from below the terminal (frame 130+) ─────────────────
+  // SVG viewBox starts at y=-110 (thought bubble area), so head pixels begin
+  // at SVG element y=110. After scale(0.8) center-bottom, head lands at
+  // visual y=132 from container top. Body bottom at visual y=220 → clipped at 720.
+  // top=510: head visible at canvas y=642, body clipped at y=720. ✓
+  // translateY spring 200→0: at dy=200, head at y=842 = off-canvas. ✓
+  const clawdPeekSp = spring({frame: frame - 130, fps, config: SPRING_SNAPPY});
+  const clawdTranslateY = interpolate(clawdPeekSp, [0, 1], [200, 0]);
 
   // ── CSS animation overrides ───────────────────────────────────────────────────
   const cssAnimVars = remotionCSSAnimVars(frame, fps);
@@ -479,6 +489,25 @@ export const SearchDemo: React.FC = () => {
           width={600}
           height={640}
           variant="light"
+        />
+      </div>
+
+      {/* ── Clawd curious peek from below the terminal ── */}
+      {/* Positioned at top:636 so visual top (scale=0.8, center-bottom) = y:680 = terminal bottom edge */}
+      {/* Head + raised arms peek into the dark-blue canvas background below the terminal chrome */}
+      <div style={{
+        position: 'absolute',
+        left: 864,
+        top: 510,
+        transform: `translateY(${clawdTranslateY}px)`,
+      }}>
+        <ClawdMascot
+          scale={0.8}
+          opacity={1}
+          bob={0}
+          armsUp={true}
+          frame={frame - 130}
+          fps={fps}
         />
       </div>
 
