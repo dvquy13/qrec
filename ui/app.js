@@ -554,10 +554,13 @@ async function loadSessions() {
     _sessionsOffset = sessions.length;
     _allSessions = sessions;
 
-    // Build filter options from first page (sessions are date-DESC; first occurrence = most recently active)
-    _filterOptions.project = [];
+    // Build filter options: all projects from /projects; tags from first-page sessions
     _filterOptions.tag = [];
     updateFilterOptions(sessions);
+    try {
+      const pr = await fetch('/projects');
+      if (pr.ok) _filterOptions.project = (await pr.json()).projects ?? [];
+    } catch {}
 
     const hasFilter = _filterDateRange || fp || ft;
     document.getElementById('clear-filters-btn').style.display = hasFilter ? '' : 'none';
