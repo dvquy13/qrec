@@ -20,3 +20,5 @@ plugin/skills/*-workspace/
 .npmrc
 
 .DS_Store
+
+demo/out/
