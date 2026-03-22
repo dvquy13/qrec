@@ -33,10 +33,16 @@ const GitHubMark: React.FC<{size: number; color: string}> = ({size, color}) => (
 
 export const Closing: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
+  const {fps, durationInFrames} = useVideoConfig();
 
-  // 4s = 120f — fade in 0→13, fade out 108→120
-  const sceneOpacity = interpolate(frame, [0, 15, 108, 120], [0, 1, 1, 0], CLAMP);
+  // Fade in 0→15, hold, fade out in last 12 frames
+  const fadeOutStart = durationInFrames - 12;
+  const sceneOpacity = interpolate(
+    frame,
+    [0, 15, fadeOutStart, durationInFrames],
+    [0, 1, 1, 0],
+    CLAMP,
+  );
 
   const mascotBob = Math.sin((frame / fps) * Math.PI * 1.8) * 5;
 

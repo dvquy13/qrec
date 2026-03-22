@@ -93,11 +93,15 @@ const CENTER_Y = 360;
 
 export const Opening: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps}  = useVideoConfig();
+  const {fps, durationInFrames}  = useVideoConfig();
 
   // ── Scene fade in/out ─────────────────────────────────────────────────────
-  // Last card starts organizing at frame 165+27=192, settles ~207. Hold 30f → fade at 237.
-  const sceneOpacity = interpolate(frame, [0, 8, 237, 247], [0, 1, 1, 0], CLAMP);
+  const sceneOpacity = interpolate(
+    frame,
+    [0, 8, durationInFrames - 13, durationInFrames],
+    [0, 1, 1, 0],
+    CLAMP,
+  );
 
   // ── Question box ──────────────────────────────────────────────────────────
   const boxSlide   = spring({frame: frame - 65, fps, config: SPRING_SNAPPY});

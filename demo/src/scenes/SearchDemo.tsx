@@ -165,10 +165,15 @@ const TrafficDots: React.FC = () => (
 // ── Main scene ────────────────────────────────────────────────────────────────
 export const SearchDemo: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
+  const {fps, durationInFrames} = useVideoConfig();
 
   // ── Scene opacity ────────────────────────────────────────────────────────────
-  const sceneOpacity = interpolate(frame, [295, 310], [1, 0], CLAMP);
+  const sceneOpacity = interpolate(
+    frame,
+    [durationInFrames - 15, durationInFrames],
+    [1, 0],
+    CLAMP,
+  );
 
   // ── Scroll-up animation (NavBar reveals) ────────────────────────────────────
   const scrollSp = spring({frame: frame - SCROLL_START, fps, config: SPRING_SNAPPY});
