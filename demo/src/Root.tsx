@@ -9,6 +9,7 @@ import {ProjectFilter} from './scenes/ProjectFilter';
 import {EnrichDetail} from './scenes/EnrichDetail';
 import {SearchDemo} from './scenes/SearchDemo';
 import {Closing} from './scenes/Closing';
+import {FullDemo} from './scenes/FullDemo';
 
 loadFont({
   family: 'Google Sans Flex',
@@ -81,6 +82,14 @@ export const Root: React.FC = () => {
         id="Closing"
         component={Closing}
         durationInFrames={120}
+        fps={30}
+        width={1280}
+        height={720}
+      />
+      <Composition
+        id="FullDemo"
+        component={FullDemo}
+        durationInFrames={1649}
         fps={30}
         width={1280}
         height={720}

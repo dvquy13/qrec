@@ -36,7 +36,7 @@ export const Closing: React.FC = () => {
   const {fps} = useVideoConfig();
 
   // 4s = 120f — fade in 0→13, fade out 108→120
-  const sceneOpacity = interpolate(frame, [0, 13, 108, 120], [0, 1, 1, 0], CLAMP);
+  const sceneOpacity = interpolate(frame, [0, 15, 108, 120], [0, 1, 1, 0], CLAMP);
 
   const mascotBob = Math.sin((frame / fps) * Math.PI * 1.8) * 5;
 

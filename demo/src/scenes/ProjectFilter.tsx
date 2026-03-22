@@ -14,7 +14,7 @@ import {
 } from '../data/index';
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
-//   0–  8f:  fade in on static end-state (50 sessions, 50 summaries, all done)
+//   0–  0f:  hard cut in (no fade in — continues directly from Onboard)
 //   0– 12f:  hold
 //  12– 40f:  activity slides DOWN, sessions slide UP (1 api session)
 //  40– 75f:  hold on sessions
@@ -22,7 +22,7 @@ import {
 // 115–122f:  click scale pulse
 // 122–140f:  filter applied: heatmap → qrec 30d, session → qrec, pill highlighted
 // 140–168f:  hold on filtered state
-// 168–180f:  fade out
+// 168–180f:  (no fade out — hard cut to EnrichDetail)
 
 const SESSIONS_TOTAL = 50;
 const SUMMARIES_TOTAL = 50;
@@ -113,7 +113,7 @@ export const ProjectFilter: React.FC = () => {
   const {fps} = useVideoConfig();
 
   // ── Scene opacity ─────────────────────────────────────────────────────────
-  const sceneOpacity = interpolate(frame, [0, 8, 168, 180], [0, 1, 1, 0], CLAMP);
+  const sceneOpacity = interpolate(frame, [0, 168], [1, 1], CLAMP);
 
   // ── Activity → Sessions transition ────────────────────────────────────────
   const transitionSp = spring({frame: frame - 12, fps, config: SPRING_BOUNCY});

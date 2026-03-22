@@ -28,7 +28,7 @@ const SUMMARIES_TOTAL = 50;
 // 128–137f:  model_loading (indeterminate)
 // 137–169f:  sessions count 0→50 + indexing in activity feed
 // 149–189f:  summaries count 0→50 + enriching in activity feed
-// 192–198f:  fade out
+// 192–198f:  (no fade out — hard cut to ProjectFilter)
 
 const TrafficDots: React.FC<{dark?: boolean}> = ({dark}) => (
   <div style={{display: 'flex', gap: 6, alignItems: 'center', width: 56}}>
@@ -53,7 +53,7 @@ export const Onboard: React.FC = () => {
   const {fps} = useVideoConfig();
 
   // ── Scene opacity ─────────────────────────────────────────────────────────
-  const sceneOpacity = interpolate(frame, [0, 12, 192, 198], [0, 1, 1, 0], CLAMP);
+  const sceneOpacity = interpolate(frame, [0, 12], [0, 1], CLAMP);
 
   // ── Terminal typing ───────────────────────────────────────────────────────
   const CMD1 = 'npm install -g @dvquys/qrec';

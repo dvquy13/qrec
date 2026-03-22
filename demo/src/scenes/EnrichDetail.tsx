@@ -240,7 +240,7 @@ export const EnrichDetail: React.FC = () => {
   const rawTitleEndX = useMemo(() => TEXT_BLOCK_LEFT + measureTitleText(RAW_TITLE), []);
 
   // ── Scene opacity ────────────────────────────────────────────────────────────
-  const sceneOpacity = interpolate(frame, [0, 8, FADE_START, FADE_END], [0, 1, 1, 0], CLAMP);
+  const sceneOpacity = 1;
 
   // ── Browser cursor ──────────────────────────────────────────────────────────
   const cursorMoveSp = spring({frame: frame - 8, fps,
