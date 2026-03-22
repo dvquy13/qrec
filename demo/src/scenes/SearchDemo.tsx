@@ -251,7 +251,7 @@ export const SearchDemo: React.FC = () => {
       startFrame: T_R0_START + 2,
     },
     {
-      text: '             Claude Code deletes old JSONL files. Added archiveJsonl()…',
+      text: '             Added archiveJsonl() in indexer.ts to copy each JSONL…',
       color: 'rgba(255,255,255,0.55)',
       startFrame: T_R0_START + 4,
     },

@@ -493,7 +493,7 @@ export const SEARCH_RESULTS: Record<string, SearchResult[]> = {
       title: 'Archive JSONL on index for session durability',
       project: 'qrec',
       date: 'Mar 13',
-      summary: 'Claude Code deletes old JSONL files after ~30 days. Added archiveJsonl() in indexer.ts to copy each ingested file to ~/.qrec/archive/<project>/ before indexing.',
+      summary: 'Added archiveJsonl() in indexer.ts to copy each JSONL to ~/.qrec/archive/ before indexing.',
       tags: ['indexer', 'durability', 'archive'],
       score: 0.943,
     },
