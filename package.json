@@ -1,6 +1,6 @@
 {
   "name": "@dvquys/qrec",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "Purpose-built session recall engine — persistent daemon with BM25 + vector hybrid search",
   "license": "MIT",
   "author": "dvquy13",
