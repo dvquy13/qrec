@@ -9,6 +9,12 @@
 .dashboard-top { display: grid; grid-template-columns: 1fr min-content; gap: 40px; align-items: start; margin-bottom: 28px; }
 .dashboard-heatmap-col { min-width: 0; }
 
+@media (max-width: 600px) {
+  .dashboard-top { display: block; }
+  .dashboard-heatmap-col { margin-top: 24px; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
 /* ── Stat cards ────────────────────────────────────────────────────────── */
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 12px; row-gap: 20px; align-self: center; }
 .stat-label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }

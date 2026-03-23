@@ -475,7 +475,6 @@ main {
   nav { gap: 2px; overflow-x: auto; flex-shrink: 1; }
   nav button { font-size: 11px; padding: 5px 7px; white-space: nowrap; }
   main { padding: 16px 12px; max-width: 100%; }
-  .dashboard-top { flex-direction: column; gap: 24px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .search-bar { flex-wrap: wrap; }
   .search-bar .k-input { width: 60px; }
