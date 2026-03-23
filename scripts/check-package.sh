@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verifies that every file under ui/ and plugin/ is included in the npm package.
+# Verifies that every file under ui/, plugin/, and public/ is included in the npm package.
 # No hardcoded list — if a new file is added to those dirs but forgotten in
 # package.json "files", this test catches it automatically.
 set -e
@@ -15,7 +15,7 @@ echo "[check-package] Extracting $TARBALL..."
 tar -xzf "$TARBALL" -C "$TMPDIR"
 
 FAIL=0
-for src in $(find ui plugin -type f | sort); do
+for src in $(find ui plugin public -type f | sort); do
   packed="$TMPDIR/package/$src"
   if [ -f "$packed" ]; then
     echo "  OK      $src"

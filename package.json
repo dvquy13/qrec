@@ -38,6 +38,7 @@
     "plugin/skills",
     "plugin/package.json",
     "ui",
+    "public",
     "README.md",
     "LICENSE"
   ],
