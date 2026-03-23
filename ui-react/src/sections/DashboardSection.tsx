@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './DashboardSection.css';
 import { HeatmapGrid } from '../components/HeatmapGrid';
 import { HeatmapProjectFilter } from '../components/HeatmapProjectFilter';
@@ -48,6 +48,15 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
   footerText,
   revealedCount,
 }) => {
+  const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const isMobile = windowWidth <= 600;
+  const maxWeeks = isMobile ? 12 : undefined;
+
   const summariesValue =
     summariesCount === null ? (
       <span style={{ color: 'var(--text-muted)' }}>—</span>
@@ -59,6 +68,9 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
     summariesSub ?? (summariesCount === null ? 'disabled' : 'enriched');
 
   const hasHeatmap = heatmapDays && heatmapDays.length > 0;
+  const visibleDays = maxWeeks !== undefined && heatmapDays
+    ? heatmapDays.slice(-maxWeeks * 7)
+    : heatmapDays;
 
   return (
     <>
@@ -115,7 +127,7 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
             </div>
 
             <HeatmapGrid
-              days={heatmapDays}
+              days={visibleDays!}
               byProject={heatmapByProject}
               metric={heatmapMetric}
               project={selectedProject ?? undefined}
