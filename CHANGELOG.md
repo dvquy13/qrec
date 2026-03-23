@@ -1,3 +1,9 @@
+## [0.8.3](https://github.com/dvquy13/qrec/compare/v0.8.2...v0.8.3) (2026-03-23)
+
+
+### Bug Fixes
+
+* **ui:** always keep project filter on its own row below metric toggles ([782de78](https://github.com/dvquy13/qrec/commit/782de786fa0966ef241661861511503ac7a66c98))
 ## [0.8.2](https://github.com/dvquy13/qrec/compare/v0.8.1...v0.8.2) (2026-03-23)
 
 
