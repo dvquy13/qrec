@@ -18,6 +18,7 @@
 /* ── Heatmap controls ──────────────────────────────────────────────────── */
 .heatmap-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; width: 100%; box-sizing: border-box; }
 .heatmap-controls .heatmap-metrics { margin-bottom: 0; }
+.heatmap-controls .hpf-row { flex-basis: 100%; }
 .heatmap-metrics { display: flex; gap: 0; margin-bottom: 10px; }
 .heatmap-metric {
   background: transparent;
