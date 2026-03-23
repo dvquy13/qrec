@@ -1,3 +1,14 @@
+## [0.8.1](https://github.com/dvquy13/qrec/compare/v0.8.0...v0.8.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* **ci:** install ui-react dependencies before build ([da13cc6](https://github.com/dvquy13/qrec/commit/da13cc66074e47bce04736c58950518862b8ca05))
+* **package:** include public/ assets in npm bundle ([7f94450](https://github.com/dvquy13/qrec/commit/7f94450eec7b9bd75b1b20ec511461427a39768c))
+* **release:** stage ui/components.js and components.css in release commit ([1fb0ebc](https://github.com/dvquy13/qrec/commit/1fb0ebc4ea90158f7ea49e7d899f98c45e59a0bc))
+* **ui:** carry dashboard project filter to sessions tab + preserve state on back ([90d9b9e](https://github.com/dvquy13/qrec/commit/90d9b9ea7eb252e6234089a6694492a12290cd3b)), closes [#filter-project](https://github.com/dvquy13/qrec/issues/filter-project)
+* **ui:** populate project filter from /projects instead of first page ([f60eded](https://github.com/dvquy13/qrec/commit/f60eded163056c27a6958f93d46b0cd73adea815))
+* **ui:** replace browser-default yellow mark highlight with design system accent ([e6f17de](https://github.com/dvquy13/qrec/commit/e6f17dedf68175ef2ee4fb728622dde00b344be4))
 # [0.8.0](https://github.com/dvquy13/qrec/compare/v0.7.4...v0.8.0) (2026-03-22)
 
 
