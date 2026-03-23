@@ -1,3 +1,10 @@
+## [0.8.2](https://github.com/dvquy13/qrec/compare/v0.8.1...v0.8.2) (2026-03-23)
+
+
+### Bug Fixes
+
+* **ui:** preserve search results + scroll position when returning from session detail ([074f720](https://github.com/dvquy13/qrec/commit/074f7209160b67d71cde3eac2457ae915ff50e4d))
+* **ui:** prevent heatmap col from expanding on long project names ([d0790ec](https://github.com/dvquy13/qrec/commit/d0790ecac39ad598ad32e97ba355fc00980941b1))
 ## [0.8.1](https://github.com/dvquy13/qrec/compare/v0.8.0...v0.8.1) (2026-03-23)
 
 
