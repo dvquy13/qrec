@@ -79,7 +79,18 @@ function onTabActivated(name, reloadSessions = true) {
 const initHash = location.hash.slice(1) || 'dashboard';
 navigate(initHash, false);
 history.replaceState(null, '', '#' + initHash);
-window.addEventListener('popstate', () => navigate(location.hash.slice(1) || 'dashboard', false));
+window.addEventListener('popstate', () => {
+  const hash = location.hash.slice(1) || 'dashboard';
+  // When returning to search from session detail, preserve existing results/scroll
+  if (hash === 'search' && _lastSearchResults !== null) {
+    showTab('search', false, false);
+    if (_savedScrollY > 0) {
+      requestAnimationFrame(() => window.scrollTo(0, _savedScrollY));
+    }
+  } else {
+    navigate(hash, false);
+  }
+});
 
 // ── Custom tooltip ───────────────────────────────────────────────────────────
 const _tip = document.createElement('div');
@@ -1123,7 +1134,10 @@ function renderSessionsList(sessions) {
   renderSessions(sessions ?? []);
 }
 
+let _savedScrollY = 0;
+
 function openSession(id) {
+  _savedScrollY = window.scrollY;
   navigate('session/' + id);
 }
 
@@ -1190,6 +1204,9 @@ async function loadSessionDetail(id) {
 
 function goBack() {
   showTab('search', true, false);  // preserve existing results + filters
+  if (_savedScrollY > 0) {
+    requestAnimationFrame(() => window.scrollTo(0, _savedScrollY));
+  }
 }
 
 
