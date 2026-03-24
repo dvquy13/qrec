@@ -17,8 +17,8 @@
 }
 .turn.user .turn-role { color: var(--green); }
 .turn.assistant .turn-role { color: var(--accent); }
-.turn-text { font-size: 13px; line-height: 1.65; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-.agent-thinking-body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.turn-text { font-size: 14px; line-height: 1.65; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.agent-thinking-body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .turn-text > *:last-child { margin-bottom: 0; }
 .turn-text p { margin-bottom: 8px; }
 .turn-text h1, .turn-text h2, .turn-text h3, .turn-text h4 {
