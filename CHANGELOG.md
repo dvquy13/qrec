@@ -1,3 +1,15 @@
+## [0.8.4](https://github.com/dvquy13/qrec/compare/v0.8.3...v0.8.4) (2026-03-24)
+
+
+### Bug Fixes
+
+* **ui:** fix mobile dashboard layout — stats and heatmap now stack correctly ([6f8b5ed](https://github.com/dvquy13/qrec/commit/6f8b5ed001c967144d42950ca6eed86c5a8d2c20))
+
+
+### Features
+
+* **ui:** replace Google Sans Flex + Inter with Google Sans + DM Sans ([cced2f3](https://github.com/dvquy13/qrec/commit/cced2f36b1c45a5b8bd74b6ca8b1e7383e6766b3))
+* **ui:** responsive heatmap — show 12 weeks on mobile ([258fd5c](https://github.com/dvquy13/qrec/commit/258fd5c76d4e264607630faa7a44d89fdfd654e6))
 ## [0.8.3](https://github.com/dvquy13/qrec/compare/v0.8.2...v0.8.3) (2026-03-23)
 
 
