@@ -41,22 +41,49 @@
 
 ### Typography
 
-| Role | Font | Size | Weight | Letter-spacing |
-|---|---|---|---|---|
-| Page heading | Google Sans Flex | 32px | 700 | −0.04em |
-| Stat value | Google Sans Flex | 32px | 400 | −0.04em |
-| Session card title | Google Sans Flex | 18px | 500 | — |
-| Nav / header title | Google Sans Flex | 16px | 600 | −0.02em |
-| Body / UI labels | Google Sans Flex | 14px | 400 | — |
-| Secondary metadata | Google Sans Flex | 12–13px | 400–500 | — |
-| Prose / summaries | Inter | 14px | 400 | — |
-| Monospace (IDs, code, timestamps) | Google Sans Code → Menlo → Consolas | 11–12px | — | — |
+| Role | Font | Token | Weight |
+|---|---|---|---|
+| Page / section heading | Google Sans | `--font-6xl` (40px) | 700 |
+| Stat value | Google Sans | `--font-5xl` (32px) | 400 |
+| Detail page title | Google Sans | `--font-5xl` (32px) | 700 |
+| Session card title | Google Sans | `--font-2xl` (18px) | 500 |
+| Header h1 | Google Sans | `--font-lg` (16px) | 600 |
+| Body / UI labels / buttons / inputs / nav | Google Sans | `--font-base` (15px) | 400–500 |
+| Google Sans body default | Google Sans | `--font-body` (14px) | 400 |
+| Secondary metadata, scores | Google Sans | `--font-md` (13px) | 400–500 |
+| Tags, labels, progress text | Google Sans | `--font-sm` (12px) | 400–600 |
+| Timestamps, IDs, heatmap labels | Google Sans | `--font-xs` (11px) | 400 |
+| Prose / summaries / turn text | DM Sans | `--font-base` (15px) | 400 |
+| Monospace (IDs, code, tool output) | Google Sans Code → Menlo → Consolas | `--font-xs`–`--font-md` | — |
 
 **Rules:**
-- Google Sans Flex: UI chrome, labels, numbers, titles.
-- Inter: prose reading zones only (`.turn-text`, `.session-card-summary`, `p`, `li`).
+- Google Sans: UI chrome, labels, numbers, titles.
+- DM Sans: prose reading zones only (`.turn-text`, `.session-card-summary`, `p`, `li`).
 - Google Sans Code: any text that must be machine-scannable (session IDs, timestamps in activity rows, code).
+- Never use negative `letter-spacing` — removed from all elements.
 - Never use `.session-id` (monospace class) for human-readable text — it applies `var(--mono)`.
+
+### Type Scale
+
+All font sizes use CSS custom property tokens defined in `ui-react/src/styles/variables.css` (bundled into `ui/components.css`, available globally). **Never write raw `font-size: Npx` — always use a token.**
+
+| Token | Value | Used for |
+|---|---|---|
+| `--font-2xs` | 10px | Tiny badges, picker section titles |
+| `--font-xs` | 11px | Timestamps, session IDs, heatmap labels, tooltips |
+| `--font-sm` | 12px | Secondary meta, tags, progress labels, activity details |
+| `--font-md` | 13px | Run entries, scores, code/tool text, activity headers |
+| `--font-body` | 14px | Google Sans body default, h4, description text |
+| `--font-base` | 15px | Primary: buttons, inputs, nav, prose, body copy |
+| `--font-lg` | 16px | Header h1, arrow icons |
+| `--font-xl` | 17px | Markdown h2 |
+| `--font-2xl` | 18px | Session card title, mobile detail title |
+| `--font-3xl` | 19px | Markdown h1 |
+| `--font-4xl` | 22px | Debug stat strip |
+| `--font-5xl` | 32px | Detail page title, dashboard stat value |
+| `--font-6xl` | 40px | Section / page headings |
+
+To resize the entire UI, edit the token values in `variables.css` — every reference updates automatically.
 
 ### Spacing
 
@@ -78,19 +105,18 @@ Section header padding:  11px 0  (no horizontal indent)
 ### Page Heading
 ```css
 .section-heading {
-  font-size: 32px;
+  font-size: var(--font-6xl);   /* 40px */
   font-weight: 700;
-  letter-spacing: -0.04em;
   color: var(--text);
 }
 ```
-Every tab panel gets exactly one at the top. Nothing else uses 32px weight-700.
+Every tab panel gets exactly one at the top. Nothing else uses `--font-6xl` weight-700.
 
 ### Stat Card
 ```css
-.stat-label  { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-value  { font-size: 32px; font-weight: 400; letter-spacing: -0.04em; line-height: 1; }
-.stat-sub    { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.stat-label  { font-size: var(--font-md); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-value  { font-size: var(--font-5xl); font-weight: 400; line-height: 1; }
+.stat-sub    { font-size: var(--font-sm); color: var(--text-muted); margin-top: 4px; }
 .stat-card   { background: transparent; padding: 20px 0; border-radius: 10px; }
 ```
 Stats grid: `grid-template-columns: repeat(3, 1fr)` — exactly 3 metrics. No shadows, no backgrounds.
@@ -100,9 +126,9 @@ Stats grid: `grid-template-columns: repeat(3, 1fr)` — exactly 3 metrics. No sh
 padding: 14px 0;           /* no horizontal indent */
 cursor: pointer;
 ```
-- Title: 18px weight-500 → turns `--accent` on card hover.
-- Meta line: 12px `--text-muted` (project, date, duration).
-- Summary: 12px `--text-muted`, 2-line clamp.
+- Title: `--font-2xl` (18px) weight-500 → turns `--accent` on card hover.
+- Meta line: `--font-sm` (12px) `--text-muted` (project, date, duration).
+- Summary: `--font-sm` (12px) `--text-muted`, 2-line clamp.
 - Separator: `border-bottom: 1px solid var(--border)` structural only.
 
 ### Enrich Tag (`.enrich-tag`)
@@ -227,7 +253,9 @@ No transitions on layout properties (width/height of structural elements). No sh
 - **No pre-colored interactive elements** — neutral → accent on hover only.
 - **No horizontal indent on block elements** — breaks the left axis.
 - **No fill on `.enrich-tag`** — border+text color change only.
-- **No Inter for UI chrome** — Inter is prose-only.
+- **No raw `font-size: Npx`** — always use a `--font-*` token from `variables.css`. Exempt: `7px`/`9px` (icon glyphs), `11.5px` (log body), `12.5px` (result snippet body).
+- **No negative `letter-spacing`** — removed from all elements; do not reintroduce.
+- **No DM Sans for UI chrome** — DM Sans is prose-only (`.turn-text`, `p`, `li`, `.session-card-summary`).
 - **No `.session-id` on non-ID text** — it forces monospace rendering.
 - **No vertical borders inside stat items** — use spacing.
 - **No separate onboarding banner** — startup state surfaces inline.

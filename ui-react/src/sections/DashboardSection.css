@@ -17,9 +17,9 @@
 
 /* ── Stat cards ────────────────────────────────────────────────────────── */
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 12px; row-gap: 20px; align-self: center; }
-.stat-label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
-.stat-value { font-size: 32px; font-weight: 400; letter-spacing: -0.04em; line-height: 1; color: var(--text); }
-.stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.stat-label { font-size: var(--font-md); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+.stat-value { font-size: var(--font-5xl); font-weight: 400; line-height: 1; color: var(--text); }
+.stat-sub { font-size: var(--font-sm); color: var(--text-muted); margin-top: 4px; }
 
 /* ── Heatmap controls ──────────────────────────────────────────────────── */
 .heatmap-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; width: 100%; box-sizing: border-box; }
@@ -33,7 +33,7 @@
   color: var(--text);
   border-radius: 0;
   padding: 3px 10px;
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
@@ -47,4 +47,4 @@
 .heatmap-metrics .heatmap-metric--active:last-child { border-right-color: var(--accent); }
 
 /* ── Heatmap footer ────────────────────────────────────────────────────── */
-.heatmap-footer { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.heatmap-footer { font-size: var(--font-sm); color: var(--text-muted); margin-top: 8px; }

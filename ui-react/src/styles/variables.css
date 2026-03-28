@@ -16,4 +16,19 @@
   --yellow-bg: #fffbeb;
   --red: #dc2626;
   --mono: 'Google Sans Code', 'Menlo', 'Consolas', monospace;
+
+  /* Type scale */
+  --font-2xs:  10px;   /* tiny: project badges, picker titles */
+  --font-xs:   11px;   /* timestamps, IDs, heatmap labels, tooltips */
+  --font-sm:   12px;   /* secondary meta, tags, progress labels */
+  --font-md:   13px;   /* run entries, scores, tool descriptions */
+  --font-body: 14px;   /* Google Sans body default */
+  --font-base: 15px;   /* primary: buttons, inputs, nav, prose */
+  --font-lg:   16px;   /* header h1, arrow icons */
+  --font-xl:   17px;   /* markdown h2 */
+  --font-2xl:  18px;   /* session card title, mobile detail title */
+  --font-3xl:  19px;   /* markdown h1 */
+  --font-4xl:  22px;   /* debug stat strip */
+  --font-5xl:  32px;   /* detail title, dashboard stat value */
+  --font-6xl:  40px;   /* section / page headings */
 }

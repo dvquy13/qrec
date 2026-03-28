@@ -11,6 +11,15 @@ paths:
 
 ---
 
+## Typography Rules
+
+- **Always use `--font-*` tokens** — never write raw `font-size: Npx` in any CSS file under `ui/` or `ui-react/src/`. Tokens are defined in `ui-react/src/styles/variables.css` (bundled into `ui/components.css`, available globally). Exempt from tokenization: `7px`/`9px` (icon glyphs `▾`/`▶`), `11.5px` (log body), `12.5px` (result snippet body).
+- **No negative letter-spacing** — removed from all elements. Do not reintroduce.
+- **DM Sans is prose-only** — only on `.turn-text`, `p`, `li`, `.session-card-summary`. All UI chrome uses Google Sans.
+- **`ui-react/src/**/*.css` changes require a rebuild** — run `cd ui-react && bun run build.ts` to update `ui/components.css`. `ui/styles.css` is served fresh (no rebuild needed).
+
+---
+
 ## Behavioral Gotchas (app.js)
 
 - **Sessions tab is NOT polled** — the 5s `setInterval` in `app.js` refreshes dashboard and activity only. Do NOT add `sessions` back to the polling interval: `loadSessions()` resets `_allSessions`, replaces `innerHTML` with a spinner, and resets scroll to top — destroying infinite scroll state mid-browse.
