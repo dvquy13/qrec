@@ -21,7 +21,7 @@
   border-radius: 6px;
   background: var(--bg);
   color: var(--text);
-  font-size: var(--font-base);
+  font-size: var(--font-sm);
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
