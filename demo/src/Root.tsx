@@ -10,6 +10,7 @@ import {EnrichDetail} from './scenes/EnrichDetail';
 import {SearchDemo} from './scenes/SearchDemo';
 import {Closing} from './scenes/Closing';
 import {FullDemo, FullDemoProps, ORIGINAL_SCENE_DURATIONS} from './scenes/FullDemo';
+import {ContextHandoff} from './scenes/ContextHandoff';
 import {SCENE_IDS, sceneAudioFile, getAudioDuration} from './voiceover';
 
 loadFont({
@@ -110,6 +111,14 @@ export const Root: React.FC = () => {
         id="Closing"
         component={Closing}
         durationInFrames={120}
+        fps={30}
+        width={1280}
+        height={720}
+      />
+      <Composition
+        id="ContextHandoff"
+        component={ContextHandoff}
+        durationInFrames={210}
         fps={30}
         width={1280}
         height={720}
