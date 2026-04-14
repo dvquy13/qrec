@@ -16,6 +16,8 @@ qrec runs a local daemon that indexes your Claude Code sessions into a searchabl
 - **Seamless handoff** — when a session hits its context limit, open a new one. qrec gives Claude a clean transcript of what happened.
 - **Nothing gets lost** — Claude Code silently clears sessions after ~30 days. qrec archives everything the moment it's indexed. Permanently.
 
+**[Read the introduction post →](https://dvquys.com/posts/introducing-qrec/?utm_source=github&utm_medium=readme&utm_campaign=introducing-qrec)**
+
 ## Prerequisites
 
 | Requirement | Details |
