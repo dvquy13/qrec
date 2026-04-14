@@ -1,0 +1,15 @@
+{
+  "name": "github_stars",
+  "description": "GitHub star count for dvquy13/qrec",
+  "auth": { "type": "none" },
+  "request": {
+    "url": "https://api.github.com/repos/dvquy13/qrec",
+    "method": "GET"
+  },
+  "extract": {
+    "type": "jsonpath",
+    "path": "stargazers_count",
+    "cast": "int"
+  },
+  "validate": { "min": 0, "max": 1000000 }
+}

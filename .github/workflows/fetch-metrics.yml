@@ -1,0 +1,86 @@
+name: Fetch Metrics
+
+on:
+  schedule:
+    - cron: '13 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Fetch scalar metrics
+        run: |
+          cd analytics
+          uv run scripts/fetch-metrics.py > /tmp/scalar.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch GitHub Sponsors metrics
+        run: |
+          uv run analytics/scripts/fetch-github-sponsors.py > /tmp/sponsors.jsonl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge metrics into single snapshot
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          from datetime import datetime, timezone
+
+          with open('/tmp/scalar.json') as f:
+              snapshot = json.load(f)
+
+          with open('/tmp/sponsors.jsonl') as f:
+              for line in f:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  m = json.loads(line)
+                  snapshot['metrics'][m['name']] = {
+                      'value': m['value'],
+                      'status': m.get('status', 'ok'),
+                      'fetched_at': snapshot['fetched_at'],
+                  }
+
+          with open('/tmp/merged.json', 'w') as f:
+              json.dump(snapshot, f)
+          EOF
+
+      - name: Push to Supabase and notify Discord
+        run: |
+          cd analytics
+          uv run scripts/push-and-notify.py < /tmp/merged.json
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Stamp gh-pages dashboard with metrics snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages || true
+          git worktree add /tmp/gh-pages origin/gh-pages 2>/dev/null || git worktree add /tmp/gh-pages --orphan gh-pages
+          sed -e "s|__SUPABASE_URL__|${SUPABASE_URL}|g" \
+              -e "s|__SUPABASE_KEY__|${SUPABASE_KEY}|g" \
+              analytics/dashboard.html > /tmp/gh-pages/dashboard.html
+          python3 analytics/scripts/stamp-dashboard.py \
+            --snapshot /tmp/merged.json \
+            --dashboard /tmp/gh-pages/dashboard.html
+          cd /tmp/gh-pages
+          git add dashboard.html
+          git diff --cached --quiet || git commit -m "chore: stamp dashboard with latest metrics snapshot"
+          git push origin HEAD:gh-pages
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

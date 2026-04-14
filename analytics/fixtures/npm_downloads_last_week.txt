@@ -1,0 +1,1 @@
+{"downloads":190,"start":"2026-04-07","end":"2026-04-13","package":"@dvquys/qrec"}

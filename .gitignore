@@ -22,3 +22,9 @@ plugin/skills/*-workspace/
 .DS_Store
 
 demo/out/
+
+analytics/cookies/
+analytics/secrets/
+analytics/credentials/
+analytics/.env
+supabase/.temp/

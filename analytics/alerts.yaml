@@ -1,0 +1,15 @@
+discord:
+  webhook_url_env: DISCORD_WEBHOOK_URL
+  dashboard_url: https://dvquy13.github.io/qrec/dashboard.html
+
+alerts:
+  - type: failure
+
+  - type: daily_digest
+    title: "qrec"
+    labels:
+      github_stars: "GitHub Stars"
+      npm_downloads_last_week: "npm Downloads (last week)"
+      github_unique_cloners_14d: "Unique Cloners (14d)"
+      github_unique_visitors_14d: "Unique Visitors (14d)"
+      github_sponsors_lifetime: "Sponsors (lifetime $)"

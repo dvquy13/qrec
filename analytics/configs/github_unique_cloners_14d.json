@@ -1,0 +1,19 @@
+{
+  "name": "github_unique_cloners_14d",
+  "description": "GitHub unique cloners for dvquy13/qrec over the last 14 days",
+  "auth": {
+    "type": "api_key",
+    "env": "GITHUB_TOKEN",
+    "format": "bearer"
+  },
+  "request": {
+    "url": "https://api.github.com/repos/dvquy13/qrec/traffic/clones",
+    "method": "GET"
+  },
+  "extract": {
+    "type": "jsonpath",
+    "path": "uniques",
+    "cast": "int"
+  },
+  "validate": { "min": 0, "max": 100000 }
+}
