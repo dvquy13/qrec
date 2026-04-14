@@ -23,13 +23,13 @@ jobs:
           cd analytics
           uv run scripts/fetch-metrics.py > /tmp/scalar.json
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TRAFFIC }}
 
       - name: Fetch GitHub Sponsors metrics
         run: |
           uv run analytics/scripts/fetch-github-sponsors.py > /tmp/sponsors.jsonl
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TRAFFIC }}
 
       - name: Merge metrics into single snapshot
         run: |
