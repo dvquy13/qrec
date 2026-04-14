@@ -52,6 +52,32 @@ Key suffix `-v2` was added to bust a corrupt cache entry. Do not revert to `-v1`
 
 Keyed on `bun.lock`. Place the cache step **before** `bun install`.
 
+## analytics/ pipeline
+
+**Supabase:** reuses `dvquys-metrics` project (ref `olssvguaeagsmkfmsvvo`, Singapore). Table `metrics_snapshots` is shared with dvquys.com — metric keys are namespaced by name, no collision risk.
+
+**GitHub secrets set:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `DISCORD_WEBHOOK_URL`, `GH_PAT_TRAFFIC`. The last one is a classic PAT with `repo` scope — required because `GITHUB_TOKEN` with `permissions: contents: write` loses traffic API access (see metric-extractor providers/github/gotchas.md).
+
+**Schedule:** `13 20 * * *` UTC = 03:13 GMT+7.
+
+**Merge step:** `fetch-metrics.py` emits a single JSON blob; `fetch-github-sponsors.py` emits JSONL. A Python inline merges them into `/tmp/merged.json` before piping to `push-and-notify.py`. See workflow step "Merge metrics into single snapshot".
+
+**Discord:** `#qrec` channel in Icewrack server (ID `1493639465758101667`), webhook ID `1493639479922000032`. Bot API listing returns `"embeds": []` for webhook messages — this is a Discord quirk, not a failure. Verify via `GET /webhooks/{id}/{token}/messages/{msgId}` or send with `?wait=true`.
+
+## Creating a gh-pages branch
+
+Do NOT create the gh-pages orphan branch locally — the pre-commit `tsc` hook fires on any commit attempt, including orphan branches with no tsconfig.json. Create the branch via GitHub API instead:
+
+```bash
+MAIN_SHA=$(gh api repos/{owner}/{repo}/git/ref/heads/main --jq '.object.sha')
+gh api repos/{owner}/{repo}/git/refs \
+  --method POST \
+  --field ref="refs/heads/gh-pages" \
+  --field sha="$MAIN_SHA"
+```
+
+The CI stamp step then writes `dashboard.html` onto it on first run.
+
 ## Smoke test must use compiled CJS
 
 `scripts/smoke-test.sh` must start the daemon via `bun run plugin/scripts/qrec.cjs`, **not** `bun run src/cli.ts`.
