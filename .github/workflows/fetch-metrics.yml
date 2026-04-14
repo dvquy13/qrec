@@ -2,7 +2,7 @@ name: Fetch Metrics
 
 on:
   schedule:
-    - cron: '13 0 * * *'
+    - cron: '13 20 * * *'
   workflow_dispatch:
 
 permissions:
