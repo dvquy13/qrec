@@ -87,6 +87,33 @@ cache_key = f"{query_gen_fingerprint}_{sha256(session_body)}"
 
 **Query gen cost**: ~$0.005/session cold (batch API); $0 for cached sessions. 30 sessions cold ≈ $0.15, ≈5 min.
 
+## Analytics Pipeline
+
+Added 2026-04-14. Tracks growth and traffic KPIs via a daily GitHub Actions job → Supabase → GitHub Pages dashboard.
+
+**Metrics collected** (7 total):
+| Key | Source |
+|---|---|
+| `github_stars` | GitHub REST API (public) |
+| `npm_downloads_last_week` | npmjs.org API (public) |
+| `github_unique_cloners_14d` | GitHub traffic API (requires PAT) |
+| `github_unique_visitors_14d` | GitHub traffic API (requires PAT) |
+| `github_sponsors_lifetime` | GitHub GraphQL (`lifetimeReceivedSponsorshipValues`) |
+| `github_sponsors_next_payout` | same GraphQL query |
+| `github_sponsors_monthly_est` | same GraphQL query |
+
+**Infrastructure:**
+- Supabase: reuses `dvquys-metrics` project (ref `olssvguaeagsmkfmsvvo`, Singapore, shared with dvquys.com). Table: `metrics_snapshots`.
+- Dashboard: `http://dvquys.com/qrec/dashboard.html` served from `gh-pages` branch.
+- Alerts: `#qrec` channel in Icewrack Discord server (webhook ID `1493639479922000032`).
+- Schedule: `13 20 * * *` UTC = 03:13 GMT+7 daily.
+
+**Design notes:**
+- `fetch-metrics.py` (JSON config runner) and `fetch-github-sponsors.py` (standalone GraphQL script) emit different formats — a merge step in CI combines them before `push-and-notify.py`.
+- `dashboard.html` in `main` is always a template with `__SUPABASE_URL__`/`__SUPABASE_KEY__` placeholders. CI injects real values via `sed` before pushing to `gh-pages`.
+- GitHub traffic data has a 14-day rolling window — daily polling required to avoid gaps.
+- Secret `GH_PAT_TRAFFIC` (classic PAT, `repo` scope) is used instead of `GITHUB_TOKEN` for traffic endpoints because the explicit `permissions: contents: write` block in the workflow strips traffic read scope from the auto-injected token.
+
 ## Dependencies
 
 | Package | Version | Purpose |
