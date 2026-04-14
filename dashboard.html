@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metrics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
+  <style>
+    :root {
+      --accent:       #0062a8;
+      --accent-hover: #00508c;
+      --bg-page:      #ffffff;
+      --text-primary: #0f172a;
+      --text-muted:   #64748b;
+      --text-faint:   #cbd5e1;
+      --up:           #22c55e;
+      --down:         #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-page); color: var(--text-primary); font-family: 'Google Sans Flex', ui-sans-serif, system-ui, sans-serif; }
+    .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
+    h1 { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.02em; }
+    .header-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .header-right { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .badge { font-size: 0.7rem; background: #f1f5f9; color: var(--text-muted); padding: 0.25rem 0.625rem; border-radius: 9999px; white-space: nowrap; }
+    .btn { padding: 0.375rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer; border: none; font-family: inherit; transition: background 120ms, color 120ms, border-color 120ms; }
+    .btn-secondary { background: #fff; border: 1px solid #cbd5e1; color: var(--text-muted); }
+    .btn-secondary:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Tooltip */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 8px); right: 0;
+      background: var(--text-primary); color: var(--bg-page);
+      font-size: 0.7rem; line-height: 1.4; white-space: nowrap;
+      padding: 0.3rem 0.6rem; border-radius: 0.375rem;
+      pointer-events: none; opacity: 0; transition: opacity 120ms;
+    }
+    [data-tooltip]:hover::after { opacity: 1; }
+    select.btn {
+      appearance: none; -webkit-appearance: none;
+      padding-right: 1.625rem;
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2364748b' d='M5 7L1 3h8z'/%3E%3C/svg%3E") no-repeat right 0.5rem center;
+    }
+    select.btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Sections */
+    .section { margin-bottom: 2rem; }
+    .section-title { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 1.5rem; }
+    .metric-grid { display: grid; grid-template-columns: 1fr; gap: 3.5rem; }
+
+    /* Metric card — full width, no background */
+    .metric-card { display: flex; flex-direction: column; gap: 0.2rem; }
+    .metric-label { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem; }
+    .metric-info { font-size: 0.7rem; color: var(--text-faint); cursor: default; position: relative; line-height: 1; flex-shrink: 0; }
+    .metric-info::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 6px); left: 0;
+      background: #1e293b; color: #f8fafc;
+      font-size: 0.65rem; font-weight: 400; line-height: 1.45;
+      white-space: nowrap; text-transform: none; letter-spacing: 0;
+      padding: 0.25rem 0.5rem; border-radius: 0.3rem;
+      opacity: 0; pointer-events: none; transition: opacity 120ms;
+    }
+    .metric-info:hover::after { opacity: 1; }
+    .metric-period { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin-left: 0.4rem; }
+    a.metric-link { text-decoration: none; transition: color 120ms; }
+    a.metric-link:hover { color: var(--accent); }
+    .metric-value-row { display: flex; align-items: baseline; gap: 0.5rem; }
+    .metric-value { font-size: 2rem; font-weight: 700; line-height: 1.1; color: var(--text-primary); }
+    .metric-value.err { font-size: 0.75rem; font-weight: 400; color: var(--down); line-height: 1.4; }
+    .metric-delta { display: inline-block; font-size: 0.75rem; font-weight: 500; cursor: default; position: relative; }
+    .metric-delta.up   { color: var(--up); }
+    .metric-delta.down { color: var(--down); }
+    .metric-delta.flat { color: var(--text-faint); }
+    .metric-delta::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 4px); left: 0;
+      background: #1e293b; color: #f8fafc;
+      font-size: 0.65rem; font-weight: 400; white-space: nowrap;
+      padding: 0.2rem 0.45rem; border-radius: 0.3rem;
+      opacity: 0; pointer-events: none; transition: opacity 120ms;
+    }
+    .metric-delta:hover::after { opacity: 1; }
+    .metric-chart-wrap { height: 160px; position: relative; margin-top: 0.4rem; }
+    .metric-chart-wrap canvas { position: absolute; inset: 0; width: 100% !important; height: 160px !important; }
+    .metric-time-labels { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 0.4rem; }
+
+    /* Debug / audit section */
+    .debug-section { margin-top: 2.5rem; padding-top: 1.5rem; }
+    .debug-panel { margin-top: 1rem; overflow-x: auto; }
+    .debug-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; font-family: ui-monospace, 'SF Mono', 'Roboto Mono', monospace; }
+    .debug-table th { text-align: left; padding: 0.3rem 0.6rem; color: var(--text-muted); border-bottom: 1px solid var(--text-faint); white-space: nowrap; font-weight: 600; }
+    .debug-table td { padding: 0.25rem 0.6rem; color: var(--text-muted); border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+    .debug-table tbody tr:hover td { background: #f8fafc; }
+
+    /* Footer */
+    .footer { font-size: 0.7rem; color: var(--text-faint); text-align: center; margin-top: 2rem; line-height: 1.7; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div>
+      <h1 id="dashboard-title">Metrics</h1>
+      <div class="header-meta" id="header-meta">Loading…</div>
+    </div>
+    <div class="header-right">
+      <span class="badge" id="period-badge" style="display:none"></span>
+      <select id="filter-n" class="btn btn-secondary" onchange="applyFilters()">
+        <option value="7">7</option>
+        <option value="14">14</option>
+        <option value="30">30</option>
+        <option value="60">60</option>
+        <option value="90">90</option>
+      </select>
+      <select id="filter-unit" class="btn btn-secondary" onchange="applyFilters()">
+        <option value="hour">hours</option>
+        <option value="day">days</option>
+        <option value="week">weeks</option>
+        <option value="month">months</option>
+      </select>
+      <button class="btn btn-secondary" onclick="loadData()" data-tooltip="Reloads metrics.jsonl — shows last scheduled fetch, not live data">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div id="dashboard"></div>
+
+  <div class="footer">Updated daily via GitHub Actions</div>
+
+  <noscript id="metrics-snapshot" data-json='{"fetched_at":"2026-04-14T15:59:40Z","metrics":{"github_stars":{"value":24,"status":"ok","fetched_at":"2026-04-14T15:59:39Z"},"github_unique_cloners_14d":{"value":null,"status":"error","error":"HTTP Error 403: Forbidden","fetched_at":"2026-04-14T15:59:39Z"},"github_unique_visitors_14d":{"value":null,"status":"error","error":"HTTP Error 403: Forbidden","fetched_at":"2026-04-14T15:59:39Z"},"npm_downloads_last_week":{"value":190,"status":"ok","fetched_at":"2026-04-14T15:59:40Z"},"github_sponsors_lifetime":{"value":0.0,"status":"ok","fetched_at":"2026-04-14T15:59:40Z"},"github_sponsors_next_payout":{"value":0.0,"status":"ok","fetched_at":"2026-04-14T15:59:40Z"},"github_sponsors_monthly_est":{"value":0.0,"status":"ok","fetched_at":"2026-04-14T15:59:40Z"}}}'>
+<pre>
+--- Metrics Snapshot ---
+Fetched: 2026-04-14T15:59:40Z
+
+github_stars: 24
+github_unique_cloners_14d: ERROR (HTTP Error 403: Forbidden)
+github_unique_visitors_14d: ERROR (HTTP Error 403: Forbidden)
+npm_downloads_last_week: 190
+github_sponsors_lifetime: 0.0
+github_sponsors_next_payout: 0.0
+github_sponsors_monthly_est: 0.0
+---
+</pre>
+</noscript>
+
+</div>
+<script>
+Chart.defaults.font.family = "'Google Sans Flex', ui-sans-serif, system-ui, sans-serif"
+Chart.register(ChartDataLabels)
+
+// ── Project config ─────────────────────────────────────────────────────────────
+// Copy this file to your project's analytics/ dir and edit this block only.
+//
+// title:     Dashboard heading shown in <h1> and <title>.
+//
+// supabase:  Supabase connection for reading metric history.
+//   url:     Your Supabase project URL (https://<ref>.supabase.co).
+//   key:     Your Supabase anon key (safe to embed — public read-only).
+//   table:   Table name (default: 'metrics_snapshots').
+//
+// snapshots: Number of aggregated time units shown in charts (default: 7).
+//            The filter dropdowns in the header let users override this at runtime.
+//
+// aggUnit:   Aggregation granularity — 'hour' | 'day' | 'week' | 'month' (default: 'day').
+//            Each unit bucket keeps the LAST snapshot in that period (most recent wins).
+//
+// metrics:   Optional per-key overrides. Keys not listed here are auto-rendered
+//            using the raw key as label (underscores → spaces) and 'int' format.
+//
+//            Per-metric fields:
+//              label:  Display name (string). Default: key with underscores → spaces.
+//              fmt:    'int' (default) | 'money' (prefix $ + 2 decimal places).
+//              period: Short tag shown after label, e.g. 'lifetime', '28d', 'live'. Optional.
+//              url:    Makes the metric label a clickable link (opens in new tab). Optional.
+//              type:   'line' (default) | 'bar'. Controls the trendline chart style.
+//
+// sections:  Optional grouping. If omitted, all metrics render in one flat grid.
+//            Each section: { title: string, keys: string[] }.
+//            Keys not assigned to any section appear under an 'Other' section automatically.
+//
+// ── Maintenance rules (do not break these) ─────────────────────────────────────
+// 1. METRICS_JSONL_INLINE: keep set to a valid JSONL string for local file:// preview.
+//    Set to null in production so Supabase is queried instead.
+//    When writing demo data, use PAST timestamps only — future timestamps cause fmtRelative
+//    to show negative values (guard exists but the data should be correct regardless).
+//
+// 2. Never reintroduce calendar-day deduplication (groupByDay or similar) that collapses
+//    snapshots to one per day. This destroys hourly trendline resolution.
+//    The aggregateHistory() function already handles dedup by aggUnit — use that instead.
+//
+// 3. Chart.js datalabel configs MUST include layout: { padding: { left: 16, right: 16 } }
+//    (or similar). Without it, first/last labels are clipped at canvas edges.
+//
+// 4. The Refresh button calls loadData() only — re-queries Supabase for latest data.
+//    Do NOT make it trigger GitHub Actions workflow_dispatch. Reason: requires a PAT with
+//    `workflow` scope embedded in static HTML (security risk), and the pipeline takes 3–10 min
+//    with no synchronous feedback. A separate "Trigger CI" button is acceptable if needed,
+//    but keep it clearly labeled and separate from the page refresh.
+//
+const CONFIG = {
+  title:     'qrec metrics',
+  supabase: {
+    url:   'https://olssvguaeagsmkfmsvvo.supabase.co',
+    key:   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sc3N2Z3VhZWFnc21rZm1zdnZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTE1MzMsImV4cCI6MjA5MDk2NzUzM30.k3Uv8O5QmGeZ1w42I2g3AbJ5XYE0nsQoewFAJUJOKWo',
+    table: 'metrics_snapshots',
+  },
+  snapshots: 30,
+  aggUnit:   'day',
+  metrics: {
+    github_stars:              { label: 'GitHub Stars',          fmt: 'int',   period: 'live',     url: 'https://github.com/dvquy13/qrec' },
+    npm_downloads_last_week:   { label: 'npm Downloads',         fmt: 'int',   period: 'last week' },
+    github_unique_cloners_14d: { label: 'Unique Cloners',        fmt: 'int',   period: '14d' },
+    github_unique_visitors_14d:{ label: 'Unique Visitors',       fmt: 'int',   period: '14d' },
+    github_sponsors_lifetime:  { label: 'Sponsors',              fmt: 'money', period: 'lifetime', url: 'https://github.com/sponsors/dvquy13' },
+  },
+  sections: [
+    { title: 'Growth', keys: ['github_stars', 'npm_downloads_last_week', 'github_sponsors_lifetime'] },
+    { title: 'Traffic', keys: ['github_unique_cloners_14d', 'github_unique_visitors_14d'] },
+  ],
+}
+
+// ── Runtime state ──────────────────────────────────────────────────────────────
+let fullHistory = []
+
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const cs = getComputedStyle(document.documentElement)
+const T = { accent: cs.getPropertyValue('--accent').trim(), textMuted: cs.getPropertyValue('--text-muted').trim() }
+
+function keyToLabel(key) { return key.replace(/_/g, ' ') }
+function metaCfg(key) { return CONFIG.metrics[key] || {} }
+
+function fmtValue(v, fmt) {
+  if (v === null || v === undefined) return '—'
+  if (fmt === 'money') return `$${Number(v).toFixed(2)}`
+  return Number(v).toLocaleString()
+}
+
+function fmtShort(v, fmt) {
+  if (v === null || v === undefined) return ''
+  if (fmt === 'money') return v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`
+  return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
+}
+
+function fmtDelta(current, previous, fmt) {
+  if (previous === null || previous === undefined || current === null) return null
+  const diff = current - previous
+  if (diff === 0) return { text: '→ no change', cls: 'flat' }
+  const abs = Math.abs(diff)
+  const s = fmt === 'money' ? `$${abs.toFixed(2)}` : abs.toLocaleString()
+  return { text: (diff > 0 ? '↑ ' : '↓ ') + s, cls: diff > 0 ? 'up' : 'down' }
+}
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtRelative(iso) {
+  const secs = Math.floor((Date.now() - new Date(iso)) / 1000)
+  if (secs < 0)     return 'just now'
+  if (secs < 60)    return `${secs}s ago`
+  if (secs < 3600)  return `${Math.floor(secs / 60)}m ago`
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
+  return `${Math.floor(secs / 86400)}d ago`
+}
+
+// ── Aggregation helpers ────────────────────────────────────────────────────────
+function getUnitKey(isoDate, unit) {
+  const d = new Date(isoDate)
+  const Y = d.getFullYear()
+  const M = String(d.getMonth() + 1).padStart(2, '0')
+  const D = String(d.getDate()).padStart(2, '0')
+  const H = String(d.getHours()).padStart(2, '0')
+  if (unit === 'hour')  return `${Y}-${M}-${D}T${H}`
+  if (unit === 'day')   return `${Y}-${M}-${D}`
+  if (unit === 'week') {
+    const day = d.getDay() || 7
+    const mon = new Date(d)
+    mon.setDate(d.getDate() - (day - 1))
+    const WY = mon.getFullYear()
+    const WM = String(mon.getMonth() + 1).padStart(2, '0')
+    const WD = String(mon.getDate()).padStart(2, '0')
+    return `${WY}-${WM}-${WD}`
+  }
+  if (unit === 'month') return `${Y}-${M}`
+  return `${Y}-${M}-${D}`
+}
+
+function aggregateHistory(history, unit, n) {
+  const groups = {}
+  for (const snap of history) {
+    const key = getUnitKey(snap.fetched_at, unit)
+    if (!groups[key] || snap.fetched_at > groups[key].fetched_at) {
+      groups[key] = snap
+    }
+  }
+  const sorted = Object.values(groups).sort((a, b) => a.fetched_at.localeCompare(b.fetched_at))
+  return sorted.slice(-n)
+}
+
+function fmtUnitLabel(isoDate, unit) {
+  const d = new Date(isoDate)
+  if (unit === 'hour')  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric' })
+  if (unit === 'day')   return d.toLocaleString(undefined, { month: 'short', day: 'numeric' })
+  if (unit === 'week')  return d.toLocaleString(undefined, { month: 'short', day: 'numeric' })
+  if (unit === 'month') return d.toLocaleString(undefined, { month: 'short', year: 'numeric' })
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function fmtPeriodRange(aggregated, unit) {
+  if (!aggregated.length) return ''
+  const count = aggregated.length
+  const labels = { hour: 'hour', day: 'day', week: 'week', month: 'month' }
+  const base = labels[unit] || unit
+  const plural = count !== 1 ? base + 's' : base
+  if (count === 1) return `1 ${base}`
+  const first = fmtUnitLabel(aggregated[0].fetched_at, unit)
+  const last  = fmtUnitLabel(aggregated[count - 1].fetched_at, unit)
+  if (first === last) return `1 ${base}`
+  return `${first} – ${last} · ${count} ${plural}`
+}
+
+// ── Chart registry ─────────────────────────────────────────────────────────────
+const _charts = {}
+
+function renderBarChart(canvasId, values, fmt) {
+  const canvas = document.getElementById(canvasId)
+  if (!canvas) return
+  if (_charts[canvasId]) _charts[canvasId].destroy()
+  const nonNull = values.filter(v => v !== null && v !== undefined)
+  if (!nonNull.length) return
+  const max = Math.max(...nonNull) || 1
+
+  _charts[canvasId] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: values.map((_, i) => i),
+      datasets: [{
+        data: values,
+        backgroundColor: T.accent,
+        borderRadius: 3,
+        borderSkipped: false,
+        barPercentage: 0.6,
+      }],
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        datalabels: {
+          anchor: 'end',
+          align: 'end',
+          offset: 2,
+          color: T.textMuted,
+          font: { size: 9, weight: '500' },
+          formatter: (v) => fmtShort(v, fmt),
+          display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+          clamp: true,
+        },
+      },
+      scales: {
+        x: { display: false },
+        y: { display: false, min: 0, max: max * 1.4 },
+      },
+      layout: { padding: { top: 20, left: 16, right: 16 } },
+    },
+  })
+}
+
+function renderLineChart(canvasId, values, fmt) {
+  const canvas = document.getElementById(canvasId)
+  if (!canvas) return
+  if (_charts[canvasId]) _charts[canvasId].destroy()
+  const nonNull = values.filter(v => v !== null && v !== undefined)
+  if (nonNull.length < 2) return
+  const min = Math.min(...nonNull), max = Math.max(...nonNull)
+  const pad = (max - min) * 0.15 || max * 0.1 || 1
+
+  _charts[canvasId] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: values.map((_, i) => i),
+      datasets: [{
+        data: values,
+        borderColor: T.accent,
+        backgroundColor: T.accent + '18',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 2,
+        pointBackgroundColor: T.accent,
+        spanGaps: true,
+        borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        datalabels: {
+          anchor: 'end',
+          align: 'top',
+          offset: 1,
+          color: T.textMuted,
+          font: { size: 9, weight: '500' },
+          formatter: (v) => fmtShort(v, fmt),
+          display: 'auto',
+        },
+      },
+      scales: {
+        x: { display: false },
+        y: { display: false, min: min - pad, max: max + pad * 3 },
+      },
+      layout: { padding: { top: 20, left: 16, right: 16 } },
+    },
+  })
+}
+
+// ── Data utils ─────────────────────────────────────────────────────────────────
+function discoverKeys(latest) { return Object.keys(latest.metrics || {}) }
+
+function buildSections(keys) {
+  if (CONFIG.sections && CONFIG.sections.length > 0) {
+    const defined = new Set(CONFIG.sections.flatMap(s => s.keys))
+    const rest = keys.filter(k => !defined.has(k))
+    return [...CONFIG.sections, ...(rest.length ? [{ title: 'Other', keys: rest }] : [])]
+  }
+  return [{ title: null, keys }]
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function renderCard(key, history, latest, previous, unit) {
+  const cfg      = metaCfg(key)
+  const fmt      = cfg.fmt    || 'int'
+  const label    = cfg.label  || keyToLabel(key)
+  const period   = cfg.period || null
+  const url      = cfg.url    || null
+
+  const result   = latest.metrics?.[key]
+  const currVal  = result?.value ?? null
+  const prevVal  = previous?.metrics?.[key]?.value ?? null
+  const hasError = !result || result.status === 'error'
+  const delta    = fmtDelta(currVal, prevVal, fmt)
+  const values   = history.map(h => h.metrics?.[key]?.value ?? null)
+  const timestamps = history.map(h => h.fetched_at)
+  const canvasId = `line-${key}`
+
+  const currTime = latest?.fetched_at   ? fmtTime(latest.fetched_at)   : null
+  const prevTime = previous?.fetched_at ? fmtTime(previous.fetched_at) : null
+  const tip = (currTime && prevTime) ? `${prevTime} → ${currTime}` : 'vs previous snapshot'
+
+  const periodHtml  = period ? `<span class="metric-period">· ${period}</span>` : ''
+  const tooltip     = cfg.tooltip || null
+  const infoHtml    = tooltip ? `<span class="metric-info" data-tip="${tooltip}">ⓘ</span>` : ''
+  const labelHtml   = url
+    ? `<a class="metric-label metric-link" href="${url}" target="_blank" rel="noopener">${label}${periodHtml} ↗${infoHtml}</a>`
+    : `<div class="metric-label">${label}${periodHtml}${infoHtml}</div>`
+
+  const deltaHtml = (!hasError && delta)
+    ? `<span class="metric-delta ${delta.cls}" data-tip="${tip}">${delta.text}</span>`
+    : ''
+
+  const firstTime = timestamps.length ? fmtUnitLabel(timestamps[0], unit) : ''
+  const lastTime  = timestamps.length ? fmtUnitLabel(timestamps[timestamps.length - 1], unit) : ''
+
+  const card = document.createElement('div')
+  card.className = 'metric-card'
+  card.innerHTML = `
+    ${labelHtml}
+    <div class="metric-value-row">
+      <span class="metric-value${hasError ? ' err' : ''}">${hasError ? (result?.error ?? 'No data') : fmtValue(currVal, fmt)}</span>
+      ${deltaHtml}
+    </div>
+    <div class="metric-chart-wrap"><canvas id="${canvasId}" width="900" height="160"></canvas></div>
+    <div class="metric-time-labels"><span>${firstTime}</span><span>${lastTime}</span></div>
+  `
+  if (!hasError) requestAnimationFrame(() =>
+    cfg.type === 'bar'
+      ? renderBarChart(canvasId, values, fmt)
+      : renderLineChart(canvasId, values, fmt)
+  )
+  return card
+}
+
+function renderDebugSection(aggregated, rawHistory, unit) {
+  const windowStart = aggregated.length ? aggregated[0].fetched_at : null
+  const windowEnd   = aggregated.length ? aggregated[aggregated.length - 1].fetched_at : null
+  const raw = rawHistory.filter(s =>
+    (!windowStart || s.fetched_at >= windowStart) &&
+    (!windowEnd   || s.fetched_at <= windowEnd)
+  )
+  const keys = aggregated.length ? discoverKeys(aggregated[aggregated.length - 1]) : []
+  const count = raw.length
+
+  const debugEl = document.createElement('div')
+  debugEl.className = 'debug-section'
+
+  const headerRow = keys.map(k => `<th>${metaCfg(k).label || keyToLabel(k)}</th>`).join('')
+  const bodyRows = raw.map(snap => {
+    const cells = keys.map(k => `<td>${snap.metrics?.[k]?.value ?? '—'}</td>`).join('')
+    return `<tr><td>${fmtTime(snap.fetched_at)}</td>${cells}</tr>`
+  }).join('')
+
+  debugEl.innerHTML = `
+    <button class="btn btn-secondary" data-count="${count}"
+            onclick="toggleDebug(this)" style="border:none;padding-left:0;background:transparent;color:var(--text-muted);transition:color 120ms" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--text-muted)'">▸ Raw data (${count} snapshot${count !== 1 ? 's' : ''})</button>
+    <div class="debug-panel" style="display:none">
+      <table class="debug-table">
+        <thead><tr><th>timestamp</th>${headerRow}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+  `
+  return debugEl
+}
+
+function toggleDebug(btn) {
+  const panel = btn.nextElementSibling
+  const isOpen = panel.style.display !== 'none'
+  panel.style.display = isOpen ? 'none' : ''
+  const count = btn.dataset.count
+  btn.textContent = `${isOpen ? '▸' : '▾'} Raw data (${count} snapshot${count > 1 ? 's' : ''})`
+}
+
+function render(history, rawHistory, unit) {
+  const latest   = history[history.length - 1]
+  const previous = history.length > 1 ? history[history.length - 2] : null
+
+  document.getElementById('dashboard-title').textContent = CONFIG.title
+  document.title = CONFIG.title
+  document.getElementById('header-meta').textContent =
+    `Updated ${fmtRelative(latest.fetched_at)} · ${fmtTime(latest.fetched_at)}`
+
+  const badge = document.getElementById('period-badge')
+  badge.textContent = fmtPeriodRange(history, unit)
+  badge.style.display = ''
+
+  const keys = discoverKeys(latest)
+  const sections = buildSections(keys)
+  const dashboard = document.getElementById('dashboard')
+  dashboard.innerHTML = ''
+
+  for (const section of sections) {
+    const sectionEl = document.createElement('div')
+    sectionEl.className = 'section'
+    if (section.title) {
+      const titleEl = document.createElement('div')
+      titleEl.className = 'section-title'
+      titleEl.textContent = section.title
+      sectionEl.appendChild(titleEl)
+    }
+    const grid = document.createElement('div')
+    grid.className = 'metric-grid'
+    for (const key of keys.filter(k => section.keys ? section.keys.includes(k) : true)) {
+      if (!latest.metrics?.[key]) continue
+      grid.appendChild(renderCard(key, history, latest, previous, unit))
+    }
+    sectionEl.appendChild(grid)
+    dashboard.appendChild(sectionEl)
+  }
+
+  dashboard.appendChild(renderDebugSection(history, rawHistory, unit))
+}
+
+// ── Load ───────────────────────────────────────────────────────────────────────
+// Inline JSONL data — populated here for local file:// preview.
+// In production (served over HTTP), set this to null and fetch is used instead.
+// Data: 10 days of bi-hourly snapshots (2026-03-27 → 2026-04-05)
+const METRICS_JSONL_INLINE = `{"fetched_at":"2026-03-27T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1100,"status":"ok"},"revenue":{"value":4400,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-03-27T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1100,"status":"ok"},"revenue":{"value":4404,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-03-27T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1100,"status":"ok"},"revenue":{"value":4408,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-03-27T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1100,"status":"ok"},"revenue":{"value":4412,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-03-27T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1100,"status":"ok"},"revenue":{"value":4416,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-03-27T10:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1100,"status":"ok"},"revenue":{"value":4420,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-27T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1101,"status":"ok"},"revenue":{"value":4424,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-03-27T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1101,"status":"ok"},"revenue":{"value":4428,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-27T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1101,"status":"ok"},"revenue":{"value":4432,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-03-27T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1101,"status":"ok"},"revenue":{"value":4436,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-03-27T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1101,"status":"ok"},"revenue":{"value":4440,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-03-27T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1101,"status":"ok"},"revenue":{"value":4444,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-03-28T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1103,"status":"ok"},"revenue":{"value":4450,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-03-28T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1103,"status":"ok"},"revenue":{"value":4454,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-03-28T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1103,"status":"ok"},"revenue":{"value":4458,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-03-28T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1103,"status":"ok"},"revenue":{"value":4462,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-03-28T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1103,"status":"ok"},"revenue":{"value":4466,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-03-28T10:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1103,"status":"ok"},"revenue":{"value":4470,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-28T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1104,"status":"ok"},"revenue":{"value":4474,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-03-28T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1104,"status":"ok"},"revenue":{"value":4478,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-28T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1104,"status":"ok"},"revenue":{"value":4482,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-03-28T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1104,"status":"ok"},"revenue":{"value":4486,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-03-28T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1104,"status":"ok"},"revenue":{"value":4490,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-03-28T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1104,"status":"ok"},"revenue":{"value":4494,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-03-29T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1106,"status":"ok"},"revenue":{"value":4500,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-03-29T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1106,"status":"ok"},"revenue":{"value":4504,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-03-29T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1106,"status":"ok"},"revenue":{"value":4508,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-03-29T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1106,"status":"ok"},"revenue":{"value":4512,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-03-29T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1106,"status":"ok"},"revenue":{"value":4516,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-03-29T10:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1106,"status":"ok"},"revenue":{"value":4520,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-29T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1107,"status":"ok"},"revenue":{"value":4524,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-03-29T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1107,"status":"ok"},"revenue":{"value":4528,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-29T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1107,"status":"ok"},"revenue":{"value":4532,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-03-29T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1107,"status":"ok"},"revenue":{"value":4536,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-03-29T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1107,"status":"ok"},"revenue":{"value":4540,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-03-29T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1107,"status":"ok"},"revenue":{"value":4544,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-03-30T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1109,"status":"ok"},"revenue":{"value":4550,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-03-30T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1109,"status":"ok"},"revenue":{"value":4554,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-03-30T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1109,"status":"ok"},"revenue":{"value":4558,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-03-30T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1109,"status":"ok"},"revenue":{"value":4562,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-03-30T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1109,"status":"ok"},"revenue":{"value":4566,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-03-30T10:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1109,"status":"ok"},"revenue":{"value":4570,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-30T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1110,"status":"ok"},"revenue":{"value":4574,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-03-30T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1110,"status":"ok"},"revenue":{"value":4578,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-30T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1110,"status":"ok"},"revenue":{"value":4582,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-03-30T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1110,"status":"ok"},"revenue":{"value":4586,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-03-30T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1110,"status":"ok"},"revenue":{"value":4590,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-03-30T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1110,"status":"ok"},"revenue":{"value":4594,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-03-31T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1112,"status":"ok"},"revenue":{"value":4600,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-03-31T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1112,"status":"ok"},"revenue":{"value":4604,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-03-31T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1112,"status":"ok"},"revenue":{"value":4608,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-03-31T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1112,"status":"ok"},"revenue":{"value":4612,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-03-31T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1112,"status":"ok"},"revenue":{"value":4616,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-03-31T10:10:00","metrics":{"database_requests":{"value":1,"status":"ok"},"total_users":{"value":1112,"status":"ok"},"revenue":{"value":4620,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-31T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1113,"status":"ok"},"revenue":{"value":4624,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-03-31T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1113,"status":"ok"},"revenue":{"value":4628,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-03-31T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1113,"status":"ok"},"revenue":{"value":4632,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-03-31T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1113,"status":"ok"},"revenue":{"value":4636,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-03-31T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1113,"status":"ok"},"revenue":{"value":4640,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-03-31T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1113,"status":"ok"},"revenue":{"value":4644,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-04-01T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1115,"status":"ok"},"revenue":{"value":4650,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-04-01T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1115,"status":"ok"},"revenue":{"value":4654,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-04-01T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1115,"status":"ok"},"revenue":{"value":4658,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-04-01T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1115,"status":"ok"},"revenue":{"value":4662,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-04-01T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1115,"status":"ok"},"revenue":{"value":4666,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-04-01T10:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1115,"status":"ok"},"revenue":{"value":4670,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-01T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1116,"status":"ok"},"revenue":{"value":4674,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-04-01T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1116,"status":"ok"},"revenue":{"value":4678,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-01T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1116,"status":"ok"},"revenue":{"value":4682,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-04-01T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1116,"status":"ok"},"revenue":{"value":4686,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-04-01T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1116,"status":"ok"},"revenue":{"value":4690,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-04-01T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1116,"status":"ok"},"revenue":{"value":4694,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-04-02T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1118,"status":"ok"},"revenue":{"value":4700,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-04-02T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1118,"status":"ok"},"revenue":{"value":4704,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-04-02T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1118,"status":"ok"},"revenue":{"value":4708,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-04-02T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1118,"status":"ok"},"revenue":{"value":4712,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-04-02T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1118,"status":"ok"},"revenue":{"value":4716,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-04-02T10:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1118,"status":"ok"},"revenue":{"value":4720,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-02T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1119,"status":"ok"},"revenue":{"value":4724,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-04-02T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1119,"status":"ok"},"revenue":{"value":4728,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-02T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1119,"status":"ok"},"revenue":{"value":4732,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-04-02T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1119,"status":"ok"},"revenue":{"value":4736,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-04-02T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1119,"status":"ok"},"revenue":{"value":4740,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-04-02T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1119,"status":"ok"},"revenue":{"value":4744,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-04-03T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1121,"status":"ok"},"revenue":{"value":4750,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-04-03T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1121,"status":"ok"},"revenue":{"value":4754,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-04-03T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1121,"status":"ok"},"revenue":{"value":4758,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-04-03T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1121,"status":"ok"},"revenue":{"value":4762,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-04-03T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1121,"status":"ok"},"revenue":{"value":4766,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-04-03T10:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1121,"status":"ok"},"revenue":{"value":4770,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-03T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1122,"status":"ok"},"revenue":{"value":4774,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-04-03T14:10:00","metrics":{"database_requests":{"value":2,"status":"ok"},"total_users":{"value":1122,"status":"ok"},"revenue":{"value":4778,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-03T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1122,"status":"ok"},"revenue":{"value":4782,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-04-03T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1122,"status":"ok"},"revenue":{"value":4786,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-04-03T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1122,"status":"ok"},"revenue":{"value":4790,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-04-03T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1122,"status":"ok"},"revenue":{"value":4794,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-04-04T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1124,"status":"ok"},"revenue":{"value":4800,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-04-04T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1124,"status":"ok"},"revenue":{"value":4804,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-04-04T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1124,"status":"ok"},"revenue":{"value":4808,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-04-04T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1124,"status":"ok"},"revenue":{"value":4812,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-04-04T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1124,"status":"ok"},"revenue":{"value":4816,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-04-04T10:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1124,"status":"ok"},"revenue":{"value":4820,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-04T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1125,"status":"ok"},"revenue":{"value":4824,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-04-04T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1125,"status":"ok"},"revenue":{"value":4828,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-04T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1125,"status":"ok"},"revenue":{"value":4832,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-04-04T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1125,"status":"ok"},"revenue":{"value":4836,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-04-04T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1125,"status":"ok"},"revenue":{"value":4840,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-04-04T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1125,"status":"ok"},"revenue":{"value":4844,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}
+{"fetched_at":"2026-04-05T00:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1127,"status":"ok"},"revenue":{"value":4850,"status":"ok"},"active_sessions":{"value":32,"status":"ok"}}}
+{"fetched_at":"2026-04-05T02:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1127,"status":"ok"},"revenue":{"value":4854,"status":"ok"},"active_sessions":{"value":28,"status":"ok"}}}
+{"fetched_at":"2026-04-05T04:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1127,"status":"ok"},"revenue":{"value":4858,"status":"ok"},"active_sessions":{"value":26,"status":"ok"}}}
+{"fetched_at":"2026-04-05T06:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1127,"status":"ok"},"revenue":{"value":4862,"status":"ok"},"active_sessions":{"value":30,"status":"ok"}}}
+{"fetched_at":"2026-04-05T08:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1127,"status":"ok"},"revenue":{"value":4866,"status":"ok"},"active_sessions":{"value":38,"status":"ok"}}}
+{"fetched_at":"2026-04-05T10:10:00","metrics":{"database_requests":{"value":1,"status":"ok"},"total_users":{"value":1127,"status":"ok"},"revenue":{"value":4870,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-05T12:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1128,"status":"ok"},"revenue":{"value":4874,"status":"ok"},"active_sessions":{"value":46,"status":"ok"}}}
+{"fetched_at":"2026-04-05T14:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1128,"status":"ok"},"revenue":{"value":4878,"status":"ok"},"active_sessions":{"value":44,"status":"ok"}}}
+{"fetched_at":"2026-04-05T16:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1128,"status":"ok"},"revenue":{"value":4882,"status":"ok"},"active_sessions":{"value":42,"status":"ok"}}}
+{"fetched_at":"2026-04-05T18:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1128,"status":"ok"},"revenue":{"value":4886,"status":"ok"},"active_sessions":{"value":40,"status":"ok"}}}
+{"fetched_at":"2026-04-05T20:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1128,"status":"ok"},"revenue":{"value":4890,"status":"ok"},"active_sessions":{"value":36,"status":"ok"}}}
+{"fetched_at":"2026-04-05T22:10:00","metrics":{"database_requests":{"value":0,"status":"ok"},"total_users":{"value":1128,"status":"ok"},"revenue":{"value":4894,"status":"ok"},"active_sessions":{"value":33,"status":"ok"}}}`
+
+async function loadData() {
+  if (METRICS_JSONL_INLINE) {
+    const text = METRICS_JSONL_INLINE
+    fullHistory = text.trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
+  } else {
+    const { url, key, table } = CONFIG.supabase
+    const res = await fetch(
+      `${url}/rest/v1/${table}?order=fetched_at.asc&select=fetched_at,metrics`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+    )
+    if (!res.ok) throw new Error(`HTTP ${res.status} loading from Supabase`)
+    const rows = await res.json()
+    fullHistory = rows.map(r => ({ fetched_at: r.fetched_at, metrics: r.metrics }))
+  }
+  if (fullHistory.length === 0) throw new Error('no snapshots in database')
+
+  // Initialise filter controls — prefer persisted values, fall back to config defaults
+  const nSel = document.getElementById('filter-n')
+  const uSel = document.getElementById('filter-unit')
+  nSel.value = localStorage.getItem('metric-filter-n') ?? String(CONFIG.snapshots ?? 7)
+  if (![...nSel.options].some(o => o.selected && o.value === nSel.value)) nSel.value = '7'
+  uSel.value = localStorage.getItem('metric-filter-unit') ?? (CONFIG.aggUnit ?? 'day')
+
+  applyFilters()
+}
+
+function applyFilters() {
+  const n    = parseInt(document.getElementById('filter-n').value)
+  const unit = document.getElementById('filter-unit').value
+  localStorage.setItem('metric-filter-n', String(n))
+  localStorage.setItem('metric-filter-unit', unit)
+  const aggregated = aggregateHistory(fullHistory, unit, n)
+  render(aggregated, fullHistory, unit)
+}
+
+loadData()
+</script>
+</body>
+</html>
