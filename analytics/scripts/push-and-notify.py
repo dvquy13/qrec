@@ -29,9 +29,12 @@ import yaml
 
 # ── Supabase storage ───────────────────────────────────────────────────────────
 
+PROJECT = "qrec"
+
+
 def supabase_get_latest(url: str, key: str, table: str) -> dict | None:
     """Return the most recent snapshot from Supabase, or None on failure."""
-    endpoint = f"{url}/rest/v1/{table}?order=fetched_at.desc&limit=1&select=fetched_at,metrics"
+    endpoint = f"{url}/rest/v1/{table}?project=eq.{PROJECT}&order=fetched_at.desc&limit=1&select=fetched_at,metrics"
     req = urllib.request.Request(
         endpoint,
         headers={"apikey": key, "Authorization": f"Bearer {key}"},
@@ -50,6 +53,7 @@ def supabase_insert(url: str, key: str, table: str, snapshot: dict) -> None:
     """Insert a new snapshot row into Supabase."""
     endpoint = f"{url}/rest/v1/{table}"
     payload = json.dumps({
+        "project": PROJECT,
         "fetched_at": snapshot["fetched_at"],
         "metrics": snapshot["metrics"],
     }).encode()
