@@ -9,7 +9,7 @@ alerts:
     title: "qrec"
     labels:
       github_stars: "GitHub Stars"
-      npm_downloads_last_week: "npm Downloads (last week)"
+      npm_downloads_last_week: "npm Downloads (7d)"
       github_unique_cloners_14d: "Unique Cloners (14d)"
       github_unique_visitors_14d: "Unique Visitors (14d)"
       github_sponsors_lifetime: "Sponsors (lifetime $)"

@@ -1,6 +1,8 @@
 ---
 paths:
   - .github/**
+  - analytics/**
+  - Makefile
 ---
 
 # CI Rules (.github/workflows/)
@@ -44,9 +46,9 @@ Always use `jq -e '.results | length > 0'` not `jq '.results | length'`. Error J
 
 Key suffix `-v2` was added to bust a corrupt cache entry. Do not revert to `-v1` or un-suffixed.
 
-## `timeout` not available on macOS runners
+## macOS GNU coreutils not available
 
-`timeout` is GNU coreutils — not in PATH on `macos-latest`. Do not use it in workflow steps.
+`timeout` and `--quiet` on `python3 -m http.server` are GNU-only — neither exists on `macos-latest` or macOS dev machines. Do not use either in workflow steps or Makefile targets.
 
 ## node_modules cache key
 
@@ -71,6 +73,12 @@ gh api repos/{owner}/{repo}/git/refs \
 ```
 
 The CI stamp step then writes `dashboard.html` onto it on first run.
+
+## Analytics dashboard gotchas
+
+**`METRICS_JSONL_INLINE` must be `null` in committed code.** CI only `sed`-substitutes `__SUPABASE_URL__` and `__SUPABASE_KEY__` — it never touches `METRICS_JSONL_INLINE`. If left as a JSONL string, the deployed dashboard silently uses fake template data instead of querying Supabase.
+
+**Shared `metrics_snapshots` table — always filter by project.** The `dvquys-metrics` Supabase project is shared with `dvquy13.github.io`. The `metrics_snapshots` table has a `project` column (added 2026-04-15). Always include `?project=eq.qrec` in dashboard fetch queries and `"project": "qrec"` in push-and-notify inserts.
 
 ## Smoke test must use compiled CJS
 

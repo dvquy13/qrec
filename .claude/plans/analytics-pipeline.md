@@ -1,229 +1,110 @@
 # Analytics Pipeline Setup — qrec
 
-## Context
-
-qrec is an OSS npm package with no existing analytics pipeline. The goal is a complete metrics → Supabase → GitHub Pages dashboard flow for 3 KPIs. All 3 data sources have been tracer-bulleted and confirmed working.
+**Status: COMPLETE** (implemented 2026-04-14)
 
 ---
 
-## Confirmed Metric Data (tracer bullet results)
+## What Was Built
 
 | Metric | Key | Current value | Method |
 |---|---|---|---|
 | GitHub Stars | `github_stars` | 24 | REST `GET /repos/dvquy13/qrec` → `.stargazers_count` |
 | npm downloads last week | `npm_downloads_last_week` | 190 | REST `GET api.npmjs.org/downloads/point/last-week/@dvquys%2Fqrec` → `.downloads` |
-| GitHub unique cloners (14d) | `github_unique_cloners_14d` | 25 | REST `GET /repos/dvquy13/qrec/traffic/clones` → `.uniques` (requires token w/ repo scope) |
-| GitHub unique page visitors (14d) | `github_unique_visitors_14d` | 16 | REST `GET /repos/dvquy13/qrec/traffic/views` → `.uniques` (same auth, same 14d window) |
-| GitHub Sponsors lifetime | `github_sponsors_lifetime` | $0.00 | GraphQL `lifetimeReceivedSponsorshipValues(first: 100)` → sum `.amountInCents` / 100 |
-
-**Stars + npm last-week**: JSON config files (no auth, public REST).
-
-**GitHub unique cloners**: JSON config, auth `bearer $GITHUB_TOKEN`. Use `.uniques` not `.count` — `count` is inflated by CI/repeated clones from same user (April 7 showed 85 clones from 2 people). The `GITHUB_TOKEN` auto-injected by Actions has repo scope and works for traffic API. Data window is rolling 14 days — must poll daily to avoid gaps.
-
-**Sponsors**: Custom standalone script (GraphQL). Token: the default `gh auth token` works (has `user` scope). No dedicated PAT needed for CI — use `GITHUB_TOKEN` (automatically injected by Actions) since it has the required `user` scope in the workflow. The query returns 0 nodes currently but will reflect future sponsors correctly; paginate with `pageInfo.hasNextPage` for safety.
-
-Confirmed working GraphQL query:
-```graphql
-{ user(login: "dvquy13") {
-    lifetimeReceivedSponsorshipValues(first: 100) {
-      nodes { amountInCents formattedAmount }
-      pageInfo { hasNextPage endCursor }
-    }
-    estimatedNextSponsorsPayoutInCents
-    monthlyEstimatedSponsorsIncomeInCents
-} }
-```
+| GitHub unique cloners (14d) | `github_unique_cloners_14d` | 25 | REST `GET /repos/dvquy13/qrec/traffic/clones` → `.uniques` (requires PAT w/ repo scope) |
+| GitHub unique page visitors (14d) | `github_unique_visitors_14d` | 16 | REST `GET /repos/dvquy13/qrec/traffic/views` → `.uniques` (same auth) |
+| GitHub Sponsors lifetime | `github_sponsors_lifetime` | $0.00 | GraphQL `lifetimeReceivedSponsorshipValues` — custom script |
+| GitHub Sponsors next payout | `github_sponsors_next_payout` | $0.00 | bonus metric from same GraphQL query |
+| GitHub Sponsors monthly est. | `github_sponsors_monthly_est` | $0.00 | bonus metric from same GraphQL query |
 
 ---
 
-## Files to Create/Modify
+## Infrastructure
+
+| Component | Detail |
+|---|---|
+| Supabase project | `dvquys-metrics` (ref: `olssvguaeagsmkfmsvvo`, Singapore) — shared with dvquys.com |
+| Supabase table | `metrics_snapshots` (pre-existing) |
+| Dashboard URL | `http://dvquys.com/qrec/dashboard.html` (GitHub Pages, gh-pages branch) |
+| Discord channel | `#qrec` in Icewrack server (channel ID `1493639465758101667`) |
+| Webhook | `metric-extractor` bot (webhook ID `1493639479922000032`) |
+| CI schedule | `13 20 * * *` UTC = 03:13 GMT+7 daily |
+
+GitHub Secrets set: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `DISCORD_WEBHOOK_URL`, `GH_PAT_TRAFFIC`
+
+---
+
+## Files Created
 
 ```
 analytics/
-  scripts/                              # copied from ~/.claude/skills/metric-extractor/scripts/
-    fetch-metrics.py
-    push-and-notify.py
-    extract-cookies.py
-    stamp-dashboard.py
+  scripts/
+    fetch-metrics.py          # copied from skill
+    push-and-notify.py        # copied from skill
+    extract-cookies.py        # copied from skill
+    stamp-dashboard.py        # copied from skill
+    fetch-github-sponsors.py  # custom GraphQL script
   configs/
-    github_stars.json                   # new
-    npm_downloads_all_time.json         # new
+    github_stars.json
+    npm_downloads_last_week.json
+    github_unique_cloners_14d.json
+    github_unique_visitors_14d.json
   fixtures/
-    github_stars.txt                    # captured from live run
-    npm_downloads_all_time.txt          # captured from live run
-  scripts/fetch-github-sponsors.py      # custom standalone script (new)
-  alerts.yaml                           # new, from skill template + customized
-  dashboard.html                        # new, from skill template + configured
-supabase/migrations/
-  20240101000000_create_metrics_snapshots.sql   # copied from skill
+    github_stars.txt
+    npm_downloads_last_week.txt
+    github_unique_cloners_14d.txt
+    github_unique_visitors_14d.txt
+  alerts.yaml
+  dashboard.html              # CONFIG block set; __SUPABASE_URL__/__SUPABASE_KEY__ replaced by sed in CI
+  .env                        # gitignored; local secrets for make analytics-push
 .github/workflows/
-  fetch-metrics.yml                     # new
-Makefile                                # new (project has no Makefile yet)
+  fetch-metrics.yml
+Makefile
+supabase/migrations/
+  20240101000000_create_metrics_snapshots.sql
 ```
-
-Modified:
-- `.gitignore` — add `analytics/cookies/`, `analytics/secrets/`, `analytics/credentials/`, `supabase/.temp/`
-- `CLAUDE.md` — add one-liner referencing `analytics/` and skill docs
 
 ---
 
-## Implementation Plan
+## Gotchas Discovered During Implementation
 
-### Step 1: Bootstrap analytics directory
+### 1. Config schema mismatch
+The plan had configs using `url` (top-level) and `response.value_path`. The actual skill schema uses `request.url` and `extract.path` with `extract.type: "jsonpath"`. All 4 JSON configs were rewritten to the correct schema before the live test passed.
 
-```bash
-mkdir -p analytics/{scripts,configs,fixtures,cookies,secrets,credentials}
-cp ~/.claude/skills/metric-extractor/scripts/* analytics/scripts/
-cp ~/.claude/skills/metric-extractor/alerts.yaml analytics/alerts.yaml
-cp ~/.claude/skills/metric-extractor/dashboard-template.html analytics/dashboard.html
-mkdir -p supabase/migrations
-cp ~/.claude/skills/metric-extractor/supabase/migrations/20240101000000_create_metrics_snapshots.sql supabase/migrations/
+### 2. GITHUB_TOKEN traffic scope
+The plan said `GITHUB_TOKEN` auto-injected by Actions works for traffic API. **This is wrong** when the workflow has an explicit `permissions: contents: write` block — that restricts the token to content write only, losing traffic read. Fix: stored `gh auth token` output as secret `GH_PAT_TRAFFIC` and use that for the `GITHUB_TOKEN` env var in the fetch steps.
+
+### 3. fetch-metrics.py outputs JSON, not JSONL
+`fetch-metrics.py` emits a single JSON blob `{"fetched_at": ..., "metrics": {...}}`. The sponsors script emits JSONL (one line per metric). `push-and-notify.py` expects a single JSON blob on stdin. A Python merge step was added in CI (and Makefile) between fetch and push:
+```python
+snapshot = json.load(scalar_file)
+for line in sponsors_jsonl:
+    m = json.loads(line)
+    snapshot['metrics'][m['name']] = {'value': m['value'], 'status': ..., 'fetched_at': ...}
 ```
 
-Register with skill consumers registry (python one-liner from skill SKILL.md).
+### 4. gh-pages branch creation triggers pre-commit hook
+Trying to create the gh-pages orphan branch locally failed because the pre-commit hook runs `tsc` on a branch with no tsconfig.json. Fixed by creating the branch via GitHub API (`gh api repos/dvquy13/qrec/git/refs --method POST`) pointing to main's current SHA, then letting CI stamp `dashboard.html` onto it.
 
-### Step 2: Metric configs
-
-**`analytics/configs/github_stars.json`**
-```json
-{
-  "name": "github_stars",
-  "url": "https://api.github.com/repos/dvquy13/qrec",
-  "auth": { "type": "none" },
-  "request": { "method": "GET", "headers": { "Accept": "application/vnd.github+json" } },
-  "response": { "type": "json", "value_path": "stargazers_count" }
-}
-```
-
-**`analytics/configs/npm_downloads_last_week.json`**
-```json
-{
-  "name": "npm_downloads_last_week",
-  "url": "https://api.npmjs.org/downloads/point/last-week/@dvquys%2Fqrec",
-  "auth": { "type": "none" },
-  "request": { "method": "GET" },
-  "response": { "type": "json", "value_path": "downloads" }
-}
-```
-
-**`analytics/configs/github_unique_cloners_14d.json`**
-```json
-{
-  "name": "github_unique_cloners_14d",
-  "url": "https://api.github.com/repos/dvquy13/qrec/traffic/clones",
-  "auth": { "type": "api_key", "header": "Authorization", "value": "bearer ${GITHUB_TOKEN}" },
-  "request": { "method": "GET", "headers": { "Accept": "application/vnd.github+json" } },
-  "response": { "type": "json", "value_path": "uniques" }
-}
-```
-Note: use `.uniques` not `.count`. GitHub retains only 14 days of traffic data — daily polling is required to avoid gaps.
-
-**`analytics/configs/github_unique_visitors_14d.json`**
-```json
-{
-  "name": "github_unique_visitors_14d",
-  "url": "https://api.github.com/repos/dvquy13/qrec/traffic/views",
-  "auth": { "type": "api_key", "header": "Authorization", "value": "bearer ${GITHUB_TOKEN}" },
-  "request": { "method": "GET", "headers": { "Accept": "application/vnd.github+json" } },
-  "response": { "type": "json", "value_path": "uniques" }
-}
-```
-
-### Step 3: Custom sponsors script
-
-`analytics/scripts/fetch-github-sponsors.py`:
-- Auth: `GITHUB_TOKEN` env var (provided by Actions; locally use `gh auth token`)
-- Query: confirmed above — `lifetimeReceivedSponsorshipValues(first: 100)` with pagination loop
-- Output JSONL: `{"name": "github_sponsors_lifetime", "value": <float USD>, "status": "ok"}`
-- Also emit `github_sponsors_next_payout` and `github_sponsors_monthly_est` as bonus metrics
-
-### Step 4: Configure dashboard.html
-
-Edit `CONFIG` block only:
-```js
-const CONFIG = {
-  title: 'qrec metrics',
-  supabase: { url: '__SUPABASE_URL__', key: '__SUPABASE_KEY__', table: 'metrics_snapshots' },
-  snapshots: 30,
-  aggUnit: 'day',
-  sections: [{ title: 'Growth', keys: ['github_stars', 'npm_downloads_all_time', 'github_sponsors_lifetime'] }],
-  metrics: {
-    github_stars:            { label: 'GitHub Stars',          fmt: 'int',   period: 'live',     url: 'https://github.com/dvquy13/qrec' },
-    npm_downloads_all_time:  { label: 'npm Downloads',         fmt: 'int',   period: 'all time' },
-    github_sponsors_lifetime:{ label: 'Sponsors',              fmt: 'money', period: 'lifetime', url: 'https://github.com/sponsors/dvquy13' }
-  }
-};
-```
-
-`__SUPABASE_URL__` / `__SUPABASE_KEY__` replaced by `sed` in CI — never hardcode in main.
-
-### Step 5: Configure alerts.yaml
-
-```yaml
-- type: daily_digest
-  title: "qrec"
-  labels:
-    github_stars: "GitHub Stars"
-    npm_downloads_all_time: "npm Downloads (all time)"
-    github_sponsors_lifetime: "Sponsors (lifetime $)"
-discord:
-  webhook_url_env: DISCORD_WEBHOOK_URL
-  dashboard_url: https://dvquy13.github.io/qrec/dashboard.html
-```
-
-### Step 6: GitHub Actions workflow
-
-`.github/workflows/fetch-metrics.yml`:
-- Trigger: `schedule: '13 0 * * *'` + `workflow_dispatch`
-- Permissions: `contents: write` (for gh-pages push)
-- Steps:
-  1. Checkout
-  2. Install `uv`
-  3. `uv run analytics/scripts/fetch-metrics.py > /tmp/scalar.jsonl`
-  4. `uv run analytics/scripts/fetch-github-sponsors.py >> /tmp/scalar.jsonl`
-  5. Push to Supabase + Discord via `push-and-notify.py < /tmp/scalar.jsonl`
-  6. Stamp gh-pages via worktree (sed creds + stamp-dashboard.py → push to gh-pages branch)
-- Secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `DISCORD_WEBHOOK_URL` (optional)
-- `GITHUB_TOKEN` auto-injected (needed for Sponsors GraphQL)
-
-### Step 7: Makefile
-
-```makefile
-.PHONY: fetch-metrics
-
-fetch-metrics:
-	gh workflow run fetch-metrics.yml
-	@sleep 3
-	gh run watch $$(gh run list --workflow=fetch-metrics.yml --limit=1 --json databaseId -q '.[0].databaseId') --exit-status
-```
-
-### Step 8: Supabase setup (manual steps for user after code is in place)
-
-```bash
-supabase projects create qrec-metrics --org-id <org-id> --region ap-southeast-1 --db-password <password>
-# wait ~2 min, then:
-supabase link --project-ref <ref>
-supabase db push
-supabase projects api-keys --project-ref <ref>
-```
-
-GitHub Secrets to add:
-| Secret | Value |
-|---|---|
-| `SUPABASE_URL` | `https://<ref>.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
-| `SUPABASE_ANON_KEY` | anon key |
-| `DISCORD_WEBHOOK_URL` | webhook URL (optional) |
-
-(`GITHUB_TOKEN` is auto-injected by Actions — no manual secret needed.)
+### 5. Bot API can't read embeds from its own webhook messages
+Discord's channel listing API (`GET /channels/{id}/messages`) returns `"embeds": []` for webhook messages when authenticated as the bot that owns the webhook. The embed IS sent correctly — verified via `POST webhook?wait=true` (response shows full embed) and via `GET /webhooks/{id}/{token}/messages/{msgId}` (webhook token endpoint). Not a bug; just a Discord API quirk.
 
 ---
 
-## Verification
+## Verification Commands
 
-1. **Fixture test**: `cd analytics && uv run scripts/fetch-metrics.py --fixture --test`
-2. **Live scalar test**: `cd analytics && uv run scripts/fetch-metrics.py --test`
-3. **Sponsors script**: `GITHUB_TOKEN=$(gh auth token) uv run analytics/scripts/fetch-github-sponsors.py`
-4. **Full local pipeline**: `cd analytics && export GITHUB_TOKEN=$(gh auth token) && uv run scripts/fetch-metrics.py | uv run scripts/push-and-notify.py`
-5. **Dashboard local**: `cd analytics && python3 -m http.server 8080`
-6. **CI dry-run**: `make fetch-metrics`
+```bash
+# Offline fixture test
+cd analytics && uv run scripts/fetch-metrics.py --fixture --test
+
+# Live scalar test
+cd analytics && export GITHUB_TOKEN=$(gh auth token) && uv run scripts/fetch-metrics.py --test
+
+# Sponsors script
+GITHUB_TOKEN=$(gh auth token) uv run analytics/scripts/fetch-github-sponsors.py
+
+# Full local pipeline (fetch + push + Discord)
+make analytics-push
+
+# Trigger CI and watch
+make fetch-metrics
+```

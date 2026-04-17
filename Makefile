@@ -1,9 +1,17 @@
-.PHONY: fetch-metrics analytics analytics-push
+.PHONY: fetch-metrics analytics analytics-push analytics-serve
 
 fetch-metrics:
 	gh workflow run fetch-metrics.yml
 	@sleep 3
 	gh run watch $$(gh run list --workflow=fetch-metrics.yml --limit=1 --json databaseId -q '.[0].databaseId') --exit-status
+
+analytics-serve:
+	@export $$(cat analytics/.env | xargs) && \
+	  sed -e "s|__SUPABASE_URL__|$$SUPABASE_URL|g" \
+	      -e "s|__SUPABASE_KEY__|$$SUPABASE_ANON_KEY|g" \
+	      analytics/dashboard.html > /tmp/qrec-dashboard-local.html
+	@echo "Serving at http://localhost:8765/qrec-dashboard-local.html"
+	@cd /tmp && python3 -m http.server 8765
 
 analytics:
 	@export $$(cat analytics/.env | xargs) && export GITHUB_TOKEN=$$(gh auth token) && \
