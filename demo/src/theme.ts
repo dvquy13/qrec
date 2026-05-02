@@ -15,7 +15,7 @@ export const theme = {
   green: '#059669',
   red: '#dc2626',
 
-  // Fonts — Google Sans Flex everywhere; Inter removed
-  sans: "'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  // Fonts — Figtree everywhere; Inter removed
+  sans: "'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   mono: "'Google Sans Code', 'Menlo', 'Consolas', monospace",
 };

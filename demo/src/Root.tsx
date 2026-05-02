@@ -14,18 +14,18 @@ import {ContextHandoff} from './scenes/ContextHandoff';
 import {SCENE_IDS, sceneAudioFile, getAudioDuration} from './voiceover';
 
 loadFont({
-  family: 'Google Sans Flex',
-  url: staticFile('fonts/GoogleSansFlex-latin-ext.woff2'),
+  family: 'Figtree',
+  url: staticFile('fonts/Figtree-latin-ext.woff2'),
   format: 'woff2',
-  weight: '100 900',
+  weight: '300 900',
   display: 'block',
 });
 
 loadFont({
-  family: 'Google Sans Flex',
-  url: staticFile('fonts/GoogleSansFlex-latin.woff2'),
+  family: 'Figtree',
+  url: staticFile('fonts/Figtree-latin.woff2'),
   format: 'woff2',
-  weight: '100 900',
+  weight: '300 900',
   display: 'block',
 });
 

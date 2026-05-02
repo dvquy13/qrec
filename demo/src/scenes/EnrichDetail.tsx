@@ -142,7 +142,7 @@ const POS_ENTER = {x: 1370, y: 250} as const;
 function measureTitleText(text: string): number {
   return measureText({
     text,
-    fontFamily: 'Google Sans Flex',
+    fontFamily: 'Figtree',
     fontSize: 24,
     fontWeight: '700',
     letterSpacing: '-0.72px',
@@ -170,7 +170,7 @@ const FigmaCursor: React.FC<{
       fontSize: 14, fontWeight: 700, letterSpacing: '0.01em',
       padding: '5px 13px', borderRadius: '0 10px 10px 10px',
       whiteSpace: 'nowrap',
-      fontFamily: 'Google Sans Flex, system-ui, sans-serif',
+      fontFamily: 'Figtree, system-ui, sans-serif',
       lineHeight: 1.3,
       opacity: labelOpacity,
     }}>

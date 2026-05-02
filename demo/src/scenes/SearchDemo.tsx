@@ -64,7 +64,7 @@ const SEARCH_LATENCY = {bm25Ms: 1.2, embedMs: 0, knnMs: 3.8, fusionMs: 0.4, tota
 const UL_TEXT = 'Archive JSONL';
 const UL_W = measureText({
   text: UL_TEXT,
-  fontFamily: 'Google Sans Flex',
+  fontFamily: 'Figtree',
   fontSize: 18,
   fontWeight: '500',
   validateFontIsLoaded: false,
