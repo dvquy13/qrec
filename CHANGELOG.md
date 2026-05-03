@@ -1,3 +1,20 @@
+## [0.8.5](https://github.com/dvquy13/qrec/compare/v0.8.4...v0.8.5) (2026-05-03)
+
+
+### Bug Fixes
+
+* **analytics:** use GH_PAT_TRAFFIC secret for GitHub traffic API access ([66cf794](https://github.com/dvquy13/qrec/commit/66cf7942c8b6961b80db585aada979dc1072b51a))
+* scope metrics_snapshots queries to project to prevent cross-project delta contamination ([1d9df89](https://github.com/dvquy13/qrec/commit/1d9df8912b24bfc6172f538e73b56e7a7ad77ae4))
+* **ui:** match heatmap filter dropdown font size to chips ([e023103](https://github.com/dvquy13/qrec/commit/e0231032b9c1d266ead0dfae24e0a86a3bc23a6b))
+
+
+### Features
+
+* **analytics:** add dashboard tooltips explaining metric quirks; misc cleanup ([de6445a](https://github.com/dvquy13/qrec/commit/de6445a06c41be7ac251e9e4d6e0d263345fa1fd))
+* **analytics:** add metrics pipeline (GitHub, npm, Sponsors → Supabase + Discord) ([2421b11](https://github.com/dvquy13/qrec/commit/2421b11115fdda92c4480cf6f7c202816a4e1bbc)), closes [#qrec](https://github.com/dvquy13/qrec/issues/qrec) [#pages](https://github.com/dvquy13/qrec/issues/pages)
+* **demo:** add ContextHandoff Remotion scene for blog post ([0ab401e](https://github.com/dvquy13/qrec/commit/0ab401ee20a40db3a9bfb1683f48aaecdd7f5400)), closes [#0d1117](https://github.com/dvquy13/qrec/issues/0d1117)
+* **ui:** replace DM Sans with DVN DM Sans (Vietnamese-compatible) ([4b1cc21](https://github.com/dvquy13/qrec/commit/4b1cc21b437e421356f20e20c3f994db6843246c))
+* **ui:** replace raw font-size px values with CSS token scale ([db6ea15](https://github.com/dvquy13/qrec/commit/db6ea1523cdcd889c6eb044f70aafbdde4a67b10))
 ## [0.8.4](https://github.com/dvquy13/qrec/compare/v0.8.3...v0.8.4) (2026-03-24)
 
 
