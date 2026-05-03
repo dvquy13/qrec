@@ -15,7 +15,8 @@ paths:
 
 - **Always use `--font-*` tokens** — never write raw `font-size: Npx` in any CSS file under `ui/` or `ui-react/src/`. Tokens are defined in `ui-react/src/styles/variables.css` (bundled into `ui/components.css`, available globally). Exempt from tokenization: `7px`/`9px` (icon glyphs `▾`/`▶`), `11.5px` (log body), `12.5px` (result snippet body).
 - **No negative letter-spacing** — removed from all elements. Do not reintroduce.
-- **DM Sans is prose-only** — only on `.turn-text`, `p`, `li`, `.session-card-summary`. All UI chrome uses Figtree.
+- **Use `--font-ui` and `--font-prose` for font-family — never hardcode font name strings.** `--font-ui` is Figtree (UI chrome); `--font-prose` is DM Sans (`.turn-text`, `p`, `li`, `.session-card-summary`). Defined in `variables.css`; CSS vars can't reach Remotion inline styles, so `theme.ts` mirrors them — update both together.
+- **`dvq-design-system/theme.css` is the upstream source of truth for token values** — run `bun scripts/sync-design-tokens.js` to check drift. Do NOT `@import` it directly: it bundles opinionated semantic rules (`html, body { font-size }`, `p, li { color }`, `h1-h4`) that conflict with qrec's own styles.
 - **`ui-react/src/**/*.css` changes require a rebuild** — run `cd ui-react && bun run build.ts` to update `ui/components.css`. `ui/styles.css` is served fresh (no rebuild needed).
 
 ---

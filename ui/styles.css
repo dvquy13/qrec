@@ -75,7 +75,7 @@ mark { background: var(--accent-light); color: var(--accent); border-radius: 2px
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-ui);
   font-size: var(--font-body);
   line-height: 1.6;
   letter-spacing: 0;
@@ -87,7 +87,7 @@ button, input, select, textarea { font-family: inherit; }
 
 /* ── DM Sans — prose/paragraph reading content only ────────────────────── */
 p, li, .session-card-summary {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-prose);
   font-size: var(--font-base);
 }
 
@@ -467,7 +467,7 @@ main {
   z-index: 9999;
   background: var(--text);
   color: #fff;
-  font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-ui);
   font-size: var(--font-xs);
   font-weight: 500;
   line-height: 1.4;

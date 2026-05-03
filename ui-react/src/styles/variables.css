@@ -1,3 +1,7 @@
+/* Design system source of truth: dvq-design-system/theme.css
+   Token values here must stay in sync. Run `bun scripts/sync-design-tokens.js` to check drift.
+   We do NOT @import it directly — that file includes opinionated semantic rules (body font-size,
+   p/li color, h1-h4 defaults) that conflict with qrec's own styles. */
 :root {
   --bg: #ffffff;
   --bg2: #f8fafc;
@@ -15,7 +19,10 @@
   --yellow: #d97706;
   --yellow-bg: #fffbeb;
   --red: #dc2626;
-  --mono: 'Google Sans Code', 'Menlo', 'Consolas', monospace;
+  /* Font families — mirrors dvq-design-system/colors_and_type.css */
+  --font-ui:    'Figtree', 'DM Sans', 'Google Sans Flex', system-ui, -apple-system, sans-serif;
+  --font-prose: 'DM Sans', 'Google Sans Flex', system-ui, sans-serif;
+  --mono:       'Google Sans Code', 'Menlo', 'Consolas', monospace;
 
   /* Type scale */
   --font-2xs:  10px;   /* tiny: project badges, picker titles */
